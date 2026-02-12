@@ -2,9 +2,12 @@
 
 use App\Ai\Agents\ChatBot;
 use App\Channels\Contracts\ChannelDriver;
+use App\Channels\DTOs\Attachment;
+use App\Channels\DTOs\AttachmentType;
 use App\Jobs\ProcessMessage;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Ai\Prompts\AgentPrompt;
+use Laravel\Ai\Transcription;
 
 uses(RefreshDatabase::class);
 
@@ -13,6 +16,7 @@ function mockDriver(array $overrides = []): ChannelDriver
     $driver = Mockery::mock(ChannelDriver::class);
     $driver->shouldReceive('platform')->andReturn($overrides['platform'] ?? 'telegram');
     $driver->shouldReceive('senderId')->andReturn($overrides['senderId'] ?? '12345');
+    $driver->shouldReceive('attachments')->andReturn($overrides['attachments'] ?? collect());
 
     return $driver;
 }
@@ -71,4 +75,32 @@ it('starts a fresh conversation when text is !new', function () {
         return $prompt->agent->hasConversationParticipant()
             && $prompt->contains('!new');
     });
+});
+
+it('transcribes audio when text is empty', function () {
+    ChatBot::fake(['Got your voice message.']);
+    Transcription::fake(['Hello from a voice message']);
+
+    $attachment = new Attachment(AttachmentType::Audio, 'voice/msg.ogg', 'local');
+    $driver = mockDriver(['attachments' => collect([$attachment])]);
+    $driver->shouldReceive('text')->andReturn(null);
+    $driver->shouldReceive('reply')->once()->with('Got your voice message.');
+
+    (new ProcessMessage($driver))->handle();
+
+    ChatBot::assertPrompted(fn (AgentPrompt $prompt) => $prompt->contains('Hello from a voice message'));
+});
+
+it('prefers text over audio transcription when both exist', function () {
+    ChatBot::fake(['Text reply.']);
+
+    $attachment = new Attachment(AttachmentType::Audio, 'voice/msg.ogg', 'local');
+    $driver = mockDriver(['attachments' => collect([$attachment])]);
+    $driver->shouldReceive('text')->andReturn('Typed message');
+    $driver->shouldReceive('reply')->once()->with('Text reply.');
+
+    (new ProcessMessage($driver))->handle();
+
+    ChatBot::assertPrompted(fn (AgentPrompt $prompt) => $prompt->contains('Typed message'));
+    Transcription::assertNothingGenerated();
 });
