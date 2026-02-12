@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Ai\Agents\ChatBot;
 use App\Channels\Contracts\ChannelDriver;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -19,7 +20,10 @@ class ProcessMessage implements ShouldQueue
 
     public function handle(): void
     {
-        // MVP: hardcoded reply
-        $this->driver->reply('pong');
+        $text = $this->driver->text() ?? '';
+
+        $response = ChatBot::make()->prompt($text);
+
+        $this->driver->reply((string) $response);
     }
 }
