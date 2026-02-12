@@ -105,20 +105,14 @@ class EmailChannelDriver implements ChannelDriver
 
     public function reply(string $text): void
     {
-        $subject = $this->subject;
-        $messageId = $this->messageId;
-        $senderEmail = $this->senderEmail;
-        $senderName = $this->senderName;
+        $mailable = new \App\Mail\ChannelReply(
+            body: $text,
+            inReplyTo: $this->messageId,
+        );
 
-        Mail::raw($text, function ($mail) use ($subject, $messageId, $senderEmail, $senderName) {
-            $mail->to($senderEmail, $senderName)
-                ->subject('Re: ' . ($subject ?? 'No Subject'));
+        $mailable->to($this->senderEmail, $this->senderName)
+            ->subject('Re: ' . ($this->subject ?? 'No Subject'));
 
-            if ($messageId) {
-                $mail->getHeaders()
-                    ->addTextHeader('In-Reply-To', $messageId)
-                    ->addTextHeader('References', $messageId);
-            }
-        });
+        Mail::send($mailable);
     }
 }

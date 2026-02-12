@@ -2,9 +2,11 @@
 
 use App\Channels\DTOs\AttachmentType;
 use App\Channels\EmailChannelDriver;
+use App\Mail\ChannelReply;
 use DirectoryTree\ImapEngine\Address;
 use DirectoryTree\ImapEngine\Attachment as ImapAttachment;
 use DirectoryTree\ImapEngine\MessageInterface;
+use Illuminate\Support\Facades\Mail;
 
 function makeEmailMessage(array $overrides = []): MessageInterface
 {
@@ -66,18 +68,18 @@ it('is serializable', function () {
         ->and($unserialized->text())->toBe('Hello from email');
 });
 
-it('replies via laravel mail', function () {
-    config(['mail.default' => 'array']);
+it('replies via laravel mail with a mailable', function () {
+    Mail::fake();
 
     $driver = EmailChannelDriver::fromMessage(makeEmailMessage());
 
     $driver->reply('pong');
 
-    $sent = app('mailer')->getSymfonyTransport()->messages();
-
-    expect($sent)->toHaveCount(1);
-    expect($sent[0]->getOriginalMessage()->getTo()[0]->getAddress())->toBe('sender@example.com');
-    expect($sent[0]->getOriginalMessage()->getSubject())->toBe('Re: Test Subject');
+    Mail::assertSent(ChannelReply::class, function (ChannelReply $mail) {
+        return $mail->hasTo('sender@example.com')
+            && $mail->hasSubject('Re: Test Subject')
+            && $mail->body === 'pong';
+    });
 });
 
 it('downloads email attachments', function () {
