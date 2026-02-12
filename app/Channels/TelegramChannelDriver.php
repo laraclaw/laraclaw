@@ -8,7 +8,9 @@ use App\Channels\DTOs\AttachmentType;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use League\CommonMark\CommonMarkConverter;
 use SergiX44\Nutgram\Nutgram;
+use SergiX44\Nutgram\Telegram\Properties\ParseMode;
 use SergiX44\Nutgram\Telegram\Types\Media\PhotoSize;
 use SergiX44\Nutgram\Telegram\Types\Message\Message;
 
@@ -121,6 +123,11 @@ class TelegramChannelDriver implements ChannelDriver
 
     public function reply(string $text): void
     {
-        app(Nutgram::class)->sendMessage($text, chat_id: $this->chatId);
+        $html = (new CommonMarkConverter)->convert($text)->getContent();
+        $html = preg_replace('/<li>/', '<li>• ', $html);
+        $html = strip_tags($html, '<b><strong><i><em><u><s><a><code><pre><blockquote>');
+        $html = trim($html);
+
+        app(Nutgram::class)->sendMessage($html, chat_id: $this->chatId, parse_mode: ParseMode::HTML);
     }
 }

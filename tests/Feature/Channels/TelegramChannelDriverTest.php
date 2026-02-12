@@ -164,16 +164,16 @@ it('downloads document attachments', function () {
     Storage::disk('local')->assertExists($attachment->path);
 });
 
-it('replies via nutgram', function () {
+it('replies via nutgram with html parse mode', function () {
     $bot = Mockery::mock(Nutgram::class);
     $bot->shouldReceive('sendMessage')
         ->once()
-        ->withSomeOfArgs('pong');
+        ->withSomeOfArgs('<strong>bold</strong> text');
 
     $this->app->instance(Nutgram::class, $bot);
 
     $message = makeTelegramMessage();
     $driver = TelegramChannelDriver::fromMessage($message, $bot);
 
-    $driver->reply('pong');
+    $driver->reply('**bold** text');
 });
