@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Ai\Agents\ChatBot;
+use App\Ai\ConversationParticipant;
 use App\Channels\Contracts\ChannelDriver;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -21,8 +22,16 @@ class ProcessMessage implements ShouldQueue
     public function handle(): void
     {
         $text = $this->driver->text() ?? '';
+        $participant = new ConversationParticipant($this->driver->platform() . ':' . $this->driver->senderId());
 
-        $response = ChatBot::make()->prompt($text);
+        if (strtolower(trim($text)) === '!new') {
+            ChatBot::make()->forUser($participant)->prompt($text);
+            $this->driver->reply('Conversation reset. How can I help you?');
+
+            return;
+        }
+
+        $response = ChatBot::make()->continueLastConversation(as: $participant)->prompt($text);
 
         $this->driver->reply((string) $response);
     }
