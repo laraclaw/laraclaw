@@ -1,0 +1,15 @@
+{
+    "name": "laraclaw/laraclaw",
+    "description": "Laraclaw",
+    "type": "library",
+    "license": "MIT",
+    "require": {
+        "php": "^8.4"
+    },
+    "autoload": {
+        "psr-4": {
+            "Laraclaw\\Laraclaw\\": "src/"
+        }
+    },
+    "minimum-stability": "stable"
+}
