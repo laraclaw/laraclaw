@@ -268,3 +268,62 @@ it('includes allowed disks in description', function () {
 
     expect((string) $tool->description())->toContain('test-disk');
 });
+
+// — save_attachment —
+
+it('copies an attachment to an allowed disk', function () {
+    Storage::fake('attachments-disk');
+    Config::set('laraclaw.attachments.disk', 'attachments-disk');
+    Storage::disk('attachments-disk')->put('laraclaw/attachments/abc/photo.jpg', 'image-data');
+
+    $result = dm([
+        'operation' => 'save_attachment',
+        'disk' => 'test-disk',
+        'path' => 'laraclaw/attachments/abc/photo.jpg',
+        'destination' => 'photos/photo.jpg',
+    ]);
+
+    expect($result)->toContain('Saved attachment to photos/photo.jpg')
+        ->and(Storage::disk('test-disk')->get('photos/photo.jpg'))->toBe('image-data');
+});
+
+it('deduplicates destination when saving attachment', function () {
+    Storage::fake('attachments-disk');
+    Config::set('laraclaw.attachments.disk', 'attachments-disk');
+    Storage::disk('attachments-disk')->put('laraclaw/attachments/abc/photo.jpg', 'image-data');
+    Storage::disk('test-disk')->put('photo.jpg', 'existing');
+
+    $result = dm([
+        'operation' => 'save_attachment',
+        'disk' => 'test-disk',
+        'path' => 'laraclaw/attachments/abc/photo.jpg',
+        'destination' => 'photo.jpg',
+    ]);
+
+    expect($result)->toContain("'photo.jpg' was taken, saved attachment to 'photo1.jpg'")
+        ->and(Storage::disk('test-disk')->get('photo1.jpg'))->toBe('image-data');
+});
+
+it('returns error when attachment source is missing', function () {
+    Storage::fake('attachments-disk');
+    Config::set('laraclaw.attachments.disk', 'attachments-disk');
+
+    $result = dm([
+        'operation' => 'save_attachment',
+        'disk' => 'test-disk',
+        'path' => 'laraclaw/attachments/missing.jpg',
+        'destination' => 'photo.jpg',
+    ]);
+
+    expect($result)->toContain('Attachment not found');
+});
+
+it('requires destination for save_attachment', function () {
+    $result = dm([
+        'operation' => 'save_attachment',
+        'disk' => 'test-disk',
+        'path' => 'laraclaw/attachments/abc/photo.jpg',
+    ]);
+
+    expect($result)->toContain('"destination" parameter is required');
+});

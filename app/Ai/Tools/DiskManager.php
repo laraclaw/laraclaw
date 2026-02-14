@@ -14,7 +14,7 @@ class DiskManager implements Tool
 {
     private const MAX_READ_BYTES = 100 * 1024;
 
-    private const OPERATIONS = ['list', 'read', 'write', 'append', 'delete', 'move', 'copy', 'exists', 'mkdir'];
+    private const OPERATIONS = ['list', 'read', 'write', 'append', 'delete', 'move', 'copy', 'exists', 'mkdir', 'save_attachment'];
 
     private const SYSTEM_DIRECTORIES = ['attachments', 'personas'];
 
@@ -31,8 +31,8 @@ class DiskManager implements Tool
         return [
             'operation' => $schema->string()->required()->description('The operation to perform: ' . implode(', ', self::OPERATIONS)),
             'disk' => $schema->string()->required()->description('The storage disk to use'),
-            'path' => $schema->string()->required()->description('The file or directory path'),
-            'destination' => $schema->string()->description('Destination path for move/copy operations'),
+            'path' => $schema->string()->required()->description('The file or directory path. For save_attachment, this is the source attachment path on its original disk.'),
+            'destination' => $schema->string()->description('Destination path for move/copy/save_attachment operations'),
             'content' => $schema->string()->description('Content for write/append operations'),
         ];
     }
@@ -77,6 +77,7 @@ class DiskManager implements Tool
             'copy' => $this->copy($storage, $path, $destination),
             'exists' => $this->exists($storage, $path),
             'mkdir' => $this->mkdir($storage, $path),
+            'save_attachment' => $this->saveAttachment($storage, $path, $destination),
         };
     }
 
@@ -233,6 +234,26 @@ class DiskManager implements Tool
         } while ($storage->directoryExists($candidate));
 
         return $candidate;
+    }
+
+    private function saveAttachment(Filesystem $storage, string $path, ?string $destination): string
+    {
+        if ($destination === null) {
+            return 'The "destination" parameter is required for the save_attachment operation.';
+        }
+
+        $sourceDisk = Storage::disk(config('laraclaw.attachments.disk', 'local'));
+
+        if (! $sourceDisk->exists($path)) {
+            return "Attachment not found: {$path}";
+        }
+
+        $actual = $this->uniqueFilePath($storage, $destination);
+        $storage->put($actual, $sourceDisk->get($path));
+
+        return $actual !== $destination
+            ? "'{$destination}' was taken, saved attachment to '{$actual}'."
+            : "Saved attachment to {$actual}.";
     }
 
     private function isProtectedPath(string $path): bool

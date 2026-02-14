@@ -189,3 +189,41 @@ it('passes both images and documents to the agent', function () {
             && in_array(StoredDocument::class, $types);
     });
 });
+
+it('appends attachment paths to the prompt text', function () {
+    ChatBot::fake(['Got it.']);
+
+    $attachments = collect([
+        new Attachment(AttachmentType::Image, 'photos/cat.jpg', 'local', 'image/jpeg'),
+        new Attachment(AttachmentType::Document, 'docs/report.pdf', 'local', 'application/pdf'),
+    ]);
+    $driver = mockDriver(['attachments' => $attachments]);
+    $driver->shouldReceive('text')->andReturn('Save these');
+    $driver->shouldReceive('reply')->once();
+
+    (new ProcessMessage($driver))->handle();
+
+    ChatBot::assertPrompted(function (AgentPrompt $prompt) {
+        return $prompt->contains('[image: photos/cat.jpg]')
+            && $prompt->contains('[document: docs/report.pdf]');
+    });
+});
+
+it('does not append audio paths to the prompt text', function () {
+    ChatBot::fake(['Ok.']);
+
+    $attachments = collect([
+        new Attachment(AttachmentType::Audio, 'voice/msg.ogg', 'local', 'audio/ogg'),
+        new Attachment(AttachmentType::Image, 'photos/cat.jpg', 'local', 'image/jpeg'),
+    ]);
+    $driver = mockDriver(['attachments' => $attachments]);
+    $driver->shouldReceive('text')->andReturn('Check this');
+    $driver->shouldReceive('reply')->once();
+
+    (new ProcessMessage($driver))->handle();
+
+    ChatBot::assertPrompted(function (AgentPrompt $prompt) {
+        return $prompt->contains('[image: photos/cat.jpg]')
+            && ! $prompt->contains('audio');
+    });
+});

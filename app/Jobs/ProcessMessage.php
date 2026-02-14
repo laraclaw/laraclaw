@@ -35,6 +35,7 @@ class ProcessMessage implements ShouldQueue
         $participant = new ConversationParticipant($this->driver->platform() . ':' . $this->driver->senderId());
 
         $attachments = [...$this->imageAttachments(), ...$this->documentAttachments()];
+        $text = $this->appendAttachmentPaths($text);
 
         if (strtolower(trim($text)) === '!new') {
             $this->driver->reply('Conversation reset. How can I help you?');
@@ -70,5 +71,15 @@ class ProcessMessage implements ShouldQueue
             ->map(fn (Attachment $a) => Document::fromStorage($a->path, $a->disk))
             ->values()
             ->all();
+    }
+
+    private function appendAttachmentPaths(string $text): string
+    {
+        $paths = $this->driver->attachments()
+            ->filter(fn (Attachment $a) => $a->type !== AttachmentType::Audio)
+            ->map(fn (Attachment $a) => "[{$a->type->value}: {$a->path}]")
+            ->implode("\n");
+
+        return $paths !== '' ? $text . "\n\n" . $paths : $text;
     }
 }
