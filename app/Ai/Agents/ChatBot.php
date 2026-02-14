@@ -4,6 +4,7 @@ namespace App\Ai\Agents;
 
 use App\Ai\Skills\SkillRegistry;
 use App\Ai\Tools\DiskManager;
+use App\Ai\Tools\ImageManager;
 use App\Ai\Tools\UseSkill;
 use Laravel\Ai\Attributes\MaxSteps;
 use Laravel\Ai\Concerns\RemembersConversations;
@@ -36,6 +37,7 @@ class ChatBot implements Agent, Conversational, HasTools
         return [
             new UseSkill(app(SkillRegistry::class)),
             new DiskManager(),
+            new ImageManager(),
         ];
     }
 

@@ -104,6 +104,10 @@ class DiskManager implements Tool
 
         $contents = $storage->get($path);
 
+        if (! mb_check_encoding($contents, 'UTF-8')) {
+            return "Cannot read {$path}: binary file. Use the ImageManager tool to work with images.";
+        }
+
         if (strlen($contents) > self::MAX_READ_BYTES) {
             return substr($contents, 0, self::MAX_READ_BYTES) . "\n\n[Truncated — file exceeds 100KB]";
         }
