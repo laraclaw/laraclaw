@@ -26,4 +26,8 @@ return [
         'path' => env('LARACLAW_ATTACHMENTS_PATH', 'laraclaw/attachments'),
     ],
 
+    'disk_manager' => [
+        'allowed_disks' => explode(',', env('LARACLAW_ALLOWED_DISKS', 'local,public')),
+    ],
+
 ];
