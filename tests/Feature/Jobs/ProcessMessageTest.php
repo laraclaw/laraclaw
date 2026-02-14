@@ -6,6 +6,7 @@ use App\Channels\DTOs\Attachment;
 use App\Channels\DTOs\AttachmentType;
 use App\Jobs\ProcessMessage;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Ai\Files\StoredDocument;
 use Laravel\Ai\Files\StoredImage;
 use Laravel\Ai\Prompts\AgentPrompt;
 use Laravel\Ai\Transcription;
@@ -140,7 +141,7 @@ it('passes multiple image attachments to the agent', function () {
     ChatBot::assertPrompted(fn (AgentPrompt $prompt) => $prompt->attachments->count() === 2);
 });
 
-it('sends no attachments when there are no images', function () {
+it('sends no attachments when there are no images or documents', function () {
     ChatBot::fake(['Ok!']);
 
     $driver = mockDriver();
@@ -150,4 +151,44 @@ it('sends no attachments when there are no images', function () {
     (new ProcessMessage($driver))->handle();
 
     ChatBot::assertPrompted(fn (AgentPrompt $prompt) => $prompt->attachments->isEmpty());
+});
+
+it('passes document attachments to the agent', function () {
+    ChatBot::fake(['I read the PDF.']);
+
+    $doc = new Attachment(AttachmentType::Document, 'docs/report.pdf', 'local', 'application/pdf');
+    $driver = mockDriver(['attachments' => collect([$doc])]);
+    $driver->shouldReceive('text')->andReturn('Summarize this');
+    $driver->shouldReceive('reply')->once()->with('I read the PDF.');
+
+    (new ProcessMessage($driver))->handle();
+
+    ChatBot::assertPrompted(function (AgentPrompt $prompt) {
+        return $prompt->attachments->count() === 1
+            && $prompt->attachments->first() instanceof StoredDocument
+            && $prompt->attachments->first()->path === 'docs/report.pdf';
+    });
+});
+
+it('passes both images and documents to the agent', function () {
+    ChatBot::fake(['Got them all.']);
+
+    $attachments = collect([
+        new Attachment(AttachmentType::Image, 'photos/cat.jpg', 'local', 'image/jpeg'),
+        new Attachment(AttachmentType::Document, 'docs/report.pdf', 'local', 'application/pdf'),
+        new Attachment(AttachmentType::Audio, 'voice/msg.ogg', 'local', 'audio/ogg'),
+    ]);
+    $driver = mockDriver(['attachments' => $attachments]);
+    $driver->shouldReceive('text')->andReturn('Check these');
+    $driver->shouldReceive('reply')->once();
+
+    (new ProcessMessage($driver))->handle();
+
+    ChatBot::assertPrompted(function (AgentPrompt $prompt) {
+        $types = $prompt->attachments->map(fn ($a) => $a::class)->all();
+
+        return $prompt->attachments->count() === 2
+            && in_array(StoredImage::class, $types)
+            && in_array(StoredDocument::class, $types);
+    });
 });

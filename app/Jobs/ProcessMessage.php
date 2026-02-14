@@ -12,6 +12,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Laravel\Ai\Files\Document;
 use Laravel\Ai\Files\Image;
 use Laravel\Ai\Transcription;
 
@@ -33,7 +34,7 @@ class ProcessMessage implements ShouldQueue
 
         $participant = new ConversationParticipant($this->driver->platform() . ':' . $this->driver->senderId());
 
-        $images = $this->imageAttachments();
+        $attachments = [...$this->imageAttachments(), ...$this->documentAttachments()];
 
         if (strtolower(trim($text)) === '!new') {
             ChatBot::make()->forUser($participant)->prompt($text);
@@ -42,7 +43,7 @@ class ProcessMessage implements ShouldQueue
             return;
         }
 
-        $response = ChatBot::make()->continueLastConversation(as: $participant)->prompt($text, attachments: $images);
+        $response = ChatBot::make()->continueLastConversation(as: $participant)->prompt($text, attachments: $attachments);
 
         $this->driver->reply((string) $response);
     }
@@ -58,6 +59,16 @@ class ProcessMessage implements ShouldQueue
         return $this->driver->attachments()
             ->filter(fn (Attachment $a) => $a->type === AttachmentType::Image)
             ->map(fn (Attachment $a) => Image::fromStorage($a->path, $a->disk))
+            ->values()
+            ->all();
+    }
+
+    /** @return array<Document> */
+    private function documentAttachments(): array
+    {
+        return $this->driver->attachments()
+            ->filter(fn (Attachment $a) => $a->type === AttachmentType::Document)
+            ->map(fn (Attachment $a) => Document::fromStorage($a->path, $a->disk))
             ->values()
             ->all();
     }
