@@ -26,6 +26,8 @@ class ProcessMessage implements ShouldQueue
 
     public function handle(): void
     {
+        $this->driver->sendTypingIndicator();
+
         $text = $this->driver->text() ?? '';
 
         if ($text === '' && $audio = $this->audioAttachment()) {

@@ -19,6 +19,7 @@ class SlackChannelDriver implements ChannelDriver
         /** @var Collection<int, Attachment> */
         private Collection $messageAttachments,
         private ?string $threadTs = null,
+        private ?string $messageTs = null,
     ) {}
 
     public static function fromEvent(array $event): self
@@ -54,6 +55,7 @@ class SlackChannelDriver implements ChannelDriver
             messageText: $event['text'] ?? null,
             messageAttachments: $attachments,
             threadTs: $event['thread_ts'] ?? $event['ts'] ?? null,
+            messageTs: $event['ts'] ?? null,
         );
     }
 
@@ -90,5 +92,19 @@ class SlackChannelDriver implements ChannelDriver
                 'text' => $text,
                 'thread_ts' => $this->threadTs,
             ]));
+    }
+
+    public function sendTypingIndicator(): void
+    {
+        if (! $this->messageTs) {
+            return;
+        }
+
+        Http::withToken(config('laraclaw.channels.slack.bot_token'))
+            ->post('https://slack.com/api/reactions.add', [
+                'channel' => $this->channelId,
+                'name' => '+1',
+                'timestamp' => $this->messageTs,
+            ]);
     }
 }

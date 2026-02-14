@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use League\CommonMark\CommonMarkConverter;
 use SergiX44\Nutgram\Nutgram;
+use SergiX44\Nutgram\Telegram\Properties\ChatAction;
 use SergiX44\Nutgram\Telegram\Properties\ParseMode;
 use SergiX44\Nutgram\Telegram\Types\Media\PhotoSize;
 use SergiX44\Nutgram\Telegram\Types\Message\Message;
@@ -129,5 +130,10 @@ class TelegramChannelDriver implements ChannelDriver
         $html = trim($html);
 
         app(Nutgram::class)->sendMessage($html, chat_id: $this->chatId, parse_mode: ParseMode::HTML);
+    }
+
+    public function sendTypingIndicator(): void
+    {
+        app(Nutgram::class)->sendChatAction(ChatAction::TYPING, chat_id: $this->chatId);
     }
 }

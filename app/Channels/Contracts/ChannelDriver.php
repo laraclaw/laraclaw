@@ -38,4 +38,9 @@ interface ChannelDriver
      * Send a text reply back through the same channel.
      */
     public function reply(string $text): void;
+
+    /**
+     * Send a typing indicator or acknowledgement to the user.
+     */
+    public function sendTypingIndicator(): void;
 }

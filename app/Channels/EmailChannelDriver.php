@@ -115,4 +115,9 @@ class EmailChannelDriver implements ChannelDriver
 
         Mail::send($mailable);
     }
+
+    public function sendTypingIndicator(): void
+    {
+        // No-op for email
+    }
 }

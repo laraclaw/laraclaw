@@ -19,6 +19,7 @@ function mockDriver(array $overrides = []): ChannelDriver
     $driver->shouldReceive('platform')->andReturn($overrides['platform'] ?? 'telegram');
     $driver->shouldReceive('senderId')->andReturn($overrides['senderId'] ?? '12345');
     $driver->shouldReceive('attachments')->andReturn($overrides['attachments'] ?? collect());
+    $driver->shouldReceive('sendTypingIndicator');
 
     return $driver;
 }
