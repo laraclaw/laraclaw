@@ -6,6 +6,7 @@ use App\Channels\DTOs\Attachment;
 use App\Channels\DTOs\AttachmentType;
 use App\Jobs\ProcessMessage;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Ai\Files\StoredImage;
 use Laravel\Ai\Prompts\AgentPrompt;
 use Laravel\Ai\Transcription;
 
@@ -103,4 +104,50 @@ it('prefers text over audio transcription when both exist', function () {
 
     ChatBot::assertPrompted(fn (AgentPrompt $prompt) => $prompt->contains('Typed message'));
     Transcription::assertNothingGenerated();
+});
+
+it('passes image attachments to the agent', function () {
+    ChatBot::fake(['Nice photo!']);
+
+    $image = new Attachment(AttachmentType::Image, 'photos/cat.jpg', 'local', 'image/jpeg');
+    $driver = mockDriver(['attachments' => collect([$image])]);
+    $driver->shouldReceive('text')->andReturn('What is this?');
+    $driver->shouldReceive('reply')->once()->with('Nice photo!');
+
+    (new ProcessMessage($driver))->handle();
+
+    ChatBot::assertPrompted(function (AgentPrompt $prompt) {
+        return $prompt->attachments->count() === 1
+            && $prompt->attachments->first() instanceof StoredImage
+            && $prompt->attachments->first()->path === 'photos/cat.jpg';
+    });
+});
+
+it('passes multiple image attachments to the agent', function () {
+    ChatBot::fake(['Two images!']);
+
+    $attachments = collect([
+        new Attachment(AttachmentType::Image, 'photos/a.jpg', 'local', 'image/jpeg'),
+        new Attachment(AttachmentType::Image, 'photos/b.png', 'local', 'image/png'),
+        new Attachment(AttachmentType::Audio, 'voice/msg.ogg', 'local', 'audio/ogg'),
+    ]);
+    $driver = mockDriver(['attachments' => $attachments]);
+    $driver->shouldReceive('text')->andReturn('Look at these');
+    $driver->shouldReceive('reply')->once();
+
+    (new ProcessMessage($driver))->handle();
+
+    ChatBot::assertPrompted(fn (AgentPrompt $prompt) => $prompt->attachments->count() === 2);
+});
+
+it('sends no attachments when there are no images', function () {
+    ChatBot::fake(['Ok!']);
+
+    $driver = mockDriver();
+    $driver->shouldReceive('text')->andReturn('Hello');
+    $driver->shouldReceive('reply')->once();
+
+    (new ProcessMessage($driver))->handle();
+
+    ChatBot::assertPrompted(fn (AgentPrompt $prompt) => $prompt->attachments->isEmpty());
 });
