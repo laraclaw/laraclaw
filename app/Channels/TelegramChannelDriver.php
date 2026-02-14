@@ -10,9 +10,11 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use League\CommonMark\CommonMarkConverter;
 use SergiX44\Nutgram\Nutgram;
+use Illuminate\Support\Facades\Log;
 use SergiX44\Nutgram\Telegram\Properties\ChatAction;
 use SergiX44\Nutgram\Telegram\Properties\ParseMode;
 use SergiX44\Nutgram\Telegram\Types\Media\PhotoSize;
+use Throwable;
 use SergiX44\Nutgram\Telegram\Types\Message\Message;
 
 class TelegramChannelDriver implements ChannelDriver
@@ -134,6 +136,10 @@ class TelegramChannelDriver implements ChannelDriver
 
     public function sendTypingIndicator(): void
     {
-        app(Nutgram::class)->sendChatAction(ChatAction::TYPING, chat_id: $this->chatId);
+        try {
+            app(Nutgram::class)->sendChatAction(ChatAction::TYPING, chat_id: $this->chatId);
+        } catch (Throwable $e) {
+            Log::warning('Telegram typing indicator failed', ['error' => $e->getMessage()]);
+        }
     }
 }

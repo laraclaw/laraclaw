@@ -7,8 +7,10 @@ use App\Channels\DTOs\Attachment;
 use App\Channels\DTOs\AttachmentType;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Throwable;
 
 class SlackChannelDriver implements ChannelDriver
 {
@@ -100,11 +102,15 @@ class SlackChannelDriver implements ChannelDriver
             return;
         }
 
-        Http::withToken(config('laraclaw.channels.slack.bot_token'))
-            ->post('https://slack.com/api/reactions.add', [
-                'channel' => $this->channelId,
-                'name' => '+1',
-                'timestamp' => $this->messageTs,
-            ]);
+        try {
+            Http::withToken(config('laraclaw.channels.slack.bot_token'))
+                ->post('https://slack.com/api/reactions.add', [
+                    'channel' => $this->channelId,
+                    'name' => '+1',
+                    'timestamp' => $this->messageTs,
+                ]);
+        } catch (Throwable $e) {
+            Log::warning('Slack typing indicator failed', ['error' => $e->getMessage()]);
+        }
     }
 }
