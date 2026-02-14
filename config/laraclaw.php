@@ -30,4 +30,6 @@ return [
         'allowed_disks' => explode(',', env('LARACLAW_ALLOWED_DISKS', 'local,public')),
     ],
 
+    'persona' => env('LARACLAW_PERSONA'),
+
 ];

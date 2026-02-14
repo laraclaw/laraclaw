@@ -10,6 +10,7 @@ use Laravel\Ai\Concerns\RemembersConversations;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\Conversational;
 use Laravel\Ai\Contracts\HasTools;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Ai\Promptable;
 use Stringable;
 
@@ -20,7 +21,14 @@ class ChatBot implements Agent, Conversational, HasTools
 
     public function instructions(): Stringable|string
     {
-        return 'You are Laraclaw, a helpful AI assistant. Answer the user\'s question concisely and accurately.';
+        $base = 'You are Laraclaw, a helpful AI assistant. Answer the user\'s question concisely and accurately.';
+        $persona = config('laraclaw.persona');
+
+        if ($persona && Storage::disk('laraclaw')->exists("personas/{$persona}.md")) {
+            return Storage::disk('laraclaw')->get("personas/{$persona}.md") . "\n\n" . $base;
+        }
+
+        return $base;
     }
 
     public function tools(): iterable

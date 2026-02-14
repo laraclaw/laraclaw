@@ -16,7 +16,7 @@ class DiskManager implements Tool
 
     private const OPERATIONS = ['list', 'read', 'write', 'append', 'delete', 'move', 'copy', 'exists', 'mkdir'];
 
-    private const SYSTEM_DIRECTORIES = ['attachments'];
+    private const SYSTEM_DIRECTORIES = ['attachments', 'personas'];
 
     public function description(): Stringable|string
     {
