@@ -37,7 +37,6 @@ class ProcessMessage implements ShouldQueue
         $attachments = [...$this->imageAttachments(), ...$this->documentAttachments()];
 
         if (strtolower(trim($text)) === '!new') {
-            ChatBot::make()->forUser($participant)->prompt($text);
             $this->driver->reply('Conversation reset. How can I help you?');
 
             return;

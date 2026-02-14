@@ -65,7 +65,7 @@ it('continues the last conversation with the correct participant', function () {
 });
 
 it('starts a fresh conversation when text is !new', function () {
-    ChatBot::fake(['ignored']);
+    ChatBot::fake();
 
     $driver = mockDriver();
     $driver->shouldReceive('text')->andReturn('!new');
@@ -73,10 +73,7 @@ it('starts a fresh conversation when text is !new', function () {
 
     (new ProcessMessage($driver))->handle();
 
-    ChatBot::assertPrompted(function (AgentPrompt $prompt) {
-        return $prompt->agent->hasConversationParticipant()
-            && $prompt->contains('!new');
-    });
+    ChatBot::assertNeverPrompted();
 });
 
 it('transcribes audio when text is empty', function () {
