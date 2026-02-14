@@ -177,3 +177,19 @@ it('replies via nutgram with html parse mode', function () {
 
     $driver->reply('**bold** text');
 });
+
+it('swallows typing indicator failures', function () {
+    Log::spy();
+
+    $bot = Mockery::mock(Nutgram::class);
+    $bot->shouldReceive('sendChatAction')->andThrow(new RuntimeException('Connection timeout'));
+
+    $this->app->instance(Nutgram::class, $bot);
+
+    $message = makeTelegramMessage();
+    $driver = TelegramChannelDriver::fromMessage($message, $bot);
+
+    $driver->sendTypingIndicator();
+
+    Log::shouldHaveReceived('warning')->with('Telegram typing indicator failed', Mockery::any());
+});

@@ -318,6 +318,15 @@ it('returns error when attachment source is missing', function () {
     expect($result)->toContain('Attachment not found');
 });
 
+it('suggests ImageManager for binary files', function () {
+    Storage::disk('test-disk')->put('photo.png', random_bytes(100));
+
+    $result = dm(['operation' => 'read', 'disk' => 'test-disk', 'path' => 'photo.png']);
+
+    expect($result)->toContain('binary file')
+        ->and($result)->toContain('ImageManager');
+});
+
 it('requires destination for save_attachment', function () {
     $result = dm([
         'operation' => 'save_attachment',

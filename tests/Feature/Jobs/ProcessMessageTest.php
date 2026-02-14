@@ -228,3 +228,4 @@ it('does not append audio paths to the prompt text', function () {
             && ! $prompt->contains('audio');
     });
 });
+

@@ -117,3 +117,22 @@ it('downloads file attachments', function () {
 
     Storage::disk('local')->assertExists($attachment->path);
 });
+
+it('swallows typing indicator failures', function () {
+    Log::spy();
+    Http::fake(fn () => throw new RuntimeException('Connection refused'));
+
+    config(['laraclaw.channels.slack.bot_token' => 'xoxb-test-token']);
+
+    $driver = SlackChannelDriver::fromEvent([
+        'type' => 'message',
+        'user' => 'U123',
+        'text' => 'ping',
+        'ts' => '1234567890.123456',
+        'channel' => 'C456',
+    ]);
+
+    $driver->sendTypingIndicator();
+
+    Log::shouldHaveReceived('warning')->with('Slack typing indicator failed', Mockery::any());
+});
