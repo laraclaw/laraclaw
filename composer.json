@@ -1,0 +1,39 @@
+{
+    "$schema": "https://getcomposer.org/schema/json",
+    "name": "laraclaw/laraclaw",
+    "type": "library",
+    "description": "AI-powered chatbot package for Laravel (Telegram, Slack, Email)",
+    "license": "MIT",
+    "require": {
+        "php": "^8.2",
+        "laravel/ai": "^0.2",
+        "laravel/framework": "^12.0",
+        "symfony/yaml": "^7.0"
+    },
+    "suggest": {
+        "nutgram/laravel": "Required for Telegram channel support",
+        "directorytree/imapengine-laravel": "Required for email channel support",
+        "sabre/vobject": "Required for Apple CalDAV calendar support",
+        "spatie/image": "Required for image management tool",
+        "spatie/laravel-google-calendar": "Required for Google Calendar support"
+    },
+    "autoload": {
+        "files": [
+            "src/Support/Helpers.php"
+        ],
+        "psr-4": {
+            "LaraClaw\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "LaraClaw\\LaraclawServiceProvider"
+            ]
+        }
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true
+    }
+}

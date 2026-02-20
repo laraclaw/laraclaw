@@ -1,0 +1,11 @@
+* text=auto eol=lf
+
+*.php diff=php
+*.blade.php diff=html
+
+/.github export-ignore
+/vendor export-ignore
+/database/factories export-ignore
+/database/seeders export-ignore
+/tests export-ignore
+CHANGELOG.md export-ignore
