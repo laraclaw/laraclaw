@@ -37,9 +37,9 @@ abstract class Channel
         // No-op by default. Subclasses can override to send typing indicators, reactions, etc.
     }
 
-    public function sendAudio(string $filePath, ?string $caption = null): void
+    public function sendAudio(string $filePath): void
     {
-        $this->send($caption ?? 'Audio reply generated.');
+        // No-op by default. Subclasses that support audio should override this.
     }
 
     /**

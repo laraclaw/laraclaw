@@ -123,7 +123,8 @@ class ProcessMessage implements ShouldQueue
             $audioReply = app(PendingAudioReply::class);
 
             if ($audioReply->path) {
-                $this->channel->sendAudio($audioReply->path, $response);
+                $this->channel->sendAudio($audioReply->path);
+                $this->channel->send($response);
 
                 if (file_exists($audioReply->path)) {
                     unlink($audioReply->path);

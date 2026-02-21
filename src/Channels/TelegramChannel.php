@@ -114,12 +114,11 @@ class TelegramChannel extends Channel
         app(Nutgram::class)->sendMessage($html, chat_id: $this->chatId, parse_mode: ParseMode::HTML);
     }
 
-    public function sendAudio(string $filePath, ?string $caption = null): void
+    public function sendAudio(string $filePath): void
     {
         app(Nutgram::class)->sendVoice(
             voice: InputFile::make(fopen($filePath, 'r')),
             chat_id: $this->chatId,
-            caption: $caption,
         );
     }
 }
