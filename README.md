@@ -16,10 +16,12 @@ Built on [laravel/ai](https://github.com/laravel/ai).
 composer require laraclaw/laraclaw
 ```
 
-Publish the config:
+Publish the config and migrations:
 
 ```bash
 php artisan vendor:publish --tag=laraclaw-config
+php artisan vendor:publish --provider="Laravel\Ai\AiServiceProvider"
+php artisan migrate
 ```
 
 ## Configuration
