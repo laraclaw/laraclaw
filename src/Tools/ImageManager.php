@@ -4,6 +4,7 @@ namespace LaraClaw\Tools;
 
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
+use LaraClaw\PendingImageReply;
 use Laravel\Ai\Tools\Request;
 use RuntimeException;
 use Spatie\Image\Enums\FlipDirection;
@@ -16,6 +17,13 @@ class ImageManager extends BaseTool
 {
     private const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'tif'];
 
+    private ?PendingImageReply $pendingImageReply;
+
+    public function __construct(protected \LaraClaw\Channels\Channel $channel, ?PendingImageReply $pendingImageReply = null)
+    {
+        $this->pendingImageReply = $pendingImageReply;
+    }
+
     protected function operations(): array
     {
         return ['info', 'resize', 'crop', 'orient', 'convert', 'optimize'];
@@ -25,7 +33,7 @@ class ImageManager extends BaseTool
     {
         $disks = implode(', ', config('laraclaw.tools.allowed_disks', []));
 
-        return "Work with images: get info, resize, crop, orient, convert, optimize. Allowed disks: {$disks}. Operations: ".implode(', ', $this->operations()).'.';
+        return "Work with images: get info, resize, crop, orient, convert, optimize. Allowed disks: {$disks}. Operations: ".implode(', ', $this->operations()).'. After any write operation (resize, crop, orient, convert, optimize) the resulting image is automatically sent to the user — do NOT say you cannot send files.';
     }
 
     public function schema(JsonSchema $schema): array
@@ -66,14 +74,23 @@ class ImageManager extends BaseTool
             return "Not an image file: {$path}";
         }
 
-        return match ($operation) {
+        $result = match ($operation) {
             'info' => $this->info($storage, $path),
-            'resize' => $this->resize($storage, $path, $request['width'] ?? null, $request['height'] ?? null),
-            'crop' => $this->crop($storage, $path, $request['width'] ?? null, $request['height'] ?? null),
+            'resize' => $this->resize($storage, $path, ($request['width'] ?? null) ?: null, ($request['height'] ?? null) ?: null),
+            'crop' => $this->crop($storage, $path, ($request['width'] ?? null) ?: null, ($request['height'] ?? null) ?: null),
             'orient' => $this->orient($storage, $path, $request['orientation'] ?? null),
             'convert' => $this->convert($storage, $path, $request['format'] ?? null),
-            'optimize' => $this->optimize($storage, $path, $request['quality'] ?? null),
+            'optimize' => $this->optimize($storage, $path, ($request['quality'] ?? null) ?: null),
         };
+
+        if ($operation !== 'info') {
+            $pendingPath = $operation === 'convert'
+                ? pathinfo($path, PATHINFO_FILENAME).'.'.($request['format'] ?? '')
+                : $path;
+            $this->setPending($request['disk'], $pendingPath);
+        }
+
+        return $result;
     }
 
     protected function info(Filesystem $storage, string $path): string
@@ -91,6 +108,14 @@ class ImageManager extends BaseTool
             ], JSON_PRETTY_PRINT);
         } finally {
             $this->cleanupTempFile($tempPath);
+        }
+    }
+
+    private function setPending(string $disk, string $path): void
+    {
+        if ($this->pendingImageReply) {
+            $this->pendingImageReply->disk = $disk;
+            $this->pendingImageReply->path = $path;
         }
     }
 
@@ -112,7 +137,7 @@ class ImageManager extends BaseTool
                 $image->height($height);
             }
 
-            $image->save();
+            $image->quality(100)->save();
             $this->fromTempFile($storage, $path, $tempPath);
 
             $image = Image::useImageDriver(ImageDriver::Gd)->loadFile($tempPath);
@@ -132,7 +157,7 @@ class ImageManager extends BaseTool
         $tempPath = $this->toTempFile($storage, $path);
 
         try {
-            Image::useImageDriver(ImageDriver::Gd)->loadFile($tempPath)->crop($width, $height)->save();
+            Image::useImageDriver(ImageDriver::Gd)->loadFile($tempPath)->crop($width, $height)->quality(100)->save();
             $this->fromTempFile($storage, $path, $tempPath);
 
             return "Cropped {$path} to {$width}x{$height}.";
@@ -166,7 +191,7 @@ class ImageManager extends BaseTool
                 'flip_vertical' => $image->flip(FlipDirection::Vertical),
             };
 
-            $image->save();
+            $image->quality(100)->save();
             $this->fromTempFile($storage, $path, $tempPath);
 
             return "Applied {$orientation} to {$path}.";
@@ -190,7 +215,7 @@ class ImageManager extends BaseTool
         $tempOut = $tempPath.'.'.$format;
 
         try {
-            Image::useImageDriver(ImageDriver::Gd)->loadFile($tempPath)->format($format)->save($tempOut);
+            Image::useImageDriver(ImageDriver::Gd)->loadFile($tempPath)->format($format)->quality(100)->save($tempOut);
 
             $storage->put($newPath, file_get_contents($tempOut));
 
@@ -208,11 +233,7 @@ class ImageManager extends BaseTool
         try {
             $image = Image::useImageDriver(ImageDriver::Gd)->loadFile($tempPath);
 
-            if ($quality !== null) {
-                $image->quality(max(1, min(100, $quality)));
-            }
-
-            $image->save();
+            $image->quality($quality !== null ? max(1, min(100, $quality)) : 100)->save();
             $this->fromTempFile($storage, $path, $tempPath);
 
             $newSize = $storage->size($path);

@@ -121,4 +121,18 @@ class TelegramChannel extends Channel
             chat_id: $this->chatId,
         );
     }
+
+    public function sendPhoto(string $disk, string $path): void
+    {
+        $contents = Storage::disk($disk)->get($path);
+        $tempPath = sys_get_temp_dir().'/'.basename($path);
+        file_put_contents($tempPath, $contents);
+
+        app(Nutgram::class)->sendPhoto(
+            photo: InputFile::make(fopen($tempPath, 'r'), basename($path)),
+            chat_id: $this->chatId,
+        );
+
+        unlink($tempPath);
+    }
 }

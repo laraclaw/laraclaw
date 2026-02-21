@@ -42,6 +42,11 @@ abstract class Channel
         // No-op by default. Subclasses that support audio should override this.
     }
 
+    public function sendPhoto(string $disk, string $path): void
+    {
+        // No-op by default. Subclasses that support photo sending should override this.
+    }
+
     /**
      * Ask the user to confirm a dangerous action.
      *

@@ -5,6 +5,7 @@ namespace LaraClaw\Jobs;
 use LaraClaw\Agents\ChatBotAgent;
 use LaraClaw\Commands\CommandRegistry;
 use LaraClaw\PendingAudioReply;
+use LaraClaw\PendingImageReply;
 use LaraClaw\Calendar\Contracts\CalendarDriver;
 use LaraClaw\Channels\Channel;
 use LaraClaw\Channels\DTOs\AttachmentType;
@@ -17,7 +18,6 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Laravel\Ai\Files\Document;
 use Laravel\Ai\Files\Image;
@@ -75,6 +75,17 @@ class ProcessMessage implements ShouldQueue
             }
             $agentAttachments = array_filter($agentAttachments);
 
+            // Append attachment metadata so the agent knows the disk/path for tool use
+            $attachmentMeta = collect($this->channel->attachments())
+                ->filter(fn ($a) => in_array($a->type, [AttachmentType::Image, AttachmentType::Document]))
+                ->map(fn ($a) => ['type' => $a->type->value, 'disk' => $a->disk, 'path' => $a->path])
+                ->values()
+                ->all();
+
+            if (! empty($attachmentMeta)) {
+                $text .= "\n\n[Attached files: ".json_encode($attachmentMeta).']';
+            }
+
             // Resolve or create a user for this conversation
             $identifier = $this->channel->identifier();
             $email = str_replace(':', '-', $identifier).'@bot.local';
@@ -121,28 +132,23 @@ class ProcessMessage implements ShouldQueue
                 : $agent->forUser($user)->prompt($text, $agentAttachments);
 
             $audioReply = app(PendingAudioReply::class);
+            $imageReply = app(PendingImageReply::class);
 
             if ($audioReply->path) {
                 $this->channel->sendAudio($audioReply->path);
-                $this->channel->send($response);
-
                 if (file_exists($audioReply->path)) {
                     unlink($audioReply->path);
                 }
-            } else {
-                $this->channel->send($response);
             }
+
+            if ($imageReply->path && $imageReply->disk) {
+                $this->channel->sendPhoto($imageReply->disk, $imageReply->path);
+            }
+
+            $this->channel->send($response);
         } finally {
-            // Clean up attachment files from storage
-            foreach ($this->channel->attachments() as $attachment) {
-                try {
-                    $disk = Storage::disk($attachment->disk);
-                    $dir = dirname($attachment->path);
-                    $disk->deleteDirectory($dir);
-                } catch (\Throwable $e) {
-                    Log::warning('Failed to clean up attachment', ['path' => $attachment->path, 'error' => $e->getMessage()]);
-                }
-            }
+            // Attachments are kept in storage so the agent can reference them in follow-up messages.
+            // Add a scheduled command to prune old attachment directories periodically.
         }
     }
 }

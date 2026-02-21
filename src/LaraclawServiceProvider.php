@@ -29,6 +29,7 @@ class LaraclawServiceProvider extends ServiceProvider
         $this->mergeConfigFrom(__DIR__.'/../config/laraclaw.php', 'laraclaw');
 
         $this->app->scoped(PendingAudioReply::class);
+        $this->app->scoped(PendingImageReply::class);
 
         $this->app->singleton(CommandRegistry::class, function () {
             $registry = new CommandRegistry;

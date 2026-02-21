@@ -3,6 +3,7 @@
 namespace LaraClaw\Agents;
 
 use LaraClaw\PendingAudioReply;
+use LaraClaw\PendingImageReply;
 use LaraClaw\SkillRegistry;
 use LaraClaw\Tools\CalendarManager;
 use LaraClaw\Tools\EmailManager;
@@ -74,7 +75,7 @@ class ChatBotAgent implements Agent, Conversational, HasTools
         $tools = [
             new UseSkill(app(SkillRegistry::class)),
             new Files($this->channel),
-            new ImageManager($this->channel),
+            new ImageManager($this->channel, app(PendingImageReply::class)),
             new WebRequest($this->channel),
             new Persona,
         ];
