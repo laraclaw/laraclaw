@@ -74,19 +74,32 @@ class ImageManager extends BaseTool
             return "Not an image file: {$path}";
         }
 
+        $suffix = match ($operation) {
+            'resize' => '_resized',
+            'crop' => '_cropped',
+            'orient' => '_'.($request['orientation'] ?? 'oriented'),
+            'optimize' => '_optimized',
+            default => '',
+        };
+
+        $targetPath = $operation !== 'info' && $operation !== 'convert'
+            ? $this->suffixedPath($path, $suffix)
+            : $path;
+
         $result = match ($operation) {
             'info' => $this->info($storage, $path),
-            'resize' => $this->resize($storage, $path, ($request['width'] ?? null) ?: null, ($request['height'] ?? null) ?: null),
-            'crop' => $this->crop($storage, $path, ($request['width'] ?? null) ?: null, ($request['height'] ?? null) ?: null),
-            'orient' => $this->orient($storage, $path, $request['orientation'] ?? null),
+            'resize' => $this->resize($storage, $path, $targetPath, ($request['width'] ?? null) ?: null, ($request['height'] ?? null) ?: null),
+            'crop' => $this->crop($storage, $path, $targetPath, ($request['width'] ?? null) ?: null, ($request['height'] ?? null) ?: null),
+            'orient' => $this->orient($storage, $path, $targetPath, $request['orientation'] ?? null),
             'convert' => $this->convert($storage, $path, $request['format'] ?? null),
-            'optimize' => $this->optimize($storage, $path, ($request['quality'] ?? null) ?: null),
+            'optimize' => $this->optimize($storage, $path, $targetPath, ($request['quality'] ?? null) ?: null),
         };
 
         if ($operation !== 'info') {
+            $dir = dirname($path) === '.' ? '' : dirname($path).'/';
             $pendingPath = $operation === 'convert'
-                ? pathinfo($path, PATHINFO_FILENAME).'.'.($request['format'] ?? '')
-                : $path;
+                ? $dir.pathinfo($path, PATHINFO_FILENAME).'.'.($request['format'] ?? '')
+                : $targetPath;
             $this->setPending($request['disk'], $pendingPath);
         }
 
@@ -111,6 +124,15 @@ class ImageManager extends BaseTool
         }
     }
 
+    private function suffixedPath(string $path, string $suffix): string
+    {
+        $dir = dirname($path) === '.' ? '' : dirname($path).'/';
+        $ext = pathinfo($path, PATHINFO_EXTENSION);
+        $name = pathinfo($path, PATHINFO_FILENAME);
+
+        return $dir.$name.$suffix.($ext !== '' ? '.'.$ext : '');
+    }
+
     private function setPending(string $disk, string $path): void
     {
         if ($this->pendingImageReply) {
@@ -119,7 +141,7 @@ class ImageManager extends BaseTool
         }
     }
 
-    protected function resize(Filesystem $storage, string $path, ?int $width, ?int $height): string
+    protected function resize(Filesystem $storage, string $path, string $targetPath, ?int $width, ?int $height): string
     {
         if ($width === null && $height === null) {
             return 'At least one of "width" or "height" is required for resize.';
@@ -138,17 +160,17 @@ class ImageManager extends BaseTool
             }
 
             $image->quality(100)->save();
-            $this->fromTempFile($storage, $path, $tempPath);
+            $this->fromTempFile($storage, $targetPath, $tempPath);
 
             $image = Image::useImageDriver(ImageDriver::Gd)->loadFile($tempPath);
 
-            return "Resized {$path} to {$image->getWidth()}x{$image->getHeight()}.";
+            return "Resized to {$image->getWidth()}x{$image->getHeight()}, saved as {$targetPath}.";
         } finally {
             $this->cleanupTempFile($tempPath);
         }
     }
 
-    protected function crop(Filesystem $storage, string $path, ?int $width, ?int $height): string
+    protected function crop(Filesystem $storage, string $path, string $targetPath, ?int $width, ?int $height): string
     {
         if ($width === null || $height === null) {
             return 'Both "width" and "height" are required for crop.';
@@ -158,15 +180,15 @@ class ImageManager extends BaseTool
 
         try {
             Image::useImageDriver(ImageDriver::Gd)->loadFile($tempPath)->crop($width, $height)->quality(100)->save();
-            $this->fromTempFile($storage, $path, $tempPath);
+            $this->fromTempFile($storage, $targetPath, $tempPath);
 
-            return "Cropped {$path} to {$width}x{$height}.";
+            return "Cropped to {$width}x{$height}, saved as {$targetPath}.";
         } finally {
             $this->cleanupTempFile($tempPath);
         }
     }
 
-    protected function orient(Filesystem $storage, string $path, ?string $orientation): string
+    protected function orient(Filesystem $storage, string $path, string $targetPath, ?string $orientation): string
     {
         if ($orientation === null) {
             return 'The "orientation" parameter is required for orient.';
@@ -192,9 +214,9 @@ class ImageManager extends BaseTool
             };
 
             $image->quality(100)->save();
-            $this->fromTempFile($storage, $path, $tempPath);
+            $this->fromTempFile($storage, $targetPath, $tempPath);
 
-            return "Applied {$orientation} to {$path}.";
+            return "Applied {$orientation}, saved as {$targetPath}.";
         } finally {
             $this->cleanupTempFile($tempPath);
         }
@@ -226,7 +248,7 @@ class ImageManager extends BaseTool
         }
     }
 
-    protected function optimize(Filesystem $storage, string $path, ?int $quality): string
+    protected function optimize(Filesystem $storage, string $path, string $targetPath, ?int $quality): string
     {
         $tempPath = $this->toTempFile($storage, $path);
 
@@ -234,11 +256,11 @@ class ImageManager extends BaseTool
             $image = Image::useImageDriver(ImageDriver::Gd)->loadFile($tempPath);
 
             $image->quality($quality !== null ? max(1, min(100, $quality)) : 100)->save();
-            $this->fromTempFile($storage, $path, $tempPath);
+            $this->fromTempFile($storage, $targetPath, $tempPath);
 
-            $newSize = $storage->size($path);
+            $newSize = $storage->size($targetPath);
 
-            return "Optimized {$path}. New size: {$newSize} bytes.";
+            return "Optimized, saved as {$targetPath}. New size: {$newSize} bytes.";
         } finally {
             $this->cleanupTempFile($tempPath);
         }
