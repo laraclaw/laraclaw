@@ -52,7 +52,6 @@ return [
 
     'logging' => [
         'agent_requests' => env('LARACLAW_LOG_AGENT_REQUESTS', false),
-        'disk' => env('LARACLAW_LOG_DISK', 'local'),
     ],
 
     'calendar' => [
@@ -61,6 +60,7 @@ return [
         'google' => [
             'credentials_json' => env('LARACLAW_GOOGLE_CREDENTIALS_JSON', base_path('oauth-credentials.json')),
             'token_json' => env('LARACLAW_GOOGLE_TOKEN_JSON', base_path('oauth-token.json')),
+            'calendar_id' => env('LARACLAW_GOOGLE_CALENDAR_ID'),
         ],
 
         'apple' => [

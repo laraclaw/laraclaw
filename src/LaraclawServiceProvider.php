@@ -6,10 +6,13 @@ use LaraClaw\Calendar\AppleCalendarDriver;
 use LaraClaw\Calendar\Contracts\CalendarDriver;
 use LaraClaw\Calendar\GoogleCalendarDriver;
 use LaraClaw\Commands\CommandRegistry;
+use LaraClaw\Commands\GoogleCalendarAuth;
 use LaraClaw\Commands\NewConversation;
 use LaraClaw\Handlers\Email;
 use LaraClaw\Handlers\Telegram;
 use LaraClaw\Http\Middleware\VerifySlackSignature;
+use LaraClaw\Listeners\LogAgentRequest;
+use Laravel\Ai\Events\AgentPrompted;
 use DirectoryTree\ImapEngine\Laravel\Events\MessageReceived;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
@@ -48,6 +51,15 @@ class LaraclawServiceProvider extends ServiceProvider
             });
         }
 
+        if (config('laraclaw.calendar.driver') === 'google') {
+            config([
+                'google-calendar.default_auth_profile' => 'oauth',
+                'google-calendar.auth_profiles.oauth.credentials_json' => config('laraclaw.calendar.google.credentials_json'),
+                'google-calendar.auth_profiles.oauth.token_json' => config('laraclaw.calendar.google.token_json'),
+                'google-calendar.calendar_id' => config('laraclaw.calendar.google.calendar_id'),
+            ]);
+        }
+
         if (config('laraclaw.calendar.driver')) {
             $this->app->singleton(CalendarDriver::class, function () {
                 return match (config('laraclaw.calendar.driver')) {
@@ -78,6 +90,10 @@ class LaraclawServiceProvider extends ServiceProvider
         if (config('laraclaw.email.enabled')) {
             Event::listen(MessageReceived::class, Email::class);
         }
+
+        Event::listen(AgentPrompted::class, LogAgentRequest::class);
+
+        $this->commands([GoogleCalendarAuth::class]);
 
         if (config('laraclaw.calendar.driver') === 'google') {
             $this->app->extend(GoogleCalendar::class, function (GoogleCalendar $calendar) {

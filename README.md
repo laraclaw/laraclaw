@@ -106,6 +106,7 @@ composer require spatie/laravel-google-calendar
 LARACLAW_CALENDAR_DRIVER=google
 LARACLAW_GOOGLE_CREDENTIALS_JSON=/path/to/oauth-credentials.json
 LARACLAW_GOOGLE_TOKEN_JSON=/path/to/oauth-token.json
+LARACLAW_GOOGLE_CALENDAR_ID=example@gmail.com
 ```
 
 ### Apple Calendar (CalDAV)
