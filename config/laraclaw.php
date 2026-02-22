@@ -44,6 +44,24 @@ return [
     'email' => [
         'enabled' => env('LARACLAW_EMAIL_ENABLED', false),
         'mailbox' => env('LARACLAW_EMAIL_MAILBOX', 'default'),
+
+        'smtp' => [
+            'host' => env('LARACLAW_MAIL_HOST'),
+            'port' => env('LARACLAW_MAIL_PORT', 587),
+            'encryption' => env('LARACLAW_MAIL_ENCRYPTION', 'tls'),
+            'username' => env('LARACLAW_MAIL_USERNAME'),
+            'password' => env('LARACLAW_MAIL_PASSWORD'),
+            'from_address' => env('LARACLAW_MAIL_FROM_ADDRESS'),
+            'from_name' => env('LARACLAW_MAIL_FROM_NAME'),
+        ],
+
+        'imap' => [
+            'host' => env('LARACLAW_IMAP_HOST'),
+            'port' => env('LARACLAW_IMAP_PORT', 993),
+            'encryption' => env('LARACLAW_IMAP_ENCRYPTION', 'ssl'),
+            'username' => env('LARACLAW_IMAP_USERNAME'),
+            'password' => env('LARACLAW_IMAP_PASSWORD'),
+        ],
     ],
 
     'tts' => [

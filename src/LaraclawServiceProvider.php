@@ -28,6 +28,13 @@ class LaraclawServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(__DIR__.'/../config/laraclaw.php', 'laraclaw');
 
+        // Register a dedicated blocking Redis connection for confirm() blpop calls.
+        // read_write_timeout = -1 prevents Predis from timing out before blpop returns.
+        $this->app->booting(function () {
+            $default = config('database.redis.default', []);
+            config(['database.redis.laraclaw-blocking' => array_merge($default, ['read_write_timeout' => -1])]);
+        });
+
         $this->app->scoped(PendingAudioReply::class);
         $this->app->scoped(PendingImageReply::class);
 
@@ -50,6 +57,34 @@ class LaraclawServiceProvider extends ServiceProvider
             $this->app->resolving(\SergiX44\Nutgram\Nutgram::class, function (\SergiX44\Nutgram\Nutgram $bot) {
                 $bot->onMessage(Telegram::class);
             });
+        }
+
+        if (config('laraclaw.email.enabled')) {
+            $smtp = config('laraclaw.email.smtp');
+            if ($smtp['host']) {
+                config([
+                    'mail.default' => 'smtp',
+                    'mail.mailers.smtp.host' => $smtp['host'],
+                    'mail.mailers.smtp.port' => $smtp['port'],
+                    'mail.mailers.smtp.encryption' => $smtp['encryption'],
+                    'mail.mailers.smtp.username' => $smtp['username'],
+                    'mail.mailers.smtp.password' => $smtp['password'],
+                    'mail.from.address' => $smtp['from_address'],
+                    'mail.from.name' => $smtp['from_name'],
+                ]);
+            }
+
+            $imap = config('laraclaw.email.imap');
+            $mailbox = config('laraclaw.email.mailbox', 'default');
+            if ($imap['host']) {
+                config([
+                    "imap.mailboxes.{$mailbox}.host" => $imap['host'],
+                    "imap.mailboxes.{$mailbox}.port" => $imap['port'],
+                    "imap.mailboxes.{$mailbox}.encryption" => $imap['encryption'],
+                    "imap.mailboxes.{$mailbox}.username" => $imap['username'],
+                    "imap.mailboxes.{$mailbox}.password" => $imap['password'],
+                ]);
+            }
         }
 
         if (config('laraclaw.calendar.driver') === 'google') {
