@@ -6,6 +6,7 @@ use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Ai\Tools\Request;
+use LaraClaw\PendingFileReply;
 use Stringable;
 
 class Files extends BaseTool
@@ -18,7 +19,7 @@ class Files extends BaseTool
 
     protected function operations(): array
     {
-        return ['list', 'read', 'write', 'append', 'delete', 'move', 'copy', 'exists', 'mkdir', 'save_attachment'];
+        return ['list', 'read', 'write', 'append', 'delete', 'move', 'copy', 'exists', 'mkdir', 'save_attachment', 'attach_to_reply'];
     }
 
     public function description(): Stringable|string
@@ -221,6 +222,20 @@ class Files extends BaseTool
         return $actual !== $request['path']
             ? "'{$request['path']}' was taken, created '{$actual}'."
             : "Directory created: {$actual}.";
+    }
+
+    protected function attachToReply(Request $request): string
+    {
+        $storage = $this->storage($request);
+        $path = $request['path'];
+
+        if (! $storage->exists($path)) {
+            return "File not found: {$path}";
+        }
+
+        app(PendingFileReply::class)->push($request['disk'], $path);
+
+        return "'{$path}' will be attached to your reply.";
     }
 
     protected function saveAttachment(Request $request): string

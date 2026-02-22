@@ -37,6 +37,7 @@ class LaraclawServiceProvider extends ServiceProvider
 
         $this->app->scoped(PendingAudioReply::class);
         $this->app->scoped(PendingImageReply::class);
+        $this->app->scoped(PendingFileReply::class);
 
         $this->app->singleton(CommandRegistry::class, function () {
             $registry = new CommandRegistry;

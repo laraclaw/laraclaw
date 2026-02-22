@@ -19,6 +19,9 @@ use function LaraClaw\Support\stripHtml;
 
 class EmailChannel extends Channel
 {
+    /** @var array<int, array{disk: string, path: string}> */
+    private array $pendingAttachments = [];
+
     public function __construct(
         private string $senderEmail,
         private ?string $senderName,
@@ -101,12 +104,31 @@ class EmailChannel extends Channel
         return null;
     }
 
+    public function sendPhoto(string $disk, string $path): void
+    {
+        $this->pendingAttachments[] = ['disk' => $disk, 'path' => $path];
+    }
+
+    public function sendFiles(array $files): void
+    {
+        foreach ($files as $file) {
+            $this->pendingAttachments[] = $file;
+        }
+    }
+
     public function send(string $message): void
     {
         $mailable = new ChannelReply(
             body: (new CommonMarkConverter)->convert($message)->getContent(),
             inReplyTo: $this->messageId,
         );
+
+        foreach ($this->pendingAttachments as $file) {
+            $mailable->attach(
+                Storage::disk($file['disk'])->path($file['path']),
+                ['as' => basename($file['path'])],
+            );
+        }
 
         $mailable->to($this->senderEmail, $this->senderName)
             ->subject('Re: '.($this->subject ?? 'No Subject'));

@@ -5,6 +5,7 @@ namespace LaraClaw\Jobs;
 use LaraClaw\Agents\ChatBotAgent;
 use LaraClaw\Commands\CommandRegistry;
 use LaraClaw\PendingAudioReply;
+use LaraClaw\PendingFileReply;
 use LaraClaw\PendingImageReply;
 use LaraClaw\Calendar\Contracts\CalendarDriver;
 use LaraClaw\Channels\Channel;
@@ -133,6 +134,7 @@ class ProcessMessage implements ShouldQueue
 
             $audioReply = app(PendingAudioReply::class);
             $imageReply = app(PendingImageReply::class);
+            $fileReply = app(PendingFileReply::class);
 
             if ($audioReply->path) {
                 $this->channel->sendAudio($audioReply->path);
@@ -143,6 +145,10 @@ class ProcessMessage implements ShouldQueue
 
             if ($imageReply->path && $imageReply->disk) {
                 $this->channel->sendPhoto($imageReply->disk, $imageReply->path);
+            }
+
+            if (! empty($fileReply->files)) {
+                $this->channel->sendFiles($fileReply->files);
             }
 
             $this->channel->send($response);

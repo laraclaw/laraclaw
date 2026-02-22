@@ -47,6 +47,11 @@ abstract class Channel
         // No-op by default. Subclasses that support photo sending should override this.
     }
 
+    public function sendFiles(array $files): void
+    {
+        // No-op by default. Subclasses that support file attachments should override this.
+    }
+
     /**
      * Ask the user to confirm a dangerous action.
      *
