@@ -77,8 +77,10 @@ abstract class Channel
         // Prompt the user
         $this->send("⚠️ {$message} Reply 'Yes' to confirm.");
 
-        // Block until the handler pushes a reply or we time out
-        $reply = Redis::blpop($confirmKey, $timeout);
+        // Block until the handler pushes a reply or we time out.
+        // Use the laraclaw-blocking connection (read_write_timeout = -1) so Predis
+        // doesn't throw a TimeoutException before blpop returns naturally.
+        $reply = Redis::connection('laraclaw-blocking')->blpop($confirmKey, $timeout);
 
         // Clean up the awaiting flag
         Redis::del($awaitingKey);

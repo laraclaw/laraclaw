@@ -40,7 +40,10 @@ abstract class BaseTool implements Tool
             return null;
         }
 
-        $message = preg_replace_callback('/\{(\w+)\}/', fn ($m) => $request[$m[1]] ?? $m[0], $this->requiresConfirmation[$operation]);
+        $message = preg_replace_callback('/\{(\w+)\}/', function ($m) use ($request) {
+            $value = $request[$m[1]] ?? $m[0];
+            return is_array($value) ? implode(', ', $value) : $value;
+        }, $this->requiresConfirmation[$operation]);
 
         if (! $this->channel->confirm($message)) {
             return 'Cancelled by user.';

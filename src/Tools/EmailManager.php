@@ -20,10 +20,7 @@ class EmailManager extends BaseTool
 
     private const MAX_BODY = 50000;
 
-    protected array $requiresConfirmation = [
-        'send' => 'Send email to {to} with subject "{subject}"?',
-        'reply' => 'Send reply to message {uid}?',
-    ];
+    protected array $requiresConfirmation = [];
 
     public function __construct(
         protected Channel $channel,
@@ -66,6 +63,7 @@ class EmailManager extends BaseTool
         try {
             return parent::handle($request);
         } catch (Exception $e) {
+            \Illuminate\Support\Facades\Log::error('EmailManager error', ['exception' => $e]);
             return "Email operation failed: {$e->getMessage()}";
         }
     }

@@ -100,12 +100,9 @@ class Files extends BaseTool
         }
 
         $storage = $this->storage($request);
-        $actual = $this->uniqueFilePath($storage, $request['path']);
-        $storage->put($actual, $request['content']);
+        $storage->put($request['path'], $request['content']);
 
-        return $actual !== $request['path']
-            ? "'{$request['path']}' was taken, created '{$actual}'."
-            : "Written to {$actual}.";
+        return "Written to {$request['path']}.";
     }
 
     protected function append(Request $request): string
@@ -123,6 +120,11 @@ class Files extends BaseTool
     {
         $storage = $this->storage($request);
         $paths = ! empty($request['paths']) ? array_values($request['paths']) : [$request['path']];
+        $paths = array_filter($paths, fn ($p) => $p !== '' && $p !== null);
+
+        if (empty($paths)) {
+            return 'No paths provided for delete.';
+        }
 
         foreach ($paths as $p) {
             if (str_contains($p, '..')) {
