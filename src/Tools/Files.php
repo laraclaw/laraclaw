@@ -4,7 +4,9 @@ namespace LaraClaw\Tools;
 
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Laravel\Ai\Tools\Request;
 use LaraClaw\PendingFileReply;
 use Stringable;
@@ -19,7 +21,7 @@ class Files extends BaseTool
 
     protected function operations(): array
     {
-        return ['list', 'read', 'write', 'append', 'delete', 'move', 'copy', 'exists', 'mkdir', 'save_attachment', 'attach_to_reply'];
+        return ['list', 'read', 'write', 'append', 'delete', 'move', 'copy', 'exists', 'mkdir', 'save_attachment', 'attach_to_reply', 'download_url'];
     }
 
     public function description(): Stringable|string
@@ -39,6 +41,7 @@ class Files extends BaseTool
             'destination' => $schema->string()->description('Destination path for move/copy operations'),
             'content' => $schema->string()->description('Content for write/append operations'),
             'source' => $schema->string()->description('Source path on the attachments disk (for save_attachment)'),
+            'url' => $schema->string()->description('URL to download (for download_url)'),
         ];
     }
 
@@ -259,6 +262,39 @@ class Files extends BaseTool
         return $actual !== $request['path']
             ? "'{$request['path']}' was taken, saved attachment to '{$actual}'."
             : "Saved attachment to {$actual}.";
+    }
+
+    protected function downloadUrl(Request $request): string
+    {
+        $url = $request['url'] ?? null;
+
+        if (! $url) {
+            return 'The "url" parameter is required for the download_url operation.';
+        }
+
+        if (! filter_var($url, FILTER_VALIDATE_URL)) {
+            return "Invalid URL: {$url}";
+        }
+
+        $response = Http::timeout(30)->get($url);
+
+        if (! $response->successful()) {
+            return "Failed to download URL (HTTP {$response->status()}): {$url}";
+        }
+
+        $storage = $this->storage($request);
+        $path = $request['path'];
+
+        // If path looks like a directory (no extension), derive a filename from the URL
+        if (! pathinfo($path, PATHINFO_EXTENSION)) {
+            $urlFilename = pathinfo(parse_url($url, PHP_URL_PATH), PATHINFO_BASENAME) ?: Str::uuid();
+            $path = rtrim($path, '/').'/'.$urlFilename;
+        }
+
+        $actual = $this->uniqueFilePath($storage, $path);
+        $storage->put($actual, $response->body());
+
+        return "Downloaded to {$actual}.";
     }
 
     // Helpers ----------------------------------------
