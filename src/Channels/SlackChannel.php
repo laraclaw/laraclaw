@@ -72,7 +72,7 @@ class SlackChannel extends Channel
 
     public function identifier(): string
     {
-        return "slack:{$this->channelId}";
+        return "slack:{$this->channelId}:{$this->threadTs}";
     }
 
     public function acknowledge(): void
@@ -97,7 +97,7 @@ class SlackChannel extends Channel
     {
         $payload = [
             'channel' => $this->channelId,
-            'text' => $message,
+            'text' => $this->toMrkdwn($message),
         ];
 
         if ($this->threadTs) {
@@ -137,6 +137,28 @@ class SlackChannel extends Channel
         }
     }
 
+    private function toMrkdwn(string $text): string
+    {
+        // Bold: **text** or __text__ → *text*
+        $text = preg_replace('/\*\*(.+?)\*\*/s', '*$1*', $text);
+        $text = preg_replace('/__(.+?)__/s', '*$1*', $text);
+
+        // Italic: _text_ → _text_ (already correct), but *text* (single) → _text_
+        // Only convert single * that aren't already bold (bold was already processed)
+        $text = preg_replace('/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/s', '_$1_', $text);
+
+        // Strikethrough: ~~text~~ → ~text~
+        $text = preg_replace('/~~(.+?)~~/s', '~$1~', $text);
+
+        // Links: [text](url) → <url|text>
+        $text = preg_replace('/\[([^\]]+)\]\(([^)]+)\)/', '<$2|$1>', $text);
+
+        // Headings: ## Heading → *Heading*
+        $text = preg_replace('/^#{1,6}\s+(.+)$/m', '*$1*', $text);
+
+        return $text;
+    }
+
     private function uploadFile(string $filePath, string $fileName, ?string $title = null): bool
     {
         $token = config('laraclaw.slack.bot_token');
@@ -158,7 +180,7 @@ class SlackChannel extends Channel
         $fileId = $urlResponse->json('file_id');
 
         Http::attach('file', file_get_contents($filePath), $fileName)
-            ->put($uploadUrl);
+            ->post($uploadUrl);
 
         $completePayload = [
             'files' => [['id' => $fileId, 'title' => $title ?? $fileName]],

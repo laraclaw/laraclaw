@@ -32,8 +32,9 @@ class Slack
             return response()->json(['ok' => true]);
         }
 
-        // Filter out bot messages
-        if (isset($event['bot_id']) || isset($event['subtype'])) {
+        // Filter out bot messages and all subtypes except file_share
+        $subtype = $event['subtype'] ?? null;
+        if (isset($event['bot_id']) || ($subtype !== null && $subtype !== 'file_share')) {
             return response()->json(['ok' => true]);
         }
 
