@@ -118,11 +118,30 @@ class SlackChannel extends Channel
 
     public function sendAudio(string $filePath, ?string $caption = null): void
     {
+        if (! $this->uploadFile($filePath, basename($filePath), $caption)) {
+            $this->send($caption ?? 'Audio reply generated.');
+        }
+    }
+
+    public function sendPhoto(string $disk, string $path): void
+    {
+        $filePath = Storage::disk($disk)->path($path);
+        $this->uploadFile($filePath, basename($path));
+    }
+
+    public function sendFiles(array $files): void
+    {
+        foreach ($files as $file) {
+            $filePath = Storage::disk($file['disk'])->path($file['path']);
+            $this->uploadFile($filePath, basename($file['path']));
+        }
+    }
+
+    private function uploadFile(string $filePath, string $fileName, ?string $title = null): bool
+    {
         $token = config('laraclaw.slack.bot_token');
         $fileSize = filesize($filePath);
-        $fileName = basename($filePath);
 
-        // Step 1: Get upload URL
         $urlResponse = Http::withToken($token)
             ->get('https://slack.com/api/files.getUploadURLExternal', [
                 'filename' => $fileName,
@@ -131,21 +150,18 @@ class SlackChannel extends Channel
 
         if (! $urlResponse->successful() || ! $urlResponse->json('ok')) {
             Log::warning('Slack file upload URL failed', ['response' => $urlResponse->body()]);
-            $this->send($caption ?? 'Audio reply generated.');
 
-            return;
+            return false;
         }
 
         $uploadUrl = $urlResponse->json('upload_url');
         $fileId = $urlResponse->json('file_id');
 
-        // Step 2: Upload file content
         Http::attach('file', file_get_contents($filePath), $fileName)
             ->put($uploadUrl);
 
-        // Step 3: Complete upload
         $completePayload = [
-            'files' => [['id' => $fileId, 'title' => $caption ?? $fileName]],
+            'files' => [['id' => $fileId, 'title' => $title ?? $fileName]],
             'channel_id' => $this->channelId,
         ];
 
@@ -155,5 +171,7 @@ class SlackChannel extends Channel
 
         Http::withToken($token)
             ->post('https://slack.com/api/files.completeUploadExternal', $completePayload);
+
+        return true;
     }
 }
