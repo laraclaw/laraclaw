@@ -24,6 +24,7 @@ class EmailChannel extends Channel
         private ?string $senderName,
         private ?string $subject,
         private ?string $messageId,
+        private string $threadId,
         private int $uid,
         private string $mailbox,
         ?string $text = null,
@@ -50,6 +51,7 @@ class EmailChannel extends Channel
             senderName: $from?->name(),
             subject: $message->subject(),
             messageId: $message->messageId(),
+            threadId: self::resolveThreadId($message),
             uid: $message->uid(),
             mailbox: config('laraclaw.email.mailbox', 'default'),
             text: $message->text() ?? stripHtml($message->html()),
@@ -77,7 +79,26 @@ class EmailChannel extends Channel
 
     public function identifier(): string
     {
-        return "email:{$this->senderEmail}";
+        return "email:{$this->threadId}";
+    }
+
+    private static function resolveThreadId(MessageInterface $message): string
+    {
+        // References lists all Message-IDs oldest first — root is first entry
+        // In-Reply-To points to direct parent (single-reply chains)
+        return self::firstMessageId($message->header('References')?->getRawValue())
+            ?? self::firstMessageId($message->header('In-Reply-To')?->getRawValue())
+            ?? $message->messageId()
+            ?? Str::uuid()->toString();
+    }
+
+    private static function firstMessageId(?string $header): ?string
+    {
+        if ($header && preg_match('/<([^>]+)>/', $header, $m)) {
+            return $m[1];
+        }
+
+        return null;
     }
 
     public function send(string $message): void
