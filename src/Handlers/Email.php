@@ -6,6 +6,7 @@ use LaraClaw\Channels\EmailChannel;
 use LaraClaw\Jobs\ProcessMessage;
 use DirectoryTree\ImapEngine\Laravel\Events\MessageReceived;
 use Illuminate\Support\Facades\Redis;
+use Illuminate\Support\Str;
 
 class Email
 {
@@ -22,6 +23,18 @@ class Email
         $fromEmail = $message->from()?->email() ?? 'unknown';
 
         if ($fromEmail === $botEmail) {
+            return;
+        }
+
+        // Allow list — empty means block all
+        $allowList = config('laraclaw.email.allow_list', []);
+
+        if (empty($allowList) || ! in_array($fromEmail, $allowList)) {
+            return;
+        }
+
+        // Authentication check — reject unless both DKIM and SPF pass
+        if (config('laraclaw.email.require_auth') && ! $this->passesAuthCheck($message)) {
             return;
         }
 
@@ -44,5 +57,15 @@ class Email
         }
 
         ProcessMessage::dispatch($channel);
+    }
+
+    private function passesAuthCheck($message): bool
+    {
+        $authResults = $message->header('Authentication-Results')?->getRawValue() ?? '';
+
+        $dkimPass = Str::contains($authResults, 'dkim=pass', ignoreCase: true);
+        $spfPass = Str::contains($authResults, 'spf=pass', ignoreCase: true);
+
+        return $dkimPass && $spfPass;
     }
 }

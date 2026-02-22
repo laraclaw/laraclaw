@@ -45,6 +45,12 @@ return [
         'enabled' => env('LARACLAW_EMAIL_ENABLED', false),
         'mailbox' => env('LARACLAW_EMAIL_MAILBOX', 'default'),
 
+        // Comma-separated list of allowed sender addresses. Empty = block all.
+        'allow_list' => array_filter(explode(',', env('LARACLAW_EMAIL_ALLOW_LIST', ''))),
+
+        // Reject emails that fail DKIM or SPF authentication checks.
+        'require_auth' => env('LARACLAW_EMAIL_REQUIRE_AUTH', false),
+
         'smtp' => [
             'host' => env('LARACLAW_MAIL_HOST'),
             'port' => env('LARACLAW_MAIL_PORT', 587),
