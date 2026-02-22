@@ -106,12 +106,23 @@ class ImageManager extends BaseTool
         return $result;
     }
 
+    private function driver(): ImageDriver
+    {
+        $driver = config('laraclaw.tools.image_driver', 'imagick');
+        $imageDriver = match ($driver) {
+            'gd' => ImageDriver::Gd,
+            default => ImageDriver::Imagick,
+        };
+
+        return $imageDriver;
+    }
+
     protected function info(Filesystem $storage, string $path): string
     {
         $tempPath = $this->toTempFile($storage, $path);
 
         try {
-            $image = Image::useImageDriver(ImageDriver::Gd)->loadFile($tempPath);
+            $image = Image::useImageDriver($this->driver())->loadFile($tempPath);
 
             return json_encode([
                 'width' => $image->getWidth(),
@@ -150,7 +161,7 @@ class ImageManager extends BaseTool
         $tempPath = $this->toTempFile($storage, $path);
 
         try {
-            $image = Image::useImageDriver(ImageDriver::Gd)->loadFile($tempPath);
+            $image = Image::useImageDriver($this->driver())->loadFile($tempPath);
 
             if ($width !== null) {
                 $image->width($width);
@@ -162,7 +173,7 @@ class ImageManager extends BaseTool
             $image->quality(100)->save();
             $this->fromTempFile($storage, $targetPath, $tempPath);
 
-            $image = Image::useImageDriver(ImageDriver::Gd)->loadFile($tempPath);
+            $image = Image::useImageDriver($this->driver())->loadFile($tempPath);
 
             return "Resized to {$image->getWidth()}x{$image->getHeight()}, saved as {$targetPath}.";
         } finally {
@@ -179,7 +190,7 @@ class ImageManager extends BaseTool
         $tempPath = $this->toTempFile($storage, $path);
 
         try {
-            Image::useImageDriver(ImageDriver::Gd)->loadFile($tempPath)->crop($width, $height)->quality(100)->save();
+            Image::useImageDriver($this->driver())->loadFile($tempPath)->crop($width, $height)->quality(100)->save();
             $this->fromTempFile($storage, $targetPath, $tempPath);
 
             return "Cropped to {$width}x{$height}, saved as {$targetPath}.";
@@ -203,7 +214,7 @@ class ImageManager extends BaseTool
         $tempPath = $this->toTempFile($storage, $path);
 
         try {
-            $image = Image::useImageDriver(ImageDriver::Gd)->loadFile($tempPath);
+            $image = Image::useImageDriver($this->driver())->loadFile($tempPath);
 
             match ($orientation) {
                 'rotate_90' => $image->orientation(Orientation::Rotate90),
@@ -237,7 +248,7 @@ class ImageManager extends BaseTool
         $tempOut = $tempPath.'.'.$format;
 
         try {
-            Image::useImageDriver(ImageDriver::Gd)->loadFile($tempPath)->format($format)->quality(100)->save($tempOut);
+            Image::useImageDriver($this->driver())->loadFile($tempPath)->format($format)->quality(100)->save($tempOut);
 
             $storage->put($newPath, file_get_contents($tempOut));
 
@@ -253,7 +264,7 @@ class ImageManager extends BaseTool
         $tempPath = $this->toTempFile($storage, $path);
 
         try {
-            $image = Image::useImageDriver(ImageDriver::Gd)->loadFile($tempPath);
+            $image = Image::useImageDriver($this->driver())->loadFile($tempPath);
 
             $image->quality($quality !== null ? max(1, min(100, $quality)) : 100)->save();
             $this->fromTempFile($storage, $targetPath, $tempPath);

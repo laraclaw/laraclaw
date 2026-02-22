@@ -29,6 +29,7 @@ return [
     'tools' => [
         'allowed_disks' => ['local'],
         'system_directories' => [],
+        'image_driver' => env('LARACLAW_IMAGE_DRIVER', 'imagick'), // 'imagick' or 'gd'
     ],
 
     'persona' => [
