@@ -6,11 +6,14 @@ use LaraClaw\Channels\DTOs\Attachment;
 use LaraClaw\Channels\DTOs\AttachmentType;
 use LaraClaw\Mail\ChannelReply;
 use DirectoryTree\ImapEngine\Attachment as ImapAttachment;
+use DirectoryTree\ImapEngine\Enums\ImapFlag;
+use DirectoryTree\ImapEngine\Laravel\Facades\Imap;
 use DirectoryTree\ImapEngine\MessageInterface;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use League\CommonMark\CommonMarkConverter;
 
 use function LaraClaw\Support\stripHtml;
 
@@ -21,6 +24,8 @@ class EmailChannel extends Channel
         private ?string $senderName,
         private ?string $subject,
         private ?string $messageId,
+        private int $uid,
+        private string $mailbox,
         ?string $text = null,
         ?Collection $attachments = null,
     ) {
@@ -45,6 +50,8 @@ class EmailChannel extends Channel
             senderName: $from?->name(),
             subject: $message->subject(),
             messageId: $message->messageId(),
+            uid: $message->uid(),
+            mailbox: config('laraclaw.email.mailbox', 'default'),
             text: $message->text() ?? stripHtml($message->html()),
             attachments: $attachments,
         );
@@ -76,7 +83,7 @@ class EmailChannel extends Channel
     public function send(string $message): void
     {
         $mailable = new ChannelReply(
-            body: $message,
+            body: (new CommonMarkConverter)->convert($message)->getContent(),
             inReplyTo: $this->messageId,
         );
 
@@ -84,12 +91,14 @@ class EmailChannel extends Channel
             ->subject('Re: '.($this->subject ?? 'No Subject'));
 
         Mail::send($mailable);
+
+        $this->markSeen();
     }
 
     public function sendAudio(string $filePath, ?string $caption = null): void
     {
         $mailable = new ChannelReply(
-            body: $caption ?? '',
+            body: $caption ? (new CommonMarkConverter)->convert($caption)->getContent() : '',
             inReplyTo: $this->messageId,
         );
 
@@ -98,5 +107,16 @@ class EmailChannel extends Channel
             ->attach($filePath, ['as' => 'voice.mp3', 'mime' => 'audio/mpeg']);
 
         Mail::send($mailable);
+
+        $this->markSeen();
+    }
+
+    private function markSeen(): void
+    {
+        Imap::mailbox($this->mailbox)
+            ->inbox()
+            ->messages()
+            ->find($this->uid)
+            ?->flag(ImapFlag::Seen, '+');
     }
 }
