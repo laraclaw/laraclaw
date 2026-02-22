@@ -19,13 +19,13 @@ class Email
 
         // Prevent loops — ignore emails from ourselves
         $botEmail = config('imap.mailboxes.'.config('laraclaw.email.mailbox', 'default').'.username');
+        $fromEmail = $message->from()?->email() ?? 'unknown';
 
-        if ($message->from()?->email() === $botEmail) {
+        if ($fromEmail === $botEmail) {
             return;
         }
 
-        $senderEmail = $message->from()?->email() ?? 'unknown';
-        $identifier = "email:{$senderEmail}";
+        $identifier = "email:{$fromEmail}";
 
         // If a tool is waiting for confirmation, push the reply and return early
         if (Redis::exists("awaiting_confirm:{$identifier}")) {

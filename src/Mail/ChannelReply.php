@@ -15,14 +15,18 @@ class ChannelReply extends Mailable
 
     public function envelope(): Envelope
     {
-        $headers = [];
-
-        if ($this->inReplyTo) {
-            $headers['In-Reply-To'] = $this->inReplyTo;
-            $headers['References'] = $this->inReplyTo;
+        if (! $this->inReplyTo) {
+            return new Envelope();
         }
 
-        return new Envelope(headers: $headers ? new \Illuminate\Mail\Mailables\Headers(text: $headers) : null);
+        $inReplyTo = $this->inReplyTo;
+
+        return new Envelope(
+            using: [function (\Symfony\Component\Mime\Email $email) use ($inReplyTo) {
+                $email->getHeaders()->addTextHeader('In-Reply-To', $inReplyTo);
+                $email->getHeaders()->addTextHeader('References', $inReplyTo);
+            }]
+        );
     }
 
     public function content(): Content
