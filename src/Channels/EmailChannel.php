@@ -85,6 +85,11 @@ class EmailChannel extends Channel
         return "email:{$this->threadId}";
     }
 
+    public function userIdentifier(): string
+    {
+        return "email:{$this->senderEmail}";
+    }
+
     private static function resolveThreadId(MessageInterface $message): string
     {
         // References lists all Message-IDs oldest first — root is first entry

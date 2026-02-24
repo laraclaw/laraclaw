@@ -10,6 +10,7 @@ use LaraClaw\PendingImageReply;
 use LaraClaw\Calendar\Contracts\CalendarDriver;
 use LaraClaw\Channels\Channel;
 use LaraClaw\Channels\DTOs\AttachmentType;
+use LaraClaw\Models\UserChannel;
 use LaraClaw\Tables;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -87,14 +88,30 @@ class ProcessMessage implements ShouldQueue
                 $text .= "\n\n[Attached files: ".json_encode($attachmentMeta).']';
             }
 
-            // Resolve or create a user for this conversation
-            $identifier = $this->channel->identifier();
-            $email = str_replace(':', '-', $identifier).'@bot.local';
-            $userModel = config('laraclaw.user_model');
-            $user = $userModel::firstOrCreate(
-                ['email' => $email],
-                ['name' => $identifier, 'password' => bcrypt(Str::random())],
-            );
+            // Resolve user for this conversation
+            if ($this->channel->autoCreatesUser()) {
+                $id = $this->channel->identifier();
+                $email = str_replace(':', '-', $id).'@bot.local';
+                $userModel = config('laraclaw.user_model');
+                $user = $userModel::firstOrCreate(
+                    ['email' => $email],
+                    ['name' => $id, 'password' => bcrypt(Str::random())],
+                );
+            } else {
+                $userIdentifier = $this->channel->userIdentifier();
+                $userChannel = $userIdentifier
+                    ? UserChannel::where('identifier', $userIdentifier)->with('user')->first()
+                    : null;
+
+                if (! $userChannel) {
+                    Log::info('LaraClaw: message from unregistered channel ignored', [
+                        'identifier' => $userIdentifier,
+                    ]);
+                    return;
+                }
+
+                $user = $userChannel->user;
+            }
 
             // Check for commands before running the agent
             $command = app(CommandRegistry::class)->match($text);

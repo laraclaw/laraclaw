@@ -95,6 +95,11 @@ class TelegramChannel extends Channel
         return "telegram:{$this->chatId}";
     }
 
+    public function userIdentifier(): string
+    {
+        return $this->identifier();
+    }
+
     public function acknowledge(): void
     {
         try {

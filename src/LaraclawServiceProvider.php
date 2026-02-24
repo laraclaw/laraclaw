@@ -8,6 +8,7 @@ use LaraClaw\Calendar\GoogleCalendarDriver;
 use LaraClaw\Commands\CommandRegistry;
 use LaraClaw\Commands\GoogleCalendarAuth;
 use LaraClaw\Commands\NewConversation;
+use LaraClaw\Console\Commands\ChannelAddCommand;
 use LaraClaw\Handlers\Email;
 use LaraClaw\Handlers\Telegram;
 use LaraClaw\Http\Middleware\VerifySlackSignature;
@@ -116,12 +117,14 @@ class LaraclawServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->loadRoutesFrom(__DIR__.'/../routes/laraclaw.php');
+        $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
 
         $this->app['router']->aliasMiddleware('slack.signature', VerifySlackSignature::class);
 
         $this->publishes([
             __DIR__.'/../config/laraclaw.php' => config_path('laraclaw.php'),
-        ], 'laraclaw-config');
+            __DIR__.'/../database/migrations' => database_path('migrations'),
+        ], 'laraclaw');
 
 
         if (config('laraclaw.email.enabled')) {
@@ -130,7 +133,7 @@ class LaraclawServiceProvider extends ServiceProvider
 
         Event::listen(AgentPrompted::class, LogAgentRequest::class);
 
-        $this->commands([GoogleCalendarAuth::class]);
+        $this->commands([GoogleCalendarAuth::class, ChannelAddCommand::class]);
 
         if (config('laraclaw.calendar.driver') === 'google') {
             $this->app->extend(GoogleCalendar::class, function (GoogleCalendar $calendar) {

@@ -16,6 +16,7 @@ class SlackChannel extends Channel
         private string $channelId,
         private ?string $threadTs = null,
         private ?string $messageTs = null,
+        private ?string $userId = null,
         ?string $text = null,
         ?Collection $attachments = null,
     ) {
@@ -65,6 +66,7 @@ class SlackChannel extends Channel
             channelId: $event['channel'],
             threadTs: $event['thread_ts'] ?? $event['ts'] ?? null,
             messageTs: $event['ts'] ?? null,
+            userId: $event['user'] ?? null,
             text: $event['text'] ?? null,
             attachments: $attachments,
         );
@@ -73,6 +75,11 @@ class SlackChannel extends Channel
     public function identifier(): string
     {
         return "slack:{$this->channelId}:{$this->threadTs}";
+    }
+
+    public function userIdentifier(): ?string
+    {
+        return $this->userId ? "slack:{$this->userId}" : null;
     }
 
     public function acknowledge(): void
