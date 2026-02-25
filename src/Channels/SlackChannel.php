@@ -74,7 +74,14 @@ class SlackChannel extends Channel
 
     public function identifier(): string
     {
-        return "slack:{$this->channelId}:{$this->threadTs}";
+        return $this->isDm()
+            ? "slack:{$this->userId}"
+            : "slack:{$this->channelId}:{$this->threadTs}";
+    }
+
+    private function isDm(): bool
+    {
+        return str_starts_with($this->channelId, 'D');
     }
 
     public function userIdentifier(): ?string
@@ -107,15 +114,15 @@ class SlackChannel extends Channel
             'text' => $this->toMrkdwn($message),
         ];
 
-        if ($this->threadTs) {
+        if (! $this->isDm() && $this->threadTs) {
             $payload['thread_ts'] = $this->threadTs;
         }
 
         $response = Http::withToken(config('laraclaw.slack.bot_token'))
             ->post('https://slack.com/api/chat.postMessage', $payload);
 
-        // If this is the first reply, capture the thread_ts for subsequent messages
-        if (! $this->threadTs && $response->successful()) {
+        // If this is the first reply in a group thread, capture the thread_ts for subsequent messages
+        if (! $this->isDm() && ! $this->threadTs && $response->successful()) {
             $data = $response->json();
             if ($data['ok'] && isset($data['ts'])) {
                 $this->threadTs = $data['ts'];
