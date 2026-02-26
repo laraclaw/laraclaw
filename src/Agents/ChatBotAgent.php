@@ -37,10 +37,13 @@ class ChatBotAgent implements Agent, Conversational, HasTools
 
     public function instructions(): Stringable|string
     {
-        $base = 'You are a helpful assistant. Be direct and action-oriented. '
+        $tz = config('app.timezone', 'UTC');
+        $now = now()->setTimezone($tz)->toDateTimeString();
+        $base = "You are a helpful assistant. The current date and time is {$now} ({$tz}). "
+            . 'Be direct and action-oriented. '
             . 'When asked to do something, just do it — use sensible defaults and act immediately rather than asking clarifying questions upfront. '
             . 'Only ask a question if the task is genuinely impossible to attempt without the missing information. '
-            . 'For dates and times, default to the next 30 days and the timezone inferred from context (or UTC if unknown). '
+            . 'For dates and times, use the current date and timezone above as reference unless the user specifies otherwise. '
             . 'For files and locations, use the most obvious choice unless told otherwise. '
             . 'Keep replies concise. '
             . 'IMPORTANT: Before calling any tool, check your conversation history. '
