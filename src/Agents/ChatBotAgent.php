@@ -18,19 +18,12 @@ use Laravel\Ai\Ai;
 use Laravel\Ai\Contracts\Providers\SupportsWebSearch;
 use Laravel\Ai\Providers\Tools\WebSearch;
 use LaraClaw\Channels\Channel;
-use LaraClaw\Tables;
-use Illuminate\Support\Facades\DB;
 use Laravel\Ai\Concerns\RemembersConversations;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\Conversational;
 use Laravel\Ai\Contracts\HasTools;
 use Laravel\Ai\Contracts\Tool;
-use Laravel\Ai\Messages\AssistantMessage;
-use Laravel\Ai\Messages\Message;
-use Laravel\Ai\Messages\ToolResultMessage;
 use Laravel\Ai\Promptable;
-use Laravel\Ai\Responses\Data\ToolCall;
-use Laravel\Ai\Responses\Data\ToolResult;
 use Stringable;
 
 class ChatBotAgent implements Agent, Conversational, HasTools
@@ -104,60 +97,4 @@ class ChatBotAgent implements Agent, Conversational, HasTools
         return $tools;
     }
 
-    /**
-     * Override RemembersConversations to properly hydrate tool calls/results.
-     */
-    public function messages(): iterable
-    {
-        if (! $this->conversationId) {
-            return [];
-        }
-
-        return DB::table(Tables::MESSAGES)
-            ->where('conversation_id', $this->conversationId)
-            ->orderByDesc('id')
-            ->limit(100)
-            ->get()
-            ->reverse()
-            ->values()
-            ->flatMap(function ($m) {
-                $toolCalls = collect(json_decode($m->tool_calls, true));
-                $toolResults = collect(json_decode($m->tool_results, true));
-
-                if ($m->role === 'user') {
-                    return [new Message('user', $m->content)];
-                }
-
-                if ($toolCalls->isNotEmpty()) {
-                    $messages = [];
-
-                    $messages[] = new AssistantMessage(
-                        $m->content ?: '',
-                        $toolCalls->map(fn ($tc) => new ToolCall(
-                            id: $tc['id'],
-                            name: $tc['name'],
-                            arguments: $tc['arguments'],
-                            resultId: $tc['result_id'] ?? null,
-                        ))
-                    );
-
-                    if ($toolResults->isNotEmpty()) {
-                        $messages[] = new ToolResultMessage(
-                            $toolResults->map(fn ($tr) => new ToolResult(
-                                id: $tr['id'],
-                                name: $tr['name'],
-                                arguments: $tr['arguments'],
-                                result: $tr['result'],
-                                resultId: $tr['result_id'] ?? null,
-                            ))
-                        );
-                    }
-
-                    return $messages;
-                }
-
-                return [new AssistantMessage($m->content)];
-            })
-            ->all();
-    }
 }

@@ -52,14 +52,14 @@ abstract class Channel
         // No-op by default. Subclasses that support file attachments should override this.
     }
 
-    public function autoCreatesUser(): bool
-    {
-        return false;
-    }
-
     public function userIdentifier(): ?string
     {
         return null;
+    }
+
+    public function shouldRespond(): bool
+    {
+        return true;
     }
 
     /**

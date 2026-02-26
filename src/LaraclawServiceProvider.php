@@ -98,20 +98,19 @@ class LaraclawServiceProvider extends ServiceProvider
             ]);
         }
 
-        if (config('laraclaw.calendar.driver')) {
-            $this->app->singleton(CalendarDriver::class, function () {
-                return match (config('laraclaw.calendar.driver')) {
-                    'google' => new GoogleCalendarDriver,
-                    'apple' => new AppleCalendarDriver(
-                        server: config('laraclaw.calendar.apple.server'),
-                        username: config('laraclaw.calendar.apple.username'),
-                        password: config('laraclaw.calendar.apple.password'),
-                        calendar: config('laraclaw.calendar.apple.calendar'),
-                    ),
-                    default => throw new RuntimeException('Unknown calendar driver: '.config('laraclaw.calendar.driver')),
-                };
-            });
-        }
+        $this->app->singleton(CalendarDriver::class, function () {
+            return match (config('laraclaw.calendar.driver')) {
+                'google' => new GoogleCalendarDriver,
+                'apple' => new AppleCalendarDriver(
+                    server: config('laraclaw.calendar.apple.server'),
+                    username: config('laraclaw.calendar.apple.username'),
+                    password: config('laraclaw.calendar.apple.password'),
+                    calendar: config('laraclaw.calendar.apple.calendar'),
+                ),
+                null => null,
+                default => throw new RuntimeException('Unknown calendar driver: '.config('laraclaw.calendar.driver')),
+            };
+        });
     }
 
     public function boot(): void

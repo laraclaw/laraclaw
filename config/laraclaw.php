@@ -10,6 +10,8 @@ return [
      */
     'user_model' => env('LARACLAW_USER_MODEL', \App\Models\User::class),
 
+    'owner' => env('LARACLAW_OWNER_ID'),
+
     'telegram' => [
         'enabled' => env('LARACLAW_TELEGRAM_ENABLED', true),
         'token' => env('LARACLAW_TELEGRAM_TOKEN'),
@@ -19,6 +21,7 @@ return [
         'enabled' => env('LARACLAW_SLACK_ENABLED', true),
         'bot_token' => env('LARACLAW_SLACK_BOT_TOKEN'),
         'signing_secret' => env('LARACLAW_SLACK_SIGNING_SECRET'),
+        'bot_user_id' => env('LARACLAW_SLACK_BOT_USER_ID'),
     ],
 
     'attachments' => [

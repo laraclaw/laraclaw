@@ -170,6 +170,31 @@ description: Summarises a given text
 Summarise the following text in 3 bullet points...
 ```
 
+## Channel Routing
+
+LaraClaw has a single owner — the user registered via `LARACLAW_OWNER_ID`. All channels route messages through that user.
+
+| Channel | Who can message | Threading | Conversation scope |
+|---|---|---|---|
+| Telegram DM | Owner only (others ignored) | — | Per user |
+| Telegram group | Anyone | — | Per group |
+| Slack DM | Owner only (others ignored) | No | Per user |
+| Slack channel | Anyone (when @mentioned) | Always threads | Per thread |
+| Terminal | Owner | — | Per session |
+
+**DM channels** (Telegram DM, Slack DM) look up the sender in the `user_channels` table. If the sender isn't registered as the owner, the message is silently ignored.
+
+**Group/open channels** (Telegram groups, Slack channels, Terminal) always respond using the owner user. This is required because conversation memory in `laravel/ai` is tied to an authenticated user — there is no guest conversation support.
+
+### Registering the owner
+
+After running migrations, register the owner's channel identifiers:
+
+```bash
+php artisan laraclaw:channel-add {userId} telegram {telegramChatId}
+php artisan laraclaw:channel-add {userId} slack {slackUserId}
+```
+
 ## Queue
 
 Messages are processed via Laravel's queue. Make sure a worker is running:
@@ -264,9 +289,12 @@ Under **Event Subscriptions**:
 LARACLAW_SLACK_ENABLED=true
 LARACLAW_SLACK_BOT_TOKEN=xoxb-your-bot-token
 LARACLAW_SLACK_SIGNING_SECRET=your-signing-secret
+LARACLAW_SLACK_BOT_USER_ID=U0123456789
 ```
 
 The signing secret is under **Basic Information** → **App Credentials**.
+
+The bot user ID is found under **App Home** → **Your App's Presence in Slack**, or by calling `https://slack.com/api/auth.test` with your bot token — it's the `user_id` field in the response.
 
 #### 6. Invite the bot to a channel
 
@@ -276,7 +304,7 @@ In Slack, open the channel you want the bot in and run:
 /invite @your-bot-name
 ```
 
-Then send it a message.
+In channels, the bot only responds when @mentioned. In DMs, it responds to every message (owner only).
 
 ---
 

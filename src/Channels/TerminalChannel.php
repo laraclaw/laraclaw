@@ -13,11 +13,6 @@ class TerminalChannel extends Channel
         return 'terminal:' . getmypid();
     }
 
-    public function autoCreatesUser(): bool
-    {
-        return true;
-    }
-
     public function send(string $message): void
     {
         $this->command->info($message);

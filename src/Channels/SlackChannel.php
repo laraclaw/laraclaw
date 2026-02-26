@@ -86,7 +86,18 @@ class SlackChannel extends Channel
 
     public function userIdentifier(): ?string
     {
-        return $this->userId ? "slack:{$this->userId}" : null;
+        return $this->isDm() ? "slack:{$this->userId}" : null;
+    }
+
+    public function shouldRespond(): bool
+    {
+        if ($this->isDm()) {
+            return true;
+        }
+
+        $botUserId = config('laraclaw.slack.bot_user_id');
+
+        return $botUserId && str_contains($this->messageText ?? '', "<@{$botUserId}>");
     }
 
     public function acknowledge(): void

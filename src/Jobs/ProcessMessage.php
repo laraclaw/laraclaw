@@ -10,6 +10,7 @@ use LaraClaw\PendingImageReply;
 use LaraClaw\Calendar\Contracts\CalendarDriver;
 use LaraClaw\Channels\Channel;
 use LaraClaw\Channels\DTOs\AttachmentType;
+use LaraClaw\Models\ChannelConversation;
 use LaraClaw\Models\UserChannel;
 use LaraClaw\Tables;
 use Illuminate\Bus\Queueable;
@@ -20,7 +21,7 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
+use Laravel\Ai\Contracts\ConversationStore;
 use Laravel\Ai\Files\Document;
 use Laravel\Ai\Files\Image;
 use Laravel\Ai\Transcription;
@@ -51,8 +52,12 @@ class ProcessMessage implements ShouldQueue
         }
     }
 
-    public function handle(): void
+    public function handle(ConversationStore $conversations, ?CalendarDriver $calendarDriver = null): void
     {
+        if (! $this->channel->shouldRespond()) {
+            return;
+        }
+
         $this->channel->acknowledge();
 
         try {
@@ -88,20 +93,12 @@ class ProcessMessage implements ShouldQueue
                 $text .= "\n\n[Attached files: ".json_encode($attachmentMeta).']';
             }
 
-            // Resolve user for this conversation
-            if ($this->channel->autoCreatesUser()) {
-                $id = $this->channel->identifier();
-                $email = str_replace(':', '-', $id).'@bot.local';
-                $userModel = config('laraclaw.user_model');
-                $user = $userModel::firstOrCreate(
-                    ['email' => $email],
-                    ['name' => $id, 'password' => bcrypt(Str::random())],
-                );
-            } else {
-                $userIdentifier = $this->channel->userIdentifier();
-                $userChannel = $userIdentifier
-                    ? UserChannel::where('identifier', $userIdentifier)->with('user')->first()
-                    : null;
+            // Resolve user and conversation
+            $userIdentifier = $this->channel->userIdentifier();
+
+            if ($userIdentifier !== null) {
+                // DM: must be the registered owner
+                $userChannel = UserChannel::where('identifier', $userIdentifier)->with('user')->first();
 
                 if (! $userChannel) {
                     Log::info('LaraClaw: message from unregistered channel ignored', [
@@ -111,6 +108,32 @@ class ProcessMessage implements ShouldQueue
                 }
 
                 $user = $userChannel->user;
+
+                $startFresh = Cache::pull("new_conversation:{$user->getAuthIdentifier()}");
+                $conversationId = $startFresh ? null : DB::table(Tables::CONVERSATIONS)
+                    ->where('user_id', $user->getAuthIdentifier())
+                    ->orderByDesc('updated_at')
+                    ->value('id');
+            } else {
+                // Group/open channel: use the owner user, keyed conversation per channel
+                $userModel = config('laraclaw.user_model');
+                $user = $userModel::find(config('laraclaw.owner'));
+
+                if (! $user) {
+                    Log::warning('LaraClaw: no owner user configured (LARACLAW_OWNER_ID)');
+                    return;
+                }
+
+                $channelKey = $this->channel->identifier();
+                $channelConversation = ChannelConversation::firstWhere('identifier', $channelKey)
+                    ?? ChannelConversation::create([
+                        'identifier' => $channelKey,
+                        'conversation_id' => $conversations->storeConversation(
+                            $user->getAuthIdentifier(),
+                            $channelKey,
+                        ),
+                    ]);
+                $conversationId = $channelConversation->conversation_id;
             }
 
             // Check for commands before running the agent
@@ -126,19 +149,9 @@ class ProcessMessage implements ShouldQueue
                 return;
             }
 
-            // Look up existing conversation (skip if reset via !new)
-            $startFresh = Cache::pull("new_conversation:{$user->getAuthIdentifier()}");
-
-            $conversation = $startFresh ? null : DB::table(Tables::CONVERSATIONS)
-                ->where('user_id', $user->getAuthIdentifier())
-                ->orderByDesc('updated_at')
-                ->first(['id']);
-
-            $conversationId = $conversation?->id;
-
             $agent = new ChatBotAgent(
                 channel: $this->channel,
-                calendarDriver: app()->bound(CalendarDriver::class) ? app(CalendarDriver::class) : null,
+                calendarDriver: $calendarDriver,
             );
 
             if ($conversationId) {
