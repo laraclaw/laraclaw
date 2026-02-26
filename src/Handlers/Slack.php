@@ -62,6 +62,10 @@ class Slack
             return response()->json(['ok' => true]);
         }
 
+        if (! $channel->shouldRespond()) {
+            return response()->json(['ok' => true]);
+        }
+
         ProcessMessage::dispatch($channel);
 
         return response()->json(['ok' => true]);

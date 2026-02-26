@@ -12,14 +12,13 @@ use LaraClaw\Channels\Channel;
 use LaraClaw\Channels\DTOs\AttachmentType;
 use LaraClaw\Models\ChannelConversation;
 use LaraClaw\Models\UserChannel;
-use LaraClaw\Tables;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Laravel\Ai\Contracts\ConversationStore;
 use Laravel\Ai\Files\Document;
@@ -54,10 +53,6 @@ class ProcessMessage implements ShouldQueue
 
     public function handle(ConversationStore $conversations, ?CalendarDriver $calendarDriver = null): void
     {
-        if (! $this->channel->shouldRespond()) {
-            return;
-        }
-
         $this->channel->acknowledge();
 
         try {
@@ -110,10 +105,7 @@ class ProcessMessage implements ShouldQueue
                 $user = $userChannel->user;
 
                 $startFresh = Cache::pull("new_conversation:{$user->getAuthIdentifier()}");
-                $conversationId = $startFresh ? null : DB::table(Tables::CONVERSATIONS)
-                    ->where('user_id', $user->getAuthIdentifier())
-                    ->orderByDesc('updated_at')
-                    ->value('id');
+                $conversationId = $startFresh ? null : $conversations->latestConversationId($user->getAuthIdentifier());
             } else {
                 // Group/open channel: use the owner user, keyed conversation per channel
                 $userModel = config('laraclaw.user_model');
@@ -124,15 +116,23 @@ class ProcessMessage implements ShouldQueue
                     return;
                 }
 
+                // Group conversations are never reset via !new — that's per-user and doesn't
+                // apply to a shared channel conversation.
                 $channelKey = $this->channel->identifier();
-                $channelConversation = ChannelConversation::firstWhere('identifier', $channelKey)
-                    ?? ChannelConversation::create([
-                        'identifier' => $channelKey,
-                        'conversation_id' => $conversations->storeConversation(
-                            $user->getAuthIdentifier(),
-                            $channelKey,
-                        ),
-                    ]);
+
+                try {
+                    $channelConversation = ChannelConversation::firstWhere('identifier', $channelKey)
+                        ?? ChannelConversation::create([
+                            'identifier' => $channelKey,
+                            'conversation_id' => $conversations->storeConversation(
+                                $user->getAuthIdentifier(),
+                                $channelKey,
+                            ),
+                        ]);
+                } catch (UniqueConstraintViolationException) {
+                    $channelConversation = ChannelConversation::firstWhere('identifier', $channelKey);
+                }
+
                 $conversationId = $channelConversation->conversation_id;
             }
 

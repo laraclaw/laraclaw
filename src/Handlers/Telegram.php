@@ -34,6 +34,10 @@ class Telegram
             return;
         }
 
+        if (! $channel->shouldRespond()) {
+            return;
+        }
+
         ProcessMessage::dispatch($channel);
     }
 }
