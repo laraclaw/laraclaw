@@ -29,18 +29,19 @@ class ChannelAddCommand extends Command
             return self::FAILURE;
         }
 
+        $fullIdentifier = "{$channel}:{$identifier}";
+
         try {
             UserChannel::create([
                 'user_id' => $user->getAuthIdentifier(),
-                'channel' => $channel,
-                'identifier' => $identifier,
+                'identifier' => $fullIdentifier,
             ]);
         } catch (UniqueConstraintViolationException) {
-            $this->error("Channel pair already exists: {$channel}:{$identifier}");
+            $this->error("Identifier already registered: {$fullIdentifier}");
             return self::FAILURE;
         }
 
-        $this->info("Linked {$channel}:{$identifier} → user #{$user->getAuthIdentifier()} ({$user->email})");
+        $this->info("Linked {$fullIdentifier} → user #{$user->getAuthIdentifier()} ({$user->email})");
 
         return self::SUCCESS;
     }

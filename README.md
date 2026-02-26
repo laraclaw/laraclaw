@@ -19,7 +19,7 @@ composer require laraclaw/laraclaw
 Publish the config and migrations:
 
 ```bash
-php artisan vendor:publish --tag=laraclaw-config
+php artisan vendor:publish --tag=laraclaw
 php artisan vendor:publish --provider="Laravel\Ai\AiServiceProvider"
 php artisan migrate
 ```
@@ -30,63 +30,41 @@ Set the required environment variables in your `.env`:
 
 ```env
 OPENAI_API_KEY=sk-...
+LARACLAW_OWNER_ID=1
 ```
 
-Then configure your channels.
+`LARACLAW_OWNER_ID` is the primary key of your app's user that owns this LaraClaw installation. All bot interactions are attributed to this user.
 
-## Channels
+Then configure your channels below.
 
-### Telegram
+## Channel Routing
 
-Install the Telegram driver:
+LaraClaw has a single owner — the user identified by `LARACLAW_OWNER_ID`. All channels route messages through that user.
+
+| Channel | Who can message | Threading | Conversation scope |
+|---|---|---|---|
+| Telegram DM | Owner only (others ignored) | — | Per user |
+| Telegram group | Anyone | — | Per group |
+| Slack DM | Owner only (others ignored) | No | Per user |
+| Slack channel | Anyone (when @mentioned) | Always threads | Per thread |
+| Email | Owner only (others ignored) | — | Per email thread |
+| Terminal | Owner | — | Per session |
+
+**DM channels** (Telegram DM, Slack DM, Email) look up the sender in the `user_channels` table. If the sender isn't registered as the owner, the message is silently ignored.
+
+**Group/open channels** (Telegram groups, Slack channels, Terminal) always respond using the owner user. This is required because conversation memory in `laravel/ai` is tied to an authenticated user.
+
+### Registering the owner's identifiers
+
+After running migrations, link the owner's channel identifiers to their user ID:
 
 ```bash
-composer require nutgram/laravel
+php artisan laraclaw:channel-add 1 telegram 123456789
+php artisan laraclaw:channel-add 1 slack U0123456789
+php artisan laraclaw:channel-add 1 email alice@example.com
 ```
 
-```env
-LARACLAW_TELEGRAM_TOKEN=your-bot-token
-```
-
-Register the webhook:
-
-```bash
-php artisan nutgram:register-webhook
-```
-
-Then run the bot listener:
-
-```bash
-php artisan nutgram:run
-```
-
-### Slack
-
-```env
-LARACLAW_SLACK_BOT_TOKEN=xoxb-...
-LARACLAW_SLACK_SIGNING_SECRET=...
-```
-
-Point your Slack app's Event Subscriptions URL to:
-
-```
-https://your-app.com/slack/webhook
-```
-
-### Email
-
-Install the IMAP driver:
-
-```bash
-composer require directorytree/imapengine-laravel
-```
-
-```env
-LARACLAW_EMAIL_ENABLED=true
-LARACLAW_EMAIL_MAILBOX=default
-```
-
-Configure your mailbox in `config/imap.php` per the [ImapEngine docs](https://github.com/DirectoryTree/ImapEngine).
+The first argument is the user ID (`LARACLAW_OWNER_ID`). The second is the channel name. The third is the channel-specific identifier — your Telegram chat ID, Slack user ID, or email address.
 
 ## Optional Features
 
@@ -170,31 +148,6 @@ description: Summarises a given text
 Summarise the following text in 3 bullet points...
 ```
 
-## Channel Routing
-
-LaraClaw has a single owner — the user registered via `LARACLAW_OWNER_ID`. All channels route messages through that user.
-
-| Channel | Who can message | Threading | Conversation scope |
-|---|---|---|---|
-| Telegram DM | Owner only (others ignored) | — | Per user |
-| Telegram group | Anyone | — | Per group |
-| Slack DM | Owner only (others ignored) | No | Per user |
-| Slack channel | Anyone (when @mentioned) | Always threads | Per thread |
-| Terminal | Owner | — | Per session |
-
-**DM channels** (Telegram DM, Slack DM) look up the sender in the `user_channels` table. If the sender isn't registered as the owner, the message is silently ignored.
-
-**Group/open channels** (Telegram groups, Slack channels, Terminal) always respond using the owner user. This is required because conversation memory in `laravel/ai` is tied to an authenticated user — there is no guest conversation support.
-
-### Registering the owner
-
-After running migrations, register the owner's channel identifiers:
-
-```bash
-php artisan laraclaw:channel-add {userId} telegram {telegramChatId}
-php artisan laraclaw:channel-add {userId} slack {slackUserId}
-```
-
 ## Queue
 
 Messages are processed via Laravel's queue. Make sure a worker is running:
@@ -204,8 +157,6 @@ php artisan queue:work
 ```
 
 ## Channel Setup
-
-Detailed setup instructions for each channel.
 
 ---
 
@@ -247,9 +198,15 @@ For local dev without a public URL, use long-polling instead of registering a we
 php artisan nutgram:run
 ```
 
-#### 6. Start a conversation
+#### 6. Register the owner
 
-Search for your bot's username in Telegram and send it a message.
+Find your Telegram chat ID by messaging [@userinfobot](https://t.me/userinfobot), then register it:
+
+```bash
+php artisan laraclaw:channel-add 1 telegram 123456789
+```
+
+The bot will only respond to DMs from this chat ID. It responds to all messages in groups.
 
 ---
 
@@ -281,7 +238,7 @@ Under **Event Subscriptions**:
   - Slack sends a `url_verification` challenge — your app must be running to respond. The handler does this automatically.
 - Under **Subscribe to bot events**, add:
   - `message.channels` — messages in public channels
-  - `message.im` — direct messages (optional)
+  - `message.im` — direct messages
 
 #### 5. Set environment variables
 
@@ -296,7 +253,15 @@ The signing secret is under **Basic Information** → **App Credentials**.
 
 The bot user ID is found under **App Home** → **Your App's Presence in Slack**, or by calling `https://slack.com/api/auth.test` with your bot token — it's the `user_id` field in the response.
 
-#### 6. Invite the bot to a channel
+#### 6. Register the owner
+
+```bash
+php artisan laraclaw:channel-add 1 slack U0123456789
+```
+
+The bot will only respond to DMs from this Slack user ID. In channels, it responds when @mentioned by anyone.
+
+#### 7. Invite the bot to a channel
 
 In Slack, open the channel you want the bot in and run:
 
@@ -351,7 +316,15 @@ Only emails from listed addresses are processed. Empty = block all.
 LARACLAW_EMAIL_ALLOW_LIST=alice@example.com,bob@example.com
 ```
 
-#### 5. Require DKIM + SPF (optional)
+#### 5. Register the owner
+
+```bash
+php artisan laraclaw:channel-add 1 email alice@example.com
+```
+
+Only emails from this address will receive a reply. The allow list provides a first layer of filtering; the `user_channels` lookup is the authoritative check.
+
+#### 6. Require DKIM + SPF (optional)
 
 Reject emails that don't pass both DKIM and SPF authentication:
 
@@ -359,7 +332,7 @@ Reject emails that don't pass both DKIM and SPF authentication:
 LARACLAW_EMAIL_REQUIRE_AUTH=true
 ```
 
-#### 6. Start the IMAP listener
+#### 7. Start the IMAP listener
 
 Add this to your `Procfile` (or run it directly):
 
@@ -369,7 +342,7 @@ php artisan imap:watch default --with=headers,body
 
 The `--with=headers,body` flag is required — without it the message content won't be fetched.
 
-#### 7. How it works
+#### 8. How it works
 
 - Incoming emails are dispatched as `ProcessMessage` jobs
 - The bot replies by sending an HTML email back to the sender
