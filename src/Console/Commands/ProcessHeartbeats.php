@@ -1,0 +1,34 @@
+<?php
+
+namespace LaraClaw\Console\Commands;
+
+use Cron\CronExpression;
+use Illuminate\Console\Command;
+use LaraClaw\Jobs\SendHeartbeat;
+use LaraClaw\Models\Heartbeat;
+
+class ProcessHeartbeats extends Command
+{
+    protected $signature = 'laraclaw:process-heartbeats';
+
+    protected $description = 'Dispatch SendHeartbeat jobs for all active heartbeats whose cron expression is due.';
+
+    public function handle(): void
+    {
+        $now = now();
+
+        Heartbeat::where('is_active', true)->each(function (Heartbeat $heartbeat) use ($now) {
+            if ($heartbeat->last_run_at === null) {
+                SendHeartbeat::dispatch($heartbeat);
+                return;
+            }
+
+            $cron = new CronExpression($heartbeat->cron);
+            $nextRun = $cron->getNextRunDate($heartbeat->last_run_at);
+
+            if ($nextRun <= $now) {
+                SendHeartbeat::dispatch($heartbeat);
+            }
+        });
+    }
+}

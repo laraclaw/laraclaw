@@ -8,8 +8,10 @@ use LaraClaw\SkillRegistry;
 use LaraClaw\Tools\CalendarManager;
 use LaraClaw\Tools\EmailManager;
 use LaraClaw\Tools\Files;
+use LaraClaw\Tools\HeartbeatManager;
 use LaraClaw\Tools\ImageManager;
 use LaraClaw\Tools\Persona;
+use LaraClaw\Tools\ReminderManager;
 use LaraClaw\Tools\TextToSpeech;
 use LaraClaw\Tools\UseSkill;
 use LaraClaw\Tools\WebRequest;
@@ -96,6 +98,9 @@ class ChatBotAgent implements Agent, Conversational, HasTools
         if ($this->calendarDriver) {
             $tools[] = new CalendarManager($this->channel, $this->calendarDriver);
         }
+
+        $tools[] = new ReminderManager($this->channel);
+        $tools[] = new HeartbeatManager($this->channel);
 
         return $tools;
     }

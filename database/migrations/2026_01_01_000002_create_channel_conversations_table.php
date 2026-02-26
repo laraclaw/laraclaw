@@ -8,7 +8,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('channel_conversations', function (Blueprint $table) {
+        Schema::create('laraclaw_channel_conversations', function (Blueprint $table) {
             $table->string('identifier')->primary(); // e.g. "telegram:-12345", "slack:C01:1234567890.123"
             $table->uuid('conversation_id');
             $table->timestamps();
@@ -17,6 +17,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('channel_conversations');
+        Schema::dropIfExists('laraclaw_channel_conversations');
     }
 };

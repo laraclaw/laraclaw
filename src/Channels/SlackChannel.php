@@ -24,6 +24,22 @@ class SlackChannel extends Channel
         $this->messageAttachments = $attachments ?? collect();
     }
 
+    public static function openDm(string $userId): self
+    {
+        $response = Http::withToken(config('laraclaw.slack.bot_token'))
+            ->post('https://slack.com/api/conversations.open', [
+                'users' => $userId,
+            ]);
+
+        $channelId = $response->json('channel.id');
+
+        if (! $response->successful() || ! $channelId) {
+            throw new \RuntimeException("Failed to open Slack DM with user {$userId}: ".$response->body());
+        }
+
+        return new self(channelId: $channelId);
+    }
+
     public static function fromEvent(array $event): self
     {
         $botToken = config('laraclaw.slack.bot_token');

@@ -8,7 +8,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('user_channels', function (Blueprint $table) {
+        Schema::create('laraclaw_user_channels', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->string('identifier', 255)->unique(); // e.g. "telegram:12345", "slack:U08ABC", "email:alice@example.com"
@@ -19,6 +19,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('user_channels');
+        Schema::dropIfExists('laraclaw_user_channels');
     }
 };

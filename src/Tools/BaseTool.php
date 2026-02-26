@@ -3,6 +3,7 @@
 namespace LaraClaw\Tools;
 
 use LaraClaw\Channels\Channel;
+use LaraClaw\Models\UserChannel;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Ai\Contracts\Tool;
@@ -70,6 +71,19 @@ abstract class BaseTool implements Tool
         }
 
         return null;
+    }
+
+    protected function resolveChannelIdentifier(?string $channelType): string
+    {
+        if (! $channelType) {
+            return $this->channel->identifier();
+        }
+
+        $userChannel = UserChannel::where('user_id', config('laraclaw.owner'))
+            ->where('identifier', 'like', "{$channelType}:%")
+            ->first();
+
+        return $userChannel?->identifier ?? $this->channel->identifier();
     }
 
     protected function isProtectedPath(string $path): bool

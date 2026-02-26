@@ -9,6 +9,8 @@ use LaraClaw\Commands\CommandRegistry;
 use LaraClaw\Commands\GoogleCalendarAuth;
 use LaraClaw\Commands\NewConversation;
 use LaraClaw\Console\Commands\ChannelAddCommand;
+use LaraClaw\Console\Commands\ProcessHeartbeats;
+use LaraClaw\Console\Commands\SendReminders;
 use LaraClaw\Handlers\Email;
 use LaraClaw\Handlers\Telegram;
 use LaraClaw\Http\Middleware\VerifySlackSignature;
@@ -17,6 +19,7 @@ use Laravel\Ai\Events\AgentPrompted;
 use DirectoryTree\ImapEngine\Laravel\Events\MessageReceived;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ServiceProvider;
@@ -132,7 +135,12 @@ class LaraclawServiceProvider extends ServiceProvider
 
         Event::listen(AgentPrompted::class, LogAgentRequest::class);
 
-        $this->commands([GoogleCalendarAuth::class, ChannelAddCommand::class]);
+        $this->commands([GoogleCalendarAuth::class, ChannelAddCommand::class, SendReminders::class, ProcessHeartbeats::class]);
+
+        $this->callAfterResolving(Schedule::class, function (Schedule $schedule) {
+            $schedule->command(SendReminders::class)->everyMinute();
+            $schedule->command(ProcessHeartbeats::class)->everyMinute();
+        });
 
         if (config('laraclaw.calendar.driver') === 'google') {
             $this->app->extend(GoogleCalendar::class, function (GoogleCalendar $calendar) {
