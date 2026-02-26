@@ -55,8 +55,7 @@ class ProcessMessage implements ShouldQueue
     {
         $this->channel->acknowledge();
 
-        try {
-            $text = $this->channel->text() ?? '';
+        $text = $this->channel->text() ?? '';
 
             // Transcribe audio if no text provided
             if (blank($text)) {
@@ -182,9 +181,5 @@ class ProcessMessage implements ShouldQueue
             }
 
             $this->channel->send($response);
-        } finally {
-            // Attachments are kept in storage so the agent can reference them in follow-up messages.
-            // Add a scheduled command to prune old attachment directories periodically.
-        }
     }
 }
