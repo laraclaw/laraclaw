@@ -11,6 +11,7 @@ use LaraClaw\Commands\NewConversation;
 use LaraClaw\Console\Commands\ChannelAddCommand;
 use LaraClaw\Console\Commands\ProcessHeartbeats;
 use LaraClaw\Console\Commands\SendReminders;
+use LaraClaw\Console\Commands\SetupWizard;
 use LaraClaw\Handlers\Email;
 use LaraClaw\Handlers\Telegram;
 use LaraClaw\Http\Middleware\VerifySlackSignature;
@@ -135,7 +136,7 @@ class LaraclawServiceProvider extends ServiceProvider
 
         Event::listen(AgentPrompted::class, LogAgentRequest::class);
 
-        $this->commands([GoogleCalendarAuth::class, ChannelAddCommand::class, SendReminders::class, ProcessHeartbeats::class]);
+        $this->commands([GoogleCalendarAuth::class, ChannelAddCommand::class, SendReminders::class, ProcessHeartbeats::class, SetupWizard::class]);
 
         $this->callAfterResolving(Schedule::class, function (Schedule $schedule) {
             $schedule->command(SendReminders::class)->everyMinute();
