@@ -67,10 +67,15 @@ class Files extends BaseTool
         $storage = $this->storage($request);
         $path = $request['path'];
 
+        if ($this->isProtectedPath($path)) {
+            return "Cannot list system directory '{$path}'.";
+        }
+
         $entries = collect($storage->files($path))
             ->map(fn ($file) => ['name' => $file, 'size' => $storage->size($file), 'type' => 'file'])
             ->merge(collect($storage->directories($path))
-                ->map(fn ($dir) => ['name' => $dir, 'size' => 0, 'type' => 'directory']));
+                ->map(fn ($dir) => ['name' => $dir, 'size' => 0, 'type' => 'directory']))
+            ->reject(fn ($entry) => $this->isProtectedPath($entry['name']));
 
         return $entries->toJson(JSON_PRETTY_PRINT);
     }

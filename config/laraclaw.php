@@ -31,7 +31,7 @@ return [
 
     'tools' => [
         'allowed_disks' => ['local'],
-        'system_directories' => [],
+        'system_directories' => ['attachments'],
         'image_driver' => env('LARACLAW_IMAGE_DRIVER', 'imagick'), // 'imagick' or 'gd'
     ],
 

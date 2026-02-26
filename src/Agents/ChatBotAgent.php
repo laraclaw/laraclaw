@@ -41,7 +41,7 @@ class ChatBotAgent implements Agent, Conversational, HasTools
     {
         $tz = config('app.timezone', 'UTC');
         $now = now()->setTimezone($tz)->toDateTimeString();
-        $base = "You are a helpful assistant. The current date and time is {$now} ({$tz}). "
+        $base = "You are a helpful assistant. The current date and time is {$now} ({$tz}). You can see images attached to messages. "
             . 'Be direct and action-oriented. '
             . 'When asked to do something, just do it — use sensible defaults and act immediately rather than asking clarifying questions upfront. '
             . 'Only ask a question if the task is genuinely impossible to attempt without the missing information. '
