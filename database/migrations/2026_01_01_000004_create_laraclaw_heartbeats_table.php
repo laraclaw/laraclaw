@@ -11,9 +11,14 @@ return new class extends Migration
         Schema::create('laraclaw_heartbeats', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->string('channel_identifier'); // e.g. "telegram:8509314858", "slack:C01ABC:1234.5678"
+            $table->string('channel');
+            $table->string('key');
             $table->text('message');
-            $table->string('cron'); // e.g. "0 9 * * 1" (every Monday at 9am)
+
+            // Stores a 5-field cron expression that controls when the heartbeat message
+            // fires. Accepts standard cron syntax, e.g. "0 9 * * 1" for every Monday
+            // at 9am. Expressions are evaluated against the application timezone.
+            $table->string('cron');
             $table->boolean('is_active')->default(true);
             $table->dateTime('last_run_at')->nullable();
             $table->timestamps();

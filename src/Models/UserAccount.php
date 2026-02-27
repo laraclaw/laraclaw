@@ -7,19 +7,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use LaraClaw\Enums\ChannelType;
 use LaraClaw\Tables;
 
-class Heartbeat extends Model
+class UserAccount extends Model
 {
-    protected $table = Tables::HEARTBEATS;
+    protected $table = Tables::USER_ACCOUNTS;
 
-    protected $fillable = [
-        'user_id',
-        'channel',
-        'key',
-        'message',
-        'cron',
-        'is_active',
-        'last_run_at',
-    ];
+    protected $fillable = ['user_id', 'channel', 'account'];
 
     public function user(): BelongsTo
     {
@@ -30,8 +22,6 @@ class Heartbeat extends Model
     {
         return [
             'channel' => ChannelType::class,
-            'is_active' => 'boolean',
-            'last_run_at' => 'datetime',
         ];
     }
 }

@@ -2,10 +2,11 @@
 
 namespace LaraClaw\Tools;
 
-use LaraClaw\Channels\Channel;
-use LaraClaw\Models\UserChannel;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Storage;
+use LaraClaw\Channels\Channel;
+use LaraClaw\Enums\ChannelType;
+use LaraClaw\Models\UserAccount;
 use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Tools\Request;
 use Stringable;
@@ -16,14 +17,12 @@ abstract class BaseTool implements Tool
 
     public function __construct(protected Channel $channel) {}
 
-    abstract protected function operations(): array;
-
     public function handle(Request $request): Stringable|string
     {
         $operation = $request['operation'];
 
         if (! in_array($operation, $this->operations(), true)) {
-            return "Unknown operation '{$operation}'. Available: ".implode(', ', $this->operations());
+            return "Unknown operation '{$operation}'. Available: " . implode(', ', $this->operations());
         }
 
         if ($denied = $this->confirmOperation($operation, $request)) {
@@ -35,6 +34,8 @@ abstract class BaseTool implements Tool
         return $this->{$method}($request);
     }
 
+    abstract protected function operations(): array;
+
     protected function confirmOperation(string $operation, Request $request): ?string
     {
         if (! isset($this->requiresConfirmation[$operation])) {
@@ -43,6 +44,7 @@ abstract class BaseTool implements Tool
 
         $message = preg_replace_callback('/\{(\w+)\}/', function ($m) use ($request) {
             $value = $request[$m[1]] ?? $m[0];
+
             return is_array($value) ? implode(', ', $value) : $value;
         }, $this->requiresConfirmation[$operation]);
 
@@ -60,10 +62,10 @@ abstract class BaseTool implements Tool
 
     protected function validateDiskAccess(string $disk, string $path): ?string
     {
-        $allowed = config('laraclaw.tools.allowed_disks', []);
+        $allowed = config('laraclaw.filesystem.allowed_disks', []);
 
         if (! in_array($disk, $allowed, true)) {
-            return "Disk '{$disk}' is not allowed. Allowed disks: ".implode(', ', $allowed);
+            return "Disk '{$disk}' is not allowed. Allowed disks: " . implode(', ', $allowed);
         }
 
         if (str_contains($path, '..')) {
@@ -73,24 +75,29 @@ abstract class BaseTool implements Tool
         return null;
     }
 
-    protected function resolveChannelIdentifier(?string $channelType): string
+    protected function resolveChannel(?string $channelType): array
     {
-        if (! $channelType) {
-            return $this->channel->identifier();
+        if ($channelType) {
+            $userAccount = UserAccount::where('user_id', config('laraclaw.auth.admin_user_id'))
+                ->where('channel', $channelType)
+                ->first();
+
+            if ($userAccount) {
+                return [$userAccount->channel, $userAccount->account];
+            }
         }
 
-        $userChannel = UserChannel::where('user_id', config('laraclaw.owner'))
-            ->where('identifier', 'like', "{$channelType}:%")
-            ->first();
+        [$type, $key] = explode(':', $this->channel->identifier(), 2);
 
-        return $userChannel?->identifier ?? $this->channel->identifier();
+        return [ChannelType::from($type), $key];
     }
 
     protected function isProtectedPath(string $path): bool
     {
         $normalized = trim($path, '/');
 
-        return collect(config('laraclaw.tools.system_directories', []))
-            ->contains(fn ($dir) => $normalized === $dir || str_starts_with($normalized, $dir.'/'));
+        $attachmentsPath = config('laraclaw.filesystem.attachments_path', 'attachments');
+
+        return $normalized === $attachmentsPath || str_starts_with($normalized, $attachmentsPath . '/');
     }
 }

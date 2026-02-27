@@ -9,9 +9,17 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('laraclaw_channel_conversations', function (Blueprint $table) {
-            $table->string('identifier')->primary(); // e.g. "telegram:-12345", "slack:C01:1234567890.123"
+            $table->id();
+            $table->string('channel');
+            $table->string('key');
+
+            // References a laravel/ai conversation. No foreign key constraint is placed
+            // here because agent_conversations belongs to the laravel/ai package and
+            // coupling our migrations to it creates fragile package dependencies.
             $table->uuid('conversation_id');
             $table->timestamps();
+
+            $table->unique(['channel', 'key']);
         });
     }
 

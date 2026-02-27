@@ -10,6 +10,7 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use LaraClaw\Models\Heartbeat;
 use LaraClaw\Support\ChannelResolver;
+use Throwable;
 
 class SendHeartbeat implements ShouldQueue
 {
@@ -23,16 +24,17 @@ class SendHeartbeat implements ShouldQueue
 
     public function handle(): void
     {
-        $channel = ChannelResolver::from($this->heartbeat->channel_identifier);
+        $channel = ChannelResolver::fromParts($this->heartbeat->channel, $this->heartbeat->key);
         $channel->send($this->heartbeat->message);
         $this->heartbeat->update(['last_run_at' => now()]);
     }
 
-    public function failed(\Throwable $exception): void
+    public function failed(Throwable $exception): void
     {
         Log::error('SendHeartbeat failed', [
             'heartbeat_id' => $this->heartbeat->id,
-            'channel' => $this->heartbeat->channel_identifier,
+            'channel' => $this->heartbeat->channel->value,
+            'key' => $this->heartbeat->key,
             'error' => $exception->getMessage(),
         ]);
     }

@@ -5,37 +5,27 @@ namespace LaraClaw\Support;
 use LaraClaw\Channels\Channel;
 use LaraClaw\Channels\SlackChannel;
 use LaraClaw\Channels\TelegramChannel;
+use LaraClaw\Enums\ChannelType;
 use RuntimeException;
 
 class ChannelResolver
 {
     public static function from(string $identifier): Channel
     {
-        if (str_starts_with($identifier, 'telegram:')) {
-            $chatId = substr($identifier, strlen('telegram:'));
-            return new TelegramChannel((int) $chatId);
-        }
+        [$type, $key] = explode(':', $identifier, 2);
 
-        if (str_starts_with($identifier, 'slack:')) {
-            $parts = explode(':', $identifier, 3);
+        return self::fromParts(ChannelType::from($type), $key);
+    }
 
-            if (count($parts) === 2) {
-                // slack:{userId} — open a DM channel
-                return SlackChannel::openDm($parts[1]);
-            }
-
-            // slack:{channelId}:{threadTs}
-            return new SlackChannel($parts[1], $parts[2]);
-        }
-
-        if (str_starts_with($identifier, 'email:')) {
-            throw new RuntimeException("Email channel does not support outbound sending via identifier: {$identifier}");
-        }
-
-        if (str_starts_with($identifier, 'terminal:')) {
-            throw new RuntimeException('Terminal channel does not support outbound sending.');
-        }
-
-        throw new RuntimeException("Unknown channel identifier: {$identifier}");
+    public static function fromParts(ChannelType $channel, string $key): Channel
+    {
+        return match ($channel) {
+            ChannelType::Telegram => new TelegramChannel((int) $key),
+            ChannelType::Slack => str_contains($key, ':')
+                ? new SlackChannel(...explode(':', $key, 2))
+                : SlackChannel::openDm($key),
+            ChannelType::Email => throw new RuntimeException('Email channel does not support outbound sending.'),
+            ChannelType::Terminal => throw new RuntimeException('Terminal channel does not support outbound sending.'),
+        };
     }
 }
