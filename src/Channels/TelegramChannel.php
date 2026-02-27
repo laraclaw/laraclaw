@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use LaraClaw\Channels\Contracts\SupportsAcknowledgement;
 use LaraClaw\Channels\Contracts\SupportsAudio;
-use LaraClaw\Channels\Contracts\SupportsPhotos;
+use LaraClaw\Channels\Contracts\SupportsImages;
 use LaraClaw\Channels\DTOs\Attachment;
 use League\CommonMark\CommonMarkConverter;
 use SergiX44\Nutgram\Nutgram;
@@ -19,7 +19,7 @@ use SergiX44\Nutgram\Telegram\Types\Media\PhotoSize;
 use SergiX44\Nutgram\Telegram\Types\Message\Message;
 use Throwable;
 
-class TelegramChannel extends Channel implements SupportsAcknowledgement, SupportsAudio, SupportsPhotos
+class TelegramChannel extends Channel implements SupportsAcknowledgement, SupportsAudio, SupportsImages
 {
     public function __construct(
         private int|string $chatId,
@@ -129,7 +129,7 @@ class TelegramChannel extends Channel implements SupportsAcknowledgement, Suppor
         );
     }
 
-    public function sendPhoto(string $disk, string $path): void
+    public function sendImage(string $disk, string $path): void
     {
         $contents = Storage::disk($disk)->get($path);
         $tempPath = sys_get_temp_dir() . '/' . basename($path);

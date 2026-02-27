@@ -16,7 +16,7 @@ use LaraClaw\Channels\Channel;
 use LaraClaw\Channels\Contracts\SupportsAcknowledgement;
 use LaraClaw\Channels\Contracts\SupportsAudio;
 use LaraClaw\Channels\Contracts\SupportsFiles;
-use LaraClaw\Channels\Contracts\SupportsPhotos;
+use LaraClaw\Channels\Contracts\SupportsImages;
 use LaraClaw\Commands\CommandRegistry;
 use LaraClaw\Models\Conversation;
 use LaraClaw\Models\UserAccount;
@@ -203,8 +203,8 @@ class ProcessMessage implements ShouldQueue
             }
         }
 
-        if ($this->channel instanceof SupportsPhotos && $imageReply->path && $imageReply->disk) {
-            $this->channel->sendPhoto($imageReply->disk, $imageReply->path);
+        if ($this->channel instanceof SupportsImages && $imageReply->path && $imageReply->disk) {
+            $this->channel->sendImage($imageReply->disk, $imageReply->path);
         }
 
         if ($this->channel instanceof SupportsFiles && ! empty($fileReply->files)) {

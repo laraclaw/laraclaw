@@ -10,12 +10,12 @@ use Illuminate\Support\Str;
 use LaraClaw\Channels\Contracts\SupportsAcknowledgement;
 use LaraClaw\Channels\Contracts\SupportsAudio;
 use LaraClaw\Channels\Contracts\SupportsFiles;
-use LaraClaw\Channels\Contracts\SupportsPhotos;
+use LaraClaw\Channels\Contracts\SupportsImages;
 use LaraClaw\Channels\DTOs\Attachment;
 use RuntimeException;
 use Throwable;
 
-class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsAudio, SupportsFiles, SupportsPhotos
+class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsAudio, SupportsFiles, SupportsImages
 {
     public function __construct(
         private string $channelId,
@@ -164,7 +164,7 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsA
         }
     }
 
-    public function sendPhoto(string $disk, string $path): void
+    public function sendImage(string $disk, string $path): void
     {
         $filePath = Storage::disk($disk)->path($path);
         $this->uploadFile($filePath, basename($path));

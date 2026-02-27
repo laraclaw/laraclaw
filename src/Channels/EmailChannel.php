@@ -12,14 +12,14 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use LaraClaw\Channels\Contracts\SupportsAudio;
 use LaraClaw\Channels\Contracts\SupportsFiles;
-use LaraClaw\Channels\Contracts\SupportsPhotos;
+use LaraClaw\Channels\Contracts\SupportsImages;
 use LaraClaw\Channels\DTOs\Attachment;
 use LaraClaw\Mail\ChannelReply;
 use League\CommonMark\CommonMarkConverter;
 
 use function LaraClaw\Support\stripHtml;
 
-class EmailChannel extends Channel implements SupportsAudio, SupportsFiles, SupportsPhotos
+class EmailChannel extends Channel implements SupportsAudio, SupportsFiles, SupportsImages
 {
     /** @var array<int, array{disk: string, path: string}> */
     private array $pendingAttachments = [];
@@ -110,7 +110,7 @@ class EmailChannel extends Channel implements SupportsAudio, SupportsFiles, Supp
         return "email:{$this->senderEmail}";
     }
 
-    public function sendPhoto(string $disk, string $path): void
+    public function sendImage(string $disk, string $path): void
     {
         $this->pendingAttachments[] = ['disk' => $disk, 'path' => $path];
     }
