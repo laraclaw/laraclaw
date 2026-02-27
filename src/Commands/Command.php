@@ -2,8 +2,8 @@
 
 namespace LaraClaw\Commands;
 
-use LaraClaw\Channels\Channel;
 use Illuminate\Contracts\Auth\Authenticatable;
+use LaraClaw\Channels\Channel;
 
 interface Command
 {

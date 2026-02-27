@@ -15,21 +15,16 @@ class WebRequest extends BaseTool
 
     private const MAX_RESPONSE_BYTES = 100 * 1024;
 
-    protected function operations(): array
-    {
-        return ['get', 'head', 'post', 'put', 'patch', 'delete'];
-    }
-
     public function description(): Stringable|string
     {
-        return 'Make HTTP requests. Operations: '.implode(', ', $this->operations())
-            .'. Returns status code, headers, and body (truncated to 100KB). To browse a website, prefer fetching https://markdown.new/{url} to get clean markdown instead of raw HTML.';
+        return 'Make HTTP requests. Operations: ' . implode(', ', $this->operations())
+            . '. Returns status code, headers, and body (truncated to 100KB). To browse a website, prefer fetching https://markdown.new/{url} to get clean markdown instead of raw HTML.';
     }
 
     public function schema(JsonSchema $schema): array
     {
         return [
-            'operation' => $schema->string()->required()->description('HTTP method: '.implode(', ', $this->operations())),
+            'operation' => $schema->string()->required()->description('HTTP method: ' . implode(', ', $this->operations())),
             'url' => $schema->string()->required()->description('The URL to request'),
             'headers' => $schema->object()->description('Request headers as key-value pairs'),
             'body' => $schema->string()->description('Request body (JSON string) for POST/PUT/PATCH'),
@@ -53,6 +48,11 @@ class WebRequest extends BaseTool
         } catch (Exception $e) {
             return "HTTP request failed: {$e->getMessage()}";
         }
+    }
+
+    protected function operations(): array
+    {
+        return ['get', 'head', 'post', 'put', 'patch', 'delete'];
     }
 
     // Operations ----------------------------------------
@@ -128,7 +128,7 @@ class WebRequest extends BaseTool
         $body = $response->body();
 
         if (strlen($body) > self::MAX_RESPONSE_BYTES) {
-            $body = substr($body, 0, self::MAX_RESPONSE_BYTES)."\n\n[Truncated — response exceeds 100KB]";
+            $body = substr($body, 0, self::MAX_RESPONSE_BYTES) . "\n\n[Truncated — response exceeds 100KB]";
         }
 
         return json_encode([

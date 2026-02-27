@@ -11,11 +11,6 @@ use Throwable;
 
 class ReminderManager extends BaseTool
 {
-    protected function operations(): array
-    {
-        return ['create', 'list', 'cancel'];
-    }
-
     public function description(): Stringable|string
     {
         return 'Manage one-shot scheduled reminders. Operations: create, list, cancel. '
@@ -33,6 +28,11 @@ class ReminderManager extends BaseTool
             'remind_at' => $schema->string()->description('When to send — ISO 8601 or natural language, e.g. "tomorrow at 10am" (required for create)'),
             'channel' => $schema->string()->description('Channel type to send on: telegram, slack, or email. Defaults to the current channel.'),
         ];
+    }
+
+    protected function operations(): array
+    {
+        return ['create', 'list', 'cancel'];
     }
 
     protected function create(Request $request): string
@@ -53,11 +53,12 @@ class ReminderManager extends BaseTool
             return "Could not parse remind_at: {$remindAt}";
         }
 
-        $channelIdentifier = $this->resolveChannelIdentifier($request['channel'] ?? null);
+        [$channel, $key] = $this->resolveChannel($request['channel'] ?? null);
 
         Reminder::create([
-            'user_id' => config('laraclaw.owner'),
-            'channel_identifier' => $channelIdentifier,
+            'user_id' => config('laraclaw.auth.admin_user_id'),
+            'channel' => $channel,
+            'key' => $key,
             'message' => $message,
             'remind_at' => $remindAtDate,
         ]);
@@ -67,10 +68,10 @@ class ReminderManager extends BaseTool
 
     protected function list(Request $request): string
     {
-        $reminders = Reminder::where('user_id', config('laraclaw.owner'))
+        $reminders = Reminder::where('user_id', config('laraclaw.auth.admin_user_id'))
             ->whereNull('sent_at')
             ->orderBy('remind_at')
-            ->get(['id', 'channel_identifier', 'message', 'remind_at']);
+            ->get(['id', 'channel', 'key', 'message', 'remind_at']);
 
         if ($reminders->isEmpty()) {
             return 'No pending reminders.';
@@ -87,7 +88,7 @@ class ReminderManager extends BaseTool
         }
 
         $reminder = Reminder::where('id', $id)
-            ->where('user_id', config('laraclaw.owner'))
+            ->where('user_id', config('laraclaw.auth.admin_user_id'))
             ->whereNull('sent_at')
             ->first();
 
@@ -99,5 +100,4 @@ class ReminderManager extends BaseTool
 
         return "Reminder {$id} cancelled.";
     }
-
 }

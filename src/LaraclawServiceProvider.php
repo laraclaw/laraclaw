@@ -2,6 +2,11 @@
 
 namespace LaraClaw;
 
+use DirectoryTree\ImapEngine\Laravel\Events\MessageReceived;
+use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\ServiceProvider;
 use LaraClaw\Calendar\AppleCalendarDriver;
 use LaraClaw\Calendar\Contracts\CalendarDriver;
 use LaraClaw\Calendar\GoogleCalendarDriver;
@@ -17,13 +22,6 @@ use LaraClaw\Handlers\Telegram;
 use LaraClaw\Http\Middleware\VerifySlackSignature;
 use LaraClaw\Listeners\LogAgentRequest;
 use Laravel\Ai\Events\AgentPrompted;
-use DirectoryTree\ImapEngine\Laravel\Events\MessageReceived;
-use Illuminate\Contracts\Foundation\Application;
-use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
-use Illuminate\Console\Scheduling\Schedule;
-use Illuminate\Support\Facades\Event;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\ServiceProvider;
 use RuntimeException;
 use Spatie\GoogleCalendar\GoogleCalendar;
 
@@ -31,7 +29,7 @@ class LaraclawServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        $this->mergeConfigFrom(__DIR__.'/../config/laraclaw.php', 'laraclaw');
+        $this->mergeConfigFrom(__DIR__ . '/../config/laraclaw.php', 'laraclaw');
 
         // Register a dedicated blocking Redis connection for confirm() blpop calls.
         // read_write_timeout = -1 prevents Predis from timing out before blpop returns.
@@ -57,7 +55,8 @@ class LaraclawServiceProvider extends ServiceProvider
 
         if (class_exists(\SergiX44\Nutgram\Nutgram::class)) {
             $this->app->booting(function () {
-                config()->set('nutgram.token', config('laraclaw.telegram.token'));
+                config()->set('nutgram.token', config('laraclaw.channels.telegram.token'));
+                config()->set('nutgram.config.timeout', 120);
             });
 
             $this->app->resolving(\SergiX44\Nutgram\Nutgram::class, function (\SergiX44\Nutgram\Nutgram $bot) {
@@ -65,8 +64,8 @@ class LaraclawServiceProvider extends ServiceProvider
             });
         }
 
-        if (config('laraclaw.email.enabled')) {
-            $smtp = config('laraclaw.email.smtp');
+        if (config('laraclaw.channels.email.enabled')) {
+            $smtp = config('laraclaw.channels.email.smtp');
             if ($smtp['host']) {
                 config([
                     'mail.default' => 'smtp',
@@ -80,8 +79,8 @@ class LaraclawServiceProvider extends ServiceProvider
                 ]);
             }
 
-            $imap = config('laraclaw.email.imap');
-            $mailbox = config('laraclaw.email.mailbox', 'default');
+            $imap = config('laraclaw.channels.email.imap');
+            $mailbox = config('laraclaw.channels.email.imap.mailbox', 'default');
             if ($imap['host']) {
                 config([
                     "imap.mailboxes.{$mailbox}.host" => $imap['host'],
@@ -93,44 +92,44 @@ class LaraclawServiceProvider extends ServiceProvider
             }
         }
 
-        if (config('laraclaw.calendar.driver') === 'google') {
+        if (config('laraclaw.tools.calendar_manager.driver') === 'google') {
             config([
                 'google-calendar.default_auth_profile' => 'oauth',
-                'google-calendar.auth_profiles.oauth.credentials_json' => config('laraclaw.calendar.google.credentials_json'),
-                'google-calendar.auth_profiles.oauth.token_json' => config('laraclaw.calendar.google.token_json'),
-                'google-calendar.calendar_id' => config('laraclaw.calendar.google.calendar_id'),
+                'google-calendar.auth_profiles.oauth.credentials_json' => config('laraclaw.tools.calendar_manager.google.credentials_json'),
+                'google-calendar.auth_profiles.oauth.token_json' => config('laraclaw.tools.calendar_manager.google.token_json'),
+                'google-calendar.calendar_id' => config('laraclaw.tools.calendar_manager.google.calendar_id'),
             ]);
         }
 
         $this->app->singleton(CalendarDriver::class, function () {
-            return match (config('laraclaw.calendar.driver')) {
+            return match (config('laraclaw.tools.calendar_manager.driver')) {
                 'google' => new GoogleCalendarDriver,
                 'apple' => new AppleCalendarDriver(
-                    server: config('laraclaw.calendar.apple.server'),
-                    username: config('laraclaw.calendar.apple.username'),
-                    password: config('laraclaw.calendar.apple.password'),
-                    calendar: config('laraclaw.calendar.apple.calendar'),
+                    server: config('laraclaw.tools.calendar_manager.apple.server'),
+                    username: config('laraclaw.tools.calendar_manager.apple.username'),
+                    password: config('laraclaw.tools.calendar_manager.apple.password'),
+                    calendar: config('laraclaw.tools.calendar_manager.apple.calendar'),
                 ),
                 null => null,
-                default => throw new RuntimeException('Unknown calendar driver: '.config('laraclaw.calendar.driver')),
+                default => throw new RuntimeException('Unknown calendar driver: ' . config('laraclaw.tools.calendar_manager.driver')),
             };
         });
     }
 
     public function boot(): void
     {
-        $this->loadRoutesFrom(__DIR__.'/../routes/laraclaw.php');
-        $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
+        $this->loadRoutesFrom(__DIR__ . '/../routes/laraclaw.php');
+        $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
 
         $this->app['router']->aliasMiddleware('slack.signature', VerifySlackSignature::class);
 
         $this->publishes([
-            __DIR__.'/../config/laraclaw.php' => config_path('laraclaw.php'),
-            __DIR__.'/../database/migrations' => database_path('migrations'),
+            __DIR__ . '/../config/laraclaw.php' => config_path('laraclaw.php'),
+            __DIR__ . '/../database/migrations' => database_path('migrations'),
+            __DIR__ . '/../resources' => resource_path('laraclaw'),
         ], 'laraclaw');
 
-
-        if (config('laraclaw.email.enabled')) {
+        if (config('laraclaw.channels.email.enabled')) {
             Event::listen(MessageReceived::class, Email::class);
         }
 
@@ -143,10 +142,10 @@ class LaraclawServiceProvider extends ServiceProvider
             $schedule->command(ProcessHeartbeats::class)->everyMinute();
         });
 
-        if (config('laraclaw.calendar.driver') === 'google') {
+        if (config('laraclaw.tools.calendar_manager.driver') === 'google') {
             $this->app->extend(GoogleCalendar::class, function (GoogleCalendar $calendar) {
                 $client = $calendar->getService()->getClient();
-                $tokenPath = config('laraclaw.calendar.google.token_json');
+                $tokenPath = config('laraclaw.tools.calendar_manager.google.token_json');
 
                 if ($client->isAccessTokenExpired() && $client->getRefreshToken()) {
                     $client->fetchAccessTokenWithRefreshToken($client->getRefreshToken());

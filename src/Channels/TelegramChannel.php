@@ -2,12 +2,12 @@
 
 namespace LaraClaw\Channels;
 
-use LaraClaw\Channels\DTOs\Attachment;
-use LaraClaw\Channels\DTOs\AttachmentType;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use LaraClaw\Channels\DTOs\Attachment;
+use LaraClaw\Channels\DTOs\AttachmentType;
 use League\CommonMark\CommonMarkConverter;
 use SergiX44\Nutgram\Nutgram;
 use SergiX44\Nutgram\Telegram\Properties\ChatAction;
@@ -15,6 +15,7 @@ use SergiX44\Nutgram\Telegram\Properties\ParseMode;
 use SergiX44\Nutgram\Telegram\Types\Internal\InputFile;
 use SergiX44\Nutgram\Telegram\Types\Media\PhotoSize;
 use SergiX44\Nutgram\Telegram\Types\Message\Message;
+use Throwable;
 
 class TelegramChannel extends Channel
 {
@@ -30,8 +31,8 @@ class TelegramChannel extends Channel
     public static function fromMessage(Message $message, Nutgram $bot): self
     {
         $attachments = collect();
-        $disk = config('laraclaw.attachments.disk', 'local');
-        $basePath = config('laraclaw.attachments.path', 'attachments').'/telegram';
+        $disk = config('laraclaw.filesystem.attachments_disk', 'local');
+        $basePath = config('laraclaw.filesystem.attachments_path', 'attachments') . '/telegram';
 
         // Photo (array of PhotoSize, pick largest)
         if (! empty($message->photo)) {
@@ -71,9 +72,9 @@ class TelegramChannel extends Channel
         }
 
         $fileName ??= basename($file->file_path ?? $fileId);
-        $path = $basePath.'/'.Str::uuid().'/'.$fileName;
+        $path = $basePath . '/' . Str::uuid() . '/' . $fileName;
 
-        $tempPath = sys_get_temp_dir().'/'.Str::uuid();
+        $tempPath = sys_get_temp_dir() . '/' . Str::uuid();
         $file->save($tempPath);
 
         Storage::disk($disk)->put($path, file_get_contents($tempPath));
@@ -100,16 +101,11 @@ class TelegramChannel extends Channel
         return $this->isDm() ? $this->identifier() : null;
     }
 
-    private function isDm(): bool
-    {
-        return $this->chatId > 0;
-    }
-
     public function acknowledge(): void
     {
         try {
             app(Nutgram::class)->sendChatAction(ChatAction::TYPING, chat_id: $this->chatId);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             Log::warning('Telegram typing indicator failed', ['error' => $e->getMessage()]);
         }
     }
@@ -135,7 +131,7 @@ class TelegramChannel extends Channel
     public function sendPhoto(string $disk, string $path): void
     {
         $contents = Storage::disk($disk)->get($path);
-        $tempPath = sys_get_temp_dir().'/'.basename($path);
+        $tempPath = sys_get_temp_dir() . '/' . basename($path);
         file_put_contents($tempPath, $contents);
 
         app(Nutgram::class)->sendPhoto(
@@ -144,5 +140,10 @@ class TelegramChannel extends Channel
         );
 
         unlink($tempPath);
+    }
+
+    private function isDm(): bool
+    {
+        return $this->chatId > 0;
     }
 }

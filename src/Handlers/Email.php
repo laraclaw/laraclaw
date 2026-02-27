@@ -2,24 +2,24 @@
 
 namespace LaraClaw\Handlers;
 
-use LaraClaw\Channels\EmailChannel;
-use LaraClaw\Jobs\ProcessMessage;
 use DirectoryTree\ImapEngine\Laravel\Events\MessageReceived;
 use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Str;
+use LaraClaw\Channels\EmailChannel;
+use LaraClaw\Jobs\ProcessMessage;
 
 class Email
 {
     public function __invoke(MessageReceived $event): void
     {
-        if (! config('laraclaw.email.enabled')) {
+        if (! config('laraclaw.channels.email.enabled')) {
             return;
         }
 
         $message = $event->message;
 
         // Prevent loops — ignore emails from ourselves
-        $botEmail = config('imap.mailboxes.'.config('laraclaw.email.mailbox', 'default').'.username');
+        $botEmail = config('imap.mailboxes.' . config('laraclaw.channels.email.imap.mailbox', 'default') . '.username');
         $fromEmail = $message->from()?->email() ?? 'unknown';
 
         if ($fromEmail === $botEmail) {
@@ -27,14 +27,14 @@ class Email
         }
 
         // Allow list — empty means block all
-        $allowList = config('laraclaw.email.allow_list', []);
+        $allowList = config('laraclaw.channels.email.sender_allow_list', []);
 
         if (empty($allowList) || ! in_array($fromEmail, $allowList)) {
             return;
         }
 
         // Authentication check — reject unless both DKIM and SPF pass
-        if (config('laraclaw.email.require_auth') && ! $this->passesAuthCheck($message)) {
+        if (config('laraclaw.channels.email.verify_sender_dkim_and_spf') && ! $this->passesAuthCheck($message)) {
             return;
         }
 

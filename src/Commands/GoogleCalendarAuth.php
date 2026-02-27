@@ -14,8 +14,8 @@ class GoogleCalendarAuth extends Command
 
     public function handle(): int
     {
-        $credentialsJson = config('laraclaw.calendar.google.credentials_json');
-        $tokenJson = config('laraclaw.calendar.google.token_json');
+        $credentialsJson = config('laraclaw.tools.calendar_manager.google.credentials_json');
+        $tokenJson = config('laraclaw.tools.calendar_manager.google.token_json');
 
         if (! file_exists($credentialsJson)) {
             $this->error("Credentials file not found at: {$credentialsJson}");
@@ -50,7 +50,7 @@ class GoogleCalendarAuth extends Command
         $token = $client->fetchAccessTokenWithAuthCode(trim($code));
 
         if (isset($token['error'])) {
-            $this->error('Failed to fetch token: '.$token['error_description'] ?? $token['error']);
+            $this->error('Failed to fetch token: ' . $token['error_description'] ?? $token['error']);
 
             return self::FAILURE;
         }

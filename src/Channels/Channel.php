@@ -2,9 +2,9 @@
 
 namespace LaraClaw\Channels;
 
-use LaraClaw\Channels\DTOs\Attachment;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Redis;
+use LaraClaw\Channels\DTOs\Attachment;
 
 /**
  * Base class for all bot communication channels (Telegram, Slack, Email, CLI, etc.)
@@ -19,6 +19,7 @@ abstract class Channel
     protected Collection $messageAttachments;
 
     abstract public function identifier(): string;
+
     abstract public function send(string $message): void;
 
     public function text(): ?string
@@ -74,8 +75,8 @@ abstract class Channel
      * (e.g. TerminalChannel uses Artisan's native CLI prompt instead).
      *
      * @param  string  $message  Human-readable description of what's about to happen.
-     * @param  int     $timeout  Max seconds to wait before treating as rejection.
-     * @return bool              True if the user confirmed, false otherwise.
+     * @param  int  $timeout  Max seconds to wait before treating as rejection.
+     * @return bool True if the user confirmed, false otherwise.
      */
     public function confirm(string $message, int $timeout = 120): bool
     {

@@ -7,8 +7,8 @@ use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Laravel\Ai\Tools\Request;
 use LaraClaw\PendingFileReply;
+use Laravel\Ai\Tools\Request;
 use Stringable;
 
 class Files extends BaseTool
@@ -19,22 +19,17 @@ class Files extends BaseTool
         'move' => 'Move "{path}" to "{destination}"?',
     ];
 
-    protected function operations(): array
-    {
-        return ['list', 'read', 'write', 'append', 'delete', 'move', 'copy', 'exists', 'mkdir', 'save_attachment', 'attach_to_reply', 'download_url'];
-    }
-
     public function description(): Stringable|string
     {
-        $disks = implode(', ', config('laraclaw.tools.allowed_disks', []));
+        $disks = implode(', ', config('laraclaw.filesystem.allowed_disks', []));
 
-        return "Manage files on disk. Allowed disks: {$disks}. Operations: ".implode(', ', $this->operations()).'.';
+        return "Manage files on disk. Allowed disks: {$disks}. Operations: " . implode(', ', $this->operations()) . '.';
     }
 
     public function schema(JsonSchema $schema): array
     {
         return [
-            'operation' => $schema->string()->required()->description('The operation to perform: '.implode(', ', $this->operations())),
+            'operation' => $schema->string()->required()->description('The operation to perform: ' . implode(', ', $this->operations())),
             'disk' => $schema->string()->required()->description('The storage disk to use'),
             'path' => $schema->string()->required()->description('The file or directory path'),
             'paths' => $schema->array()->items($schema->string())->description('Multiple file paths for batch delete'),
@@ -58,6 +53,11 @@ class Files extends BaseTool
         }
 
         return parent::handle($request);
+    }
+
+    protected function operations(): array
+    {
+        return ['list', 'read', 'write', 'append', 'delete', 'move', 'copy', 'exists', 'mkdir', 'save_attachment', 'attach_to_reply', 'download_url'];
     }
 
     // Operations ----------------------------------------
@@ -96,7 +96,7 @@ class Files extends BaseTool
         }
 
         if (strlen($contents) > self::MAX_READ_BYTES) {
-            return substr($contents, 0, self::MAX_READ_BYTES)."\n\n[Truncated — file exceeds 100KB]";
+            return substr($contents, 0, self::MAX_READ_BYTES) . "\n\n[Truncated — file exceeds 100KB]";
         }
 
         return $contents;
@@ -147,7 +147,7 @@ class Files extends BaseTool
         $count = count($paths);
         $message = $count === 1
             ? "Delete \"{$paths[0]}\" from disk \"{$request['disk']}\"?"
-            : "Delete {$count} files from disk \"{$request['disk']}\": ".implode(', ', $paths).'?';
+            : "Delete {$count} files from disk \"{$request['disk']}\": " . implode(', ', $paths) . '?';
 
         if (! $this->channel->confirm($message)) {
             return 'Cancelled by user.';
@@ -163,7 +163,7 @@ class Files extends BaseTool
 
                 return "{$p}: deleted";
             })
-            ->implode('; ').'.';
+            ->implode('; ') . '.';
     }
 
     protected function move(Request $request): string
@@ -254,7 +254,7 @@ class Files extends BaseTool
             return 'The "source" parameter is required for the save_attachment operation.';
         }
 
-        $attachmentsDisk = Storage::disk(config('laraclaw.attachments.disk', 'local'));
+        $attachmentsDisk = Storage::disk(config('laraclaw.filesystem.attachments_disk', 'local'));
 
         if (! $attachmentsDisk->exists($source)) {
             return "Attachment not found: {$source}";
@@ -293,7 +293,7 @@ class Files extends BaseTool
         // If path looks like a directory (no extension), derive a filename from the URL
         if (! pathinfo($path, PATHINFO_EXTENSION)) {
             $urlFilename = pathinfo(parse_url($url, PHP_URL_PATH), PATHINFO_BASENAME) ?: Str::uuid();
-            $path = rtrim($path, '/').'/'.$urlFilename;
+            $path = rtrim($path, '/') . '/' . $urlFilename;
         }
 
         $actual = $this->uniqueFilePath($storage, $path);
@@ -310,14 +310,14 @@ class Files extends BaseTool
             return $path;
         }
 
-        $dir = dirname($path) === '.' ? '' : dirname($path).'/';
+        $dir = dirname($path) === '.' ? '' : dirname($path) . '/';
         $ext = pathinfo($path, PATHINFO_EXTENSION);
         $name = pathinfo($path, PATHINFO_FILENAME);
 
         $i = 1;
 
         do {
-            $candidate = $dir.$name.$i.($ext !== '' ? '.'.$ext : '');
+            $candidate = $dir . $name . $i . ($ext !== '' ? '.' . $ext : '');
             $i++;
         } while ($storage->exists($candidate));
 
@@ -335,7 +335,7 @@ class Files extends BaseTool
         $i = 1;
 
         do {
-            $candidate = $normalized.$i;
+            $candidate = $normalized . $i;
             $i++;
         } while ($storage->directoryExists($candidate));
 

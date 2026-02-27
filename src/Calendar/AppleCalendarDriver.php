@@ -2,8 +2,6 @@
 
 namespace LaraClaw\Calendar;
 
-use LaraClaw\Calendar\Contracts\CalendarDriver;
-use LaraClaw\Calendar\DTOs\CalendarEvent;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DOMDocument;
@@ -12,6 +10,8 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
+use LaraClaw\Calendar\Contracts\CalendarDriver;
+use LaraClaw\Calendar\DTOs\CalendarEvent;
 use RuntimeException;
 use Sabre\VObject\Component\VCalendar;
 use Sabre\VObject\Reader;
@@ -154,18 +154,18 @@ XML;
                 ]);
                 $principal = $this->extractHref($response->body(), 'current-user-principal');
 
-                $response = $this->http()->send('PROPFIND', $this->server.$principal, [
+                $response = $this->http()->send('PROPFIND', $this->server . $principal, [
                     'headers' => ['Content-Type' => 'application/xml', 'Depth' => '0'],
                     'body' => '<?xml version="1.0"?><d:propfind xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav"><d:prop><c:calendar-home-set/></d:prop></d:propfind>',
                 ]);
                 $homeSet = $this->extractHref($response->body(), 'calendar-home-set');
 
-                $response = $this->http()->send('PROPFIND', $this->server.$homeSet, [
+                $response = $this->http()->send('PROPFIND', $this->server . $homeSet, [
                     'headers' => ['Content-Type' => 'application/xml', 'Depth' => '1'],
                     'body' => '<?xml version="1.0"?><d:propfind xmlns:d="DAV:"><d:prop><d:displayname/></d:prop></d:propfind>',
                 ]);
 
-                return rtrim($this->server.$this->findCalendarHref($response->body(), $this->calendar), '/');
+                return rtrim($this->server . $this->findCalendarHref($response->body(), $this->calendar), '/');
             },
         );
     }

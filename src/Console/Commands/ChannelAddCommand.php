@@ -2,9 +2,9 @@
 
 namespace LaraClaw\Console\Commands;
 
-use LaraClaw\Models\UserChannel;
 use Illuminate\Console\Command;
 use Illuminate\Database\UniqueConstraintViolationException;
+use LaraClaw\Models\UserAccount;
 
 class ChannelAddCommand extends Command
 {
@@ -18,7 +18,7 @@ class ChannelAddCommand extends Command
         $channel = $this->argument('channel');
         $identifier = $this->argument('identifier');
 
-        $userModel = config('laraclaw.user_model');
+        $userModel = config('laraclaw.auth.user_model');
 
         $user = is_numeric($userInput)
             ? $userModel::find((int) $userInput)
@@ -26,22 +26,23 @@ class ChannelAddCommand extends Command
 
         if (! $user) {
             $this->error("User not found: {$userInput}");
+
             return self::FAILURE;
         }
-
-        $fullIdentifier = "{$channel}:{$identifier}";
 
         try {
-            UserChannel::create([
+            UserAccount::create([
                 'user_id' => $user->getAuthIdentifier(),
-                'identifier' => $fullIdentifier,
+                'channel' => $channel,
+                'account' => $identifier,
             ]);
         } catch (UniqueConstraintViolationException) {
-            $this->error("Identifier already registered: {$fullIdentifier}");
+            $this->error("Account already registered: {$channel}:{$identifier}");
+
             return self::FAILURE;
         }
 
-        $this->info("Linked {$fullIdentifier} → user #{$user->getAuthIdentifier()} ({$user->email})");
+        $this->info("Linked {$channel}:{$identifier} → user #{$user->getAuthIdentifier()} ({$user->email})");
 
         return self::SUCCESS;
     }

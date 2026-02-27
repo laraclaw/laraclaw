@@ -8,15 +8,12 @@ use Illuminate\Mail\Mailables\Envelope;
 
 class ChannelReply extends Mailable
 {
-    public function __construct(
-        public string $body,
-        public ?string $inReplyTo = null,
-    ) {}
+    public function __construct(public string $body, public ?string $inReplyTo = null) {}
 
     public function envelope(): Envelope
     {
         if (! $this->inReplyTo) {
-            return new Envelope();
+            return new Envelope;
         }
 
         $inReplyTo = $this->inReplyTo;

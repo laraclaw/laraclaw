@@ -16,7 +16,7 @@ class Persona implements Tool
 
         $list = $available->isEmpty()
             ? 'No persona files found.'
-            : 'Available: '.$available->join(', ');
+            : 'Available: ' . $available->join(', ');
 
         return "Manage the bot persona for this conversation. {$list}. Operations: list, switch, clear.";
     }
@@ -46,10 +46,10 @@ class Persona implements Tool
         $personas = $this->availablePersonas();
 
         if (empty($personas)) {
-            return 'No persona files found in '.config('laraclaw.persona.path');
+            return 'No persona files found in ' . config('laraclaw.personas.path');
         }
 
-        return 'Available personas: '.implode(', ', $personas);
+        return 'Available personas: ' . implode(', ', $personas);
     }
 
     private function switch(?string $persona): string
@@ -59,17 +59,17 @@ class Persona implements Tool
         }
 
         if (! in_array($persona, $this->availablePersonas(), true)) {
-            return "Unknown persona '{$persona}'. Available: ".implode(', ', $this->availablePersonas());
+            return "Unknown persona '{$persona}'. Available: " . implode(', ', $this->availablePersonas());
         }
 
-        $path = config('laraclaw.persona.path').'/'.basename($persona).'.md';
+        $path = config('laraclaw.personas.path') . '/' . basename($persona) . '.md';
 
-        return "Persona switched to '{$persona}'. Apply the following instructions for the rest of this conversation:\n\n".file_get_contents($path);
+        return "Persona switched to '{$persona}'. Apply the following instructions for the rest of this conversation:\n\n" . file_get_contents($path);
     }
 
     private function clear(): string
     {
-        $default = config('laraclaw.persona.default');
+        $default = config('laraclaw.personas.default');
         $fallback = $default ? " Falling back to default: {$default}." : '';
 
         return "Persona cleared.{$fallback} Revert to your default behaviour for the rest of this conversation.";
@@ -78,7 +78,7 @@ class Persona implements Tool
     /** @return string[] */
     private function availablePersonas(): array
     {
-        $path = config('laraclaw.persona.path');
+        $path = config('laraclaw.personas.path');
 
         if (! is_dir($path)) {
             return [];

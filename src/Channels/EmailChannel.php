@@ -2,9 +2,6 @@
 
 namespace LaraClaw\Channels;
 
-use LaraClaw\Channels\DTOs\Attachment;
-use LaraClaw\Channels\DTOs\AttachmentType;
-use LaraClaw\Mail\ChannelReply;
 use DirectoryTree\ImapEngine\Attachment as ImapAttachment;
 use DirectoryTree\ImapEngine\Enums\ImapFlag;
 use DirectoryTree\ImapEngine\Laravel\Facades\Imap;
@@ -13,6 +10,9 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use LaraClaw\Channels\DTOs\Attachment;
+use LaraClaw\Channels\DTOs\AttachmentType;
+use LaraClaw\Mail\ChannelReply;
 use League\CommonMark\CommonMarkConverter;
 
 use function LaraClaw\Support\stripHtml;
@@ -40,8 +40,8 @@ class EmailChannel extends Channel
     public static function fromMessage(MessageInterface $message): self
     {
         $attachments = collect();
-        $disk = config('laraclaw.attachments.disk', 'local');
-        $basePath = config('laraclaw.attachments.path', 'attachments').'/email';
+        $disk = config('laraclaw.filesystem.attachments_disk', 'local');
+        $basePath = config('laraclaw.filesystem.attachments_path', 'attachments') . '/email';
 
         foreach ($message->attachments() as $attachment) {
             self::downloadAttachment($attachment, $disk, $basePath, $attachments);
@@ -56,7 +56,7 @@ class EmailChannel extends Channel
             messageId: $message->messageId(),
             threadId: self::resolveThreadId($message),
             uid: $message->uid(),
-            mailbox: config('laraclaw.email.mailbox', 'default'),
+            mailbox: config('laraclaw.channels.email.imap.mailbox', 'default'),
             text: $message->text() ?? stripHtml($message->html()),
             attachments: $attachments,
         );
@@ -64,10 +64,10 @@ class EmailChannel extends Channel
 
     private static function downloadAttachment(ImapAttachment $attachment, string $disk, string $basePath, Collection $attachments): void
     {
-        $filename = $attachment->filename() ?? 'attachment.'.($attachment->extension() ?? 'bin');
+        $filename = $attachment->filename() ?? 'attachment.' . ($attachment->extension() ?? 'bin');
         $mimeType = $attachment->contentType();
         $contents = $attachment->contents();
-        $path = $basePath.'/'.Str::uuid().'/'.$filename;
+        $path = $basePath . '/' . Str::uuid() . '/' . $filename;
 
         Storage::disk($disk)->put($path, $contents);
 
@@ -78,16 +78,6 @@ class EmailChannel extends Channel
             mimeType: $mimeType,
             filename: $filename,
         ));
-    }
-
-    public function identifier(): string
-    {
-        return "email:{$this->threadId}";
-    }
-
-    public function userIdentifier(): string
-    {
-        return "email:{$this->senderEmail}";
     }
 
     private static function resolveThreadId(MessageInterface $message): string
@@ -107,6 +97,16 @@ class EmailChannel extends Channel
         }
 
         return null;
+    }
+
+    public function identifier(): string
+    {
+        return "email:{$this->threadId}";
+    }
+
+    public function userIdentifier(): string
+    {
+        return "email:{$this->senderEmail}";
     }
 
     public function sendPhoto(string $disk, string $path): void
@@ -136,7 +136,7 @@ class EmailChannel extends Channel
         }
 
         $mailable->to($this->senderEmail, $this->senderName)
-            ->subject('Re: '.($this->subject ?? 'No Subject'));
+            ->subject('Re: ' . ($this->subject ?? 'No Subject'));
 
         Mail::send($mailable);
 
@@ -151,7 +151,7 @@ class EmailChannel extends Channel
         );
 
         $mailable->to($this->senderEmail, $this->senderName)
-            ->subject('Re: '.($this->subject ?? 'No Subject'))
+            ->subject('Re: ' . ($this->subject ?? 'No Subject'))
             ->attach($filePath, ['as' => 'voice.mp3', 'mime' => 'audio/mpeg']);
 
         Mail::send($mailable);

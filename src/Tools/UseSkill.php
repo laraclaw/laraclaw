@@ -2,8 +2,8 @@
 
 namespace LaraClaw\Tools;
 
-use LaraClaw\SkillRegistry;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
+use LaraClaw\SkillRegistry;
 use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Tools\Request;
 use Stringable;
@@ -21,7 +21,7 @@ class UseSkill implements Tool
         }
 
         $list = collect($skills)
-            ->map(fn (array $s, int $i) => ($i + 1).') '.$s['name'].' — '.$s['description'])
+            ->map(fn (array $s, int $i) => ($i + 1) . ') ' . $s['name'] . ' — ' . $s['description'])
             ->join(', ');
 
         return "Apply a specialized skill. Follow the returned instructions carefully. Available skills: {$list}";

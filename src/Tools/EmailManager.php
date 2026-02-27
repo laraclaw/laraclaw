@@ -2,13 +2,14 @@
 
 namespace LaraClaw\Tools;
 
-use LaraClaw\Channels\Channel;
 use DirectoryTree\ImapEngine\FolderInterface;
 use DirectoryTree\ImapEngine\Laravel\Facades\Imap;
 use DirectoryTree\ImapEngine\MessageInterface;
 use Exception;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use LaraClaw\Channels\Channel;
 use Laravel\Ai\Tools\Request;
 use Stringable;
 
@@ -27,21 +28,16 @@ class EmailManager extends BaseTool
         private string $mailbox,
     ) {}
 
-    protected function operations(): array
-    {
-        return ['inbox', 'read', 'send', 'reply', 'delete', 'move', 'label', 'mark_read', 'mark_unread', 'folders', 'create_folder', 'delete_folder'];
-    }
-
     public function description(): Stringable|string
     {
-        return 'Manage email. Operations: '.implode(', ', $this->operations())
-            .'. Use inbox to list messages, read to view one, send/reply to compose, delete/move to organize, label to tag without removing from source folder, create_folder/delete_folder to manage folders. For move/label: set source_folder when the message is not in INBOX. Use the folders operation to list available folders.';
+        return 'Manage email. Operations: ' . implode(', ', $this->operations())
+            . '. Use inbox to list messages, read to view one, send/reply to compose, delete/move to organize, label to tag without removing from source folder, create_folder/delete_folder to manage folders. For move/label: set source_folder when the message is not in INBOX. Use the folders operation to list available folders.';
     }
 
     public function schema(JsonSchema $schema): array
     {
         return [
-            'operation' => $schema->string()->required()->description('The operation to perform: '.implode(', ', $this->operations())),
+            'operation' => $schema->string()->required()->description('The operation to perform: ' . implode(', ', $this->operations())),
             'uid' => $schema->integer()->description('Message UID (required for read, reply, delete, move, mark_read, mark_unread)'),
             'uids' => $schema->array()->items($schema->integer())->description('Multiple message UIDs for batch delete'),
             'folder' => $schema->string()->description('Folder name (default: INBOX). For move/label, this is the destination folder. For create_folder/delete_folder, this is the folder to create/delete.'),
@@ -63,9 +59,15 @@ class EmailManager extends BaseTool
         try {
             return parent::handle($request);
         } catch (Exception $e) {
-            \Illuminate\Support\Facades\Log::error('EmailManager error', ['exception' => $e]);
+            Log::error('EmailManager error', ['exception' => $e]);
+
             return "Email operation failed: {$e->getMessage()}";
         }
+    }
+
+    protected function operations(): array
+    {
+        return ['inbox', 'read', 'send', 'reply', 'delete', 'move', 'label', 'mark_read', 'mark_unread', 'folders', 'create_folder', 'delete_folder'];
     }
 
     protected function inbox(Request $request): string
@@ -117,7 +119,7 @@ class EmailManager extends BaseTool
         $body = $message->text() ?? stripHtml($message->html()) ?? '(no body)';
 
         if (strlen($body) > self::MAX_BODY) {
-            $body = substr($body, 0, self::MAX_BODY)."\n\n[Truncated — body exceeds 50KB]";
+            $body = substr($body, 0, self::MAX_BODY) . "\n\n[Truncated — body exceeds 50KB]";
         }
 
         $from = $message->from();
@@ -207,7 +209,7 @@ class EmailManager extends BaseTool
         $subject = $message->subject() ?? 'No Subject';
 
         if (! str_starts_with(strtolower($subject), 're:')) {
-            $subject = 'Re: '.$subject;
+            $subject = 'Re: ' . $subject;
         }
 
         $fromAddress = config("imap.mailboxes.{$this->mailbox}.username");
@@ -233,7 +235,7 @@ class EmailManager extends BaseTool
 
         $message->markAnswered();
 
-        return 'Reply sent to '.implode(', ', (array) $to)." with subject \"{$subject}\".";
+        return 'Reply sent to ' . implode(', ', (array) $to) . " with subject \"{$subject}\".";
     }
 
     protected function delete(Request $request): string
@@ -248,7 +250,7 @@ class EmailManager extends BaseTool
         $count = count($uids);
         $message = $count === 1
             ? "Delete message {$uids[0]} from {$folderName}?"
-            : "Delete {$count} messages (UIDs: ".implode(', ', $uids).") from {$folderName}?";
+            : "Delete {$count} messages (UIDs: " . implode(', ', $uids) . ") from {$folderName}?";
 
         if (! $this->channel->confirm($message)) {
             return 'Cancelled by user.';
@@ -267,7 +269,7 @@ class EmailManager extends BaseTool
             }
         }
 
-        return implode('; ', $results).'.';
+        return implode('; ', $results) . '.';
     }
 
     protected function move(Request $request): string
@@ -397,7 +399,7 @@ class EmailManager extends BaseTool
         $count = count($folders);
         $message = $count === 1
             ? "Delete folder \"{$folders[0]}\"?"
-            : "Delete {$count} folders: ".implode(', ', $folders).'?';
+            : "Delete {$count} folders: " . implode(', ', $folders) . '?';
 
         if (! $this->channel->confirm($message)) {
             return 'Cancelled by user.';
@@ -415,7 +417,7 @@ class EmailManager extends BaseTool
             }
         }
 
-        return implode('; ', $results).'.';
+        return implode('; ', $results) . '.';
     }
 
     private function getFolder(string $path): FolderInterface

@@ -2,17 +2,17 @@
 
 namespace LaraClaw\Handlers;
 
-use LaraClaw\Channels\SlackChannel;
-use LaraClaw\Jobs\ProcessMessage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Redis;
+use LaraClaw\Channels\SlackChannel;
+use LaraClaw\Jobs\ProcessMessage;
 
 class Slack
 {
     public function __invoke(Request $request): JsonResponse
     {
-        if (! config('laraclaw.slack.enabled')) {
+        if (! config('laraclaw.channels.slack.enabled')) {
             return response()->json(['ok' => true]);
         }
 

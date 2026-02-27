@@ -24,22 +24,17 @@ class ImageManager extends BaseTool
         $this->pendingImageReply = $pendingImageReply;
     }
 
-    protected function operations(): array
-    {
-        return ['info', 'resize', 'crop', 'orient', 'convert', 'optimize'];
-    }
-
     public function description(): Stringable|string
     {
-        $disks = implode(', ', config('laraclaw.tools.allowed_disks', []));
+        $disks = implode(', ', config('laraclaw.filesystem.allowed_disks', []));
 
-        return "Work with images: get info, resize, crop, orient, convert, optimize. Allowed disks: {$disks}. Operations: ".implode(', ', $this->operations()).'. After any write operation (resize, crop, orient, convert, optimize) the resulting image is automatically sent to the user — do NOT say you cannot send files.';
+        return "Work with images: get info, resize, crop, orient, convert, optimize. Allowed disks: {$disks}. Operations: " . implode(', ', $this->operations()) . '. After any write operation (resize, crop, orient, convert, optimize) the resulting image is automatically sent to the user — do NOT say you cannot send files.';
     }
 
     public function schema(JsonSchema $schema): array
     {
         return [
-            'operation' => $schema->string()->required()->description('The operation to perform: '.implode(', ', $this->operations())),
+            'operation' => $schema->string()->required()->description('The operation to perform: ' . implode(', ', $this->operations())),
             'disk' => $schema->string()->required()->description('The storage disk to use'),
             'path' => $schema->string()->required()->description('The image file path'),
             'width' => $schema->integer()->description('For resize/crop: target width in pixels'),
@@ -59,7 +54,7 @@ class ImageManager extends BaseTool
         $operation = $request['operation'];
 
         if (! in_array($operation, $this->operations(), true)) {
-            return "Unknown operation '{$operation}'. Available: ".implode(', ', $this->operations());
+            return "Unknown operation '{$operation}'. Available: " . implode(', ', $this->operations());
         }
 
         $storage = $this->storage($request);
@@ -77,7 +72,7 @@ class ImageManager extends BaseTool
         $suffix = match ($operation) {
             'resize' => '_resized',
             'crop' => '_cropped',
-            'orient' => '_'.($request['orientation'] ?? 'oriented'),
+            'orient' => '_' . ($request['orientation'] ?? 'oriented'),
             'optimize' => '_optimized',
             default => '',
         };
@@ -96,9 +91,9 @@ class ImageManager extends BaseTool
         };
 
         if ($operation !== 'info') {
-            $dir = dirname($path) === '.' ? '' : dirname($path).'/';
+            $dir = dirname($path) === '.' ? '' : dirname($path) . '/';
             $pendingPath = $operation === 'convert'
-                ? $dir.pathinfo($path, PATHINFO_FILENAME).'.'.($request['format'] ?? '')
+                ? $dir . pathinfo($path, PATHINFO_FILENAME) . '.' . ($request['format'] ?? '')
                 : $targetPath;
             $this->setPending($request['disk'], $pendingPath);
         }
@@ -106,15 +101,9 @@ class ImageManager extends BaseTool
         return $result;
     }
 
-    private function driver(): ImageDriver
+    protected function operations(): array
     {
-        $driver = config('laraclaw.tools.image_driver', 'imagick');
-        $imageDriver = match ($driver) {
-            'gd' => ImageDriver::Gd,
-            default => ImageDriver::Imagick,
-        };
-
-        return $imageDriver;
+        return ['info', 'resize', 'crop', 'orient', 'convert', 'optimize'];
     }
 
     protected function info(Filesystem $storage, string $path): string
@@ -132,23 +121,6 @@ class ImageManager extends BaseTool
             ], JSON_PRETTY_PRINT);
         } finally {
             $this->cleanupTempFile($tempPath);
-        }
-    }
-
-    private function suffixedPath(string $path, string $suffix): string
-    {
-        $dir = dirname($path) === '.' ? '' : dirname($path).'/';
-        $ext = pathinfo($path, PATHINFO_EXTENSION);
-        $name = pathinfo($path, PATHINFO_FILENAME);
-
-        return $dir.$name.$suffix.($ext !== '' ? '.'.$ext : '');
-    }
-
-    private function setPending(string $disk, string $path): void
-    {
-        if ($this->pendingImageReply) {
-            $this->pendingImageReply->disk = $disk;
-            $this->pendingImageReply->path = $path;
         }
     }
 
@@ -208,7 +180,7 @@ class ImageManager extends BaseTool
         $valid = ['rotate_90', 'rotate_180', 'rotate_270', 'flip_horizontal', 'flip_vertical'];
 
         if (! in_array($orientation, $valid, true)) {
-            return "Unknown orientation '{$orientation}'. Use: ".implode(', ', $valid).'.';
+            return "Unknown orientation '{$orientation}'. Use: " . implode(', ', $valid) . '.';
         }
 
         $tempPath = $this->toTempFile($storage, $path);
@@ -243,9 +215,9 @@ class ImageManager extends BaseTool
 
         $tempPath = $this->toTempFile($storage, $path);
         $newPath = pathinfo($path, PATHINFO_DIRNAME);
-        $newPath = ($newPath === '.' ? '' : $newPath.'/').pathinfo($path, PATHINFO_FILENAME).'.'.$format;
+        $newPath = ($newPath === '.' ? '' : $newPath . '/') . pathinfo($path, PATHINFO_FILENAME) . '.' . $format;
 
-        $tempOut = $tempPath.'.'.$format;
+        $tempOut = $tempPath . '.' . $format;
 
         try {
             Image::useImageDriver($this->driver())->loadFile($tempPath)->format($format)->quality(100)->save($tempOut);
@@ -277,10 +249,38 @@ class ImageManager extends BaseTool
         }
     }
 
+    private function driver(): ImageDriver
+    {
+        $driver = config('laraclaw.tools.image_manager.driver', 'imagick');
+        $imageDriver = match ($driver) {
+            'gd' => ImageDriver::Gd,
+            default => ImageDriver::Imagick,
+        };
+
+        return $imageDriver;
+    }
+
+    private function suffixedPath(string $path, string $suffix): string
+    {
+        $dir = dirname($path) === '.' ? '' : dirname($path) . '/';
+        $ext = pathinfo($path, PATHINFO_EXTENSION);
+        $name = pathinfo($path, PATHINFO_FILENAME);
+
+        return $dir . $name . $suffix . ($ext !== '' ? '.' . $ext : '');
+    }
+
+    private function setPending(string $disk, string $path): void
+    {
+        if ($this->pendingImageReply) {
+            $this->pendingImageReply->disk = $disk;
+            $this->pendingImageReply->path = $path;
+        }
+    }
+
     private function toTempFile(Filesystem $storage, string $path): string
     {
         $ext = pathinfo($path, PATHINFO_EXTENSION);
-        $tempPath = sys_get_temp_dir().'/'.uniqid('imgmgr_').'.'.$ext;
+        $tempPath = sys_get_temp_dir() . '/' . uniqid('imgmgr_') . '.' . $ext;
         $written = file_put_contents($tempPath, $storage->get($path));
 
         if ($written === false) {

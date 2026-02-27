@@ -2,10 +2,10 @@
 
 namespace LaraClaw\Tools;
 
-use LaraClaw\PendingAudioReply;
 use Exception;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Str;
+use LaraClaw\PendingAudioReply;
 use Laravel\Ai\Audio;
 use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Tools\Request;
@@ -40,7 +40,7 @@ class TextToSpeech implements Tool
         try {
             $pending = Audio::of($text);
 
-            $voice = $request['voice'] ?? config('laraclaw.tts.voice', 'default-female');
+            $voice = $request['voice'] ?? config('laraclaw.tools.tts.voice', 'default-female');
             $pending->voice($voice);
 
             if (! empty($request['instructions'])) {
@@ -49,7 +49,7 @@ class TextToSpeech implements Tool
 
             $response = $pending->generate();
 
-            $this->audioReply->path = $this->storeTempFile($response->content());
+            $this->audioReply->paths[] = $this->storeTempFile($response->content());
 
             return 'Audio generated. Reply to the user normally — the audio will be attached automatically.';
         } catch (Exception $e) {
@@ -59,7 +59,7 @@ class TextToSpeech implements Tool
 
     private function storeTempFile(string $audioContent): string
     {
-        $path = sys_get_temp_dir().'/'.Str::uuid().'.mp3';
+        $path = sys_get_temp_dir() . '/' . Str::uuid() . '.mp3';
 
         file_put_contents($path, $audioContent);
 

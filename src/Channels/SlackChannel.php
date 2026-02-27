@@ -2,13 +2,15 @@
 
 namespace LaraClaw\Channels;
 
-use LaraClaw\Channels\DTOs\Attachment;
-use LaraClaw\Channels\DTOs\AttachmentType;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use LaraClaw\Channels\DTOs\Attachment;
+use LaraClaw\Channels\DTOs\AttachmentType;
+use RuntimeException;
+use Throwable;
 
 class SlackChannel extends Channel
 {
@@ -26,7 +28,7 @@ class SlackChannel extends Channel
 
     public static function openDm(string $userId): self
     {
-        $response = Http::withToken(config('laraclaw.slack.bot_token'))
+        $response = Http::withToken(config('laraclaw.channels.slack.bot_token'))
             ->post('https://slack.com/api/conversations.open', [
                 'users' => $userId,
             ]);
@@ -34,7 +36,7 @@ class SlackChannel extends Channel
         $channelId = $response->json('channel.id');
 
         if (! $response->successful() || ! $channelId) {
-            throw new \RuntimeException("Failed to open Slack DM with user {$userId}: ".$response->body());
+            throw new RuntimeException("Failed to open Slack DM with user {$userId}: " . $response->body());
         }
 
         return new self(channelId: $channelId);
@@ -42,7 +44,7 @@ class SlackChannel extends Channel
 
     public static function fromEvent(array $event): self
     {
-        $botToken = config('laraclaw.slack.bot_token');
+        $botToken = config('laraclaw.channels.slack.bot_token');
         $attachments = collect();
 
         foreach ($event['files'] ?? [] as $file) {
@@ -53,14 +55,15 @@ class SlackChannel extends Channel
 
             $mimeType = $file['mimetype'] ?? 'application/octet-stream';
             $fileName = $file['name'] ?? 'attachment';
-            $disk = config('laraclaw.attachments.disk', 'local');
-            $path = config('laraclaw.attachments.path', 'attachments').'/slack/'.Str::uuid().'/'.$fileName;
+            $disk = config('laraclaw.filesystem.attachments_disk', 'local');
+            $path = config('laraclaw.filesystem.attachments_path', 'attachments') . '/slack/' . Str::uuid() . '/' . $fileName;
 
             try {
                 $response = Http::withToken($botToken)->get($url);
 
                 if (! $response->successful()) {
                     Log::warning('Slack file download failed', ['url' => $url, 'status' => $response->status()]);
+
                     continue;
                 }
 
@@ -73,7 +76,7 @@ class SlackChannel extends Channel
                     mimeType: $mimeType,
                     filename: $fileName,
                 ));
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 Log::warning('Slack file download error', ['url' => $url, 'error' => $e->getMessage()]);
             }
         }
@@ -95,11 +98,6 @@ class SlackChannel extends Channel
             : "slack:{$this->channelId}:{$this->threadTs}";
     }
 
-    private function isDm(): bool
-    {
-        return str_starts_with($this->channelId, 'D');
-    }
-
     public function userIdentifier(): ?string
     {
         return $this->isDm() ? "slack:{$this->userId}" : null;
@@ -111,7 +109,7 @@ class SlackChannel extends Channel
             return true;
         }
 
-        $botUserId = config('laraclaw.slack.bot_user_id');
+        $botUserId = config('laraclaw.channels.slack.bot_user_id');
 
         return $botUserId && str_contains($this->messageText ?? '', "<@{$botUserId}>");
     }
@@ -123,13 +121,13 @@ class SlackChannel extends Channel
         }
 
         try {
-            Http::withToken(config('laraclaw.slack.bot_token'))
+            Http::withToken(config('laraclaw.channels.slack.bot_token'))
                 ->post('https://slack.com/api/reactions.add', [
                     'channel' => $this->channelId,
                     'name' => 'thumbsup',
                     'timestamp' => $this->messageTs,
                 ]);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             Log::warning('Slack reaction failed', ['error' => $e->getMessage()]);
         }
     }
@@ -145,7 +143,7 @@ class SlackChannel extends Channel
             $payload['thread_ts'] = $this->threadTs;
         }
 
-        $response = Http::withToken(config('laraclaw.slack.bot_token'))
+        $response = Http::withToken(config('laraclaw.channels.slack.bot_token'))
             ->post('https://slack.com/api/chat.postMessage', $payload);
 
         // If this is the first reply in a group thread, capture the thread_ts for subsequent messages
@@ -178,6 +176,11 @@ class SlackChannel extends Channel
         }
     }
 
+    private function isDm(): bool
+    {
+        return str_starts_with($this->channelId, 'D');
+    }
+
     private function toMrkdwn(string $text): string
     {
         // Bold: **text** or __text__ → *text*
@@ -202,7 +205,7 @@ class SlackChannel extends Channel
 
     private function uploadFile(string $filePath, string $fileName, ?string $title = null): bool
     {
-        $token = config('laraclaw.slack.bot_token');
+        $token = config('laraclaw.channels.slack.bot_token');
         $fileSize = filesize($filePath);
 
         $urlResponse = Http::withToken($token)

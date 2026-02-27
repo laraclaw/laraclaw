@@ -2,13 +2,13 @@
 
 namespace LaraClaw\Tools;
 
-use LaraClaw\Calendar\Contracts\CalendarDriver;
-use LaraClaw\Calendar\DTOs\CalendarEvent;
-use LaraClaw\Channels\Channel;
 use Carbon\Carbon;
 use DateTimeImmutable;
 use Exception;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
+use LaraClaw\Calendar\Contracts\CalendarDriver;
+use LaraClaw\Calendar\DTOs\CalendarEvent;
+use LaraClaw\Channels\Channel;
 use Laravel\Ai\Tools\Request;
 use Stringable;
 use Throwable;
@@ -24,20 +24,15 @@ class CalendarManager extends BaseTool
         private CalendarDriver $driver,
     ) {}
 
-    protected function operations(): array
-    {
-        return ['list', 'create', 'update', 'delete'];
-    }
-
     public function description(): Stringable|string
     {
-        return 'Manage calendar events. Operations: '.implode(', ', $this->operations()).'. Dates can be natural language ("tomorrow 3pm") or ISO 8601.';
+        return 'Manage calendar events. Operations: ' . implode(', ', $this->operations()) . '. Dates can be natural language ("tomorrow 3pm") or ISO 8601.';
     }
 
     public function schema(JsonSchema $schema): array
     {
         return [
-            'operation' => $schema->string()->required()->description('The operation to perform: '.implode(', ', $this->operations())),
+            'operation' => $schema->string()->required()->description('The operation to perform: ' . implode(', ', $this->operations())),
             'id' => $schema->string()->description('Event ID (required for update/delete)'),
             'title' => $schema->string()->description('Event title (required for create)'),
             'start' => $schema->string()->description('Start date/time (required for list and create)'),
@@ -55,6 +50,11 @@ class CalendarManager extends BaseTool
         } catch (Exception $e) {
             return "Calendar operation failed: {$e->getMessage()}";
         }
+    }
+
+    protected function operations(): array
+    {
+        return ['list', 'create', 'update', 'delete'];
     }
 
     protected function list(Request $request): string

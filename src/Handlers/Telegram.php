@@ -2,16 +2,16 @@
 
 namespace LaraClaw\Handlers;
 
+use Illuminate\Support\Facades\Redis;
 use LaraClaw\Channels\TelegramChannel;
 use LaraClaw\Jobs\ProcessMessage;
-use Illuminate\Support\Facades\Redis;
 use SergiX44\Nutgram\Nutgram;
 
 class Telegram
 {
     public function __invoke(Nutgram $bot): void
     {
-        if (! config('laraclaw.telegram.enabled')) {
+        if (! config('laraclaw.channels.telegram.enabled')) {
             return;
         }
 

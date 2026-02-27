@@ -14,7 +14,7 @@ class LogAgentRequest
         }
 
         $provider = $event->response->meta->provider ?? class_basename($event->prompt->provider);
-        $folder = storage_path('logs/laraclaw/api/'.$provider.'/'.now()->format('Y-m-d').'/'.now()->format('His').'_'.$event->invocationId);
+        $folder = storage_path('logs/laraclaw/api/' . $provider . '/' . now()->format('Y-m-d') . '/' . now()->format('His') . '_' . $event->invocationId);
 
         File::ensureDirectoryExists($folder);
 
@@ -38,7 +38,7 @@ class LogAgentRequest
             'tool_results' => $event->response->toolResults->map(fn ($tr) => $tr->toArray())->values()->all(),
         ];
 
-        File::put($folder.'/request.json', json_encode($request, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
-        File::put($folder.'/response.json', json_encode($response, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        File::put($folder . '/request.json', json_encode($request, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        File::put($folder . '/response.json', json_encode($response, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
     }
 }

@@ -9,11 +9,6 @@ use Stringable;
 
 class HeartbeatManager extends BaseTool
 {
-    protected function operations(): array
-    {
-        return ['create', 'list', 'cancel'];
-    }
-
     public function description(): Stringable|string
     {
         return 'Manage recurring scheduled messages (heartbeats). Operations: create, list, cancel. '
@@ -35,6 +30,11 @@ class HeartbeatManager extends BaseTool
         ];
     }
 
+    protected function operations(): array
+    {
+        return ['create', 'list', 'cancel'];
+    }
+
     protected function create(Request $request): string
     {
         $message = $request['message'] ?? null;
@@ -47,11 +47,12 @@ class HeartbeatManager extends BaseTool
             return 'The "cron" parameter is required for create.';
         }
 
-        $channelIdentifier = $this->resolveChannelIdentifier($request['channel'] ?? null);
+        [$channel, $key] = $this->resolveChannel($request['channel'] ?? null);
 
         Heartbeat::create([
-            'user_id' => config('laraclaw.owner'),
-            'channel_identifier' => $channelIdentifier,
+            'user_id' => config('laraclaw.auth.admin_user_id'),
+            'channel' => $channel,
+            'key' => $key,
             'message' => $message,
             'cron' => $cron,
             'is_active' => true,
@@ -62,10 +63,10 @@ class HeartbeatManager extends BaseTool
 
     protected function list(Request $request): string
     {
-        $heartbeats = Heartbeat::where('user_id', config('laraclaw.owner'))
+        $heartbeats = Heartbeat::where('user_id', config('laraclaw.auth.admin_user_id'))
             ->where('is_active', true)
             ->orderBy('id')
-            ->get(['id', 'channel_identifier', 'message', 'cron', 'last_run_at']);
+            ->get(['id', 'channel', 'key', 'message', 'cron', 'last_run_at']);
 
         if ($heartbeats->isEmpty()) {
             return 'No active heartbeats.';
@@ -82,7 +83,7 @@ class HeartbeatManager extends BaseTool
         }
 
         $heartbeat = Heartbeat::where('id', $id)
-            ->where('user_id', config('laraclaw.owner'))
+            ->where('user_id', config('laraclaw.auth.admin_user_id'))
             ->first();
 
         if (! $heartbeat) {
@@ -93,5 +94,4 @@ class HeartbeatManager extends BaseTool
 
         return "Heartbeat {$id} cancelled.";
     }
-
 }

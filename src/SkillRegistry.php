@@ -45,7 +45,7 @@ class SkillRegistry
             return $this->skills;
         }
 
-        $pattern = $this->basePath.'/*/SKILL.md';
+        $pattern = $this->basePath . '/*/SKILL.md';
 
         foreach (glob($pattern) ?: [] as $path) {
             $raw = File::get($path);

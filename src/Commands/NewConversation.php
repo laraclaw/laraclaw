@@ -2,9 +2,9 @@
 
 namespace LaraClaw\Commands;
 
-use LaraClaw\Channels\Channel;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Cache;
+use LaraClaw\Channels\Channel;
 
 class NewConversation implements Command
 {
