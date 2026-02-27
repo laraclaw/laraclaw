@@ -4,12 +4,15 @@ namespace LaraClaw\Tools;
 
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Facades\File;
+use LaraClaw\Models\Conversation;
 use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Tools\Request;
 use Stringable;
 
 class Persona implements Tool
 {
+    public function __construct(private ?Conversation $conversation = null) {}
+
     public function description(): Stringable|string
     {
         $available = collect($this->availablePersonas());
@@ -62,13 +65,15 @@ class Persona implements Tool
             return "Unknown persona '{$persona}'. Available: " . implode(', ', $this->availablePersonas());
         }
 
-        $path = config('laraclaw.personas.path') . '/' . basename($persona) . '.md';
+        $this->conversation?->update(['persona' => $persona]);
 
-        return "Persona switched to '{$persona}'. Apply the following instructions for the rest of this conversation:\n\n" . file_get_contents($path);
+        return "Persona switched to '{$persona}'.";
     }
 
     private function clear(): string
     {
+        $this->conversation?->update(['persona' => null]);
+
         $default = config('laraclaw.personas.default');
         $fallback = $default ? " Falling back to default: {$default}." : '';
 

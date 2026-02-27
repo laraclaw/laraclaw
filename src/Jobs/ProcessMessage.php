@@ -15,11 +15,12 @@ use LaraClaw\Calendar\Contracts\CalendarDriver;
 use LaraClaw\Channels\Channel;
 use LaraClaw\Channels\DTOs\AttachmentType;
 use LaraClaw\Commands\CommandRegistry;
-use LaraClaw\Models\ChannelConversation;
+use LaraClaw\Models\Conversation;
 use LaraClaw\Models\UserAccount;
 use LaraClaw\PendingAudioReply;
 use LaraClaw\PendingFileReply;
 use LaraClaw\PendingImageReply;
+use LaraClaw\SkillRegistry;
 use Laravel\Ai\Contracts\ConversationStore;
 use Laravel\Ai\Files\Document;
 use Laravel\Ai\Files\Image;
@@ -52,7 +53,7 @@ class ProcessMessage implements ShouldQueue
         }
     }
 
-    public function handle(ConversationStore $conversations, ?CalendarDriver $calendarDriver = null): void
+    public function handle(ConversationStore $conversations, SkillRegistry $skillRegistry, PendingAudioReply $pendingAudioReply, PendingImageReply $pendingImageReply, PendingFileReply $pendingFileReply, ?CalendarDriver $calendarDriver = null): void
     {
         $this->channel->acknowledge();
 
@@ -111,6 +112,11 @@ class ProcessMessage implements ShouldQueue
 
             $user = $userAccount->user;
 
+            $conversation = Conversation::firstOrCreate([
+                'channel' => $channelType,
+                'key' => $accountKey,
+            ]);
+
             $startFresh = Cache::pull("new_conversation:{$user->getAuthIdentifier()}");
             $conversationId = $startFresh ? null : $conversations->latestConversationId($user->getAuthIdentifier());
         } else {
@@ -129,10 +135,10 @@ class ProcessMessage implements ShouldQueue
             [$channelType, $channelKey] = $this->parseIdentifier($this->channel->identifier());
 
             try {
-                $channelConversation = ChannelConversation::where('channel', $channelType)
+                $conversation = Conversation::where('channel', $channelType)
                     ->where('key', $channelKey)
                     ->first()
-                    ?? ChannelConversation::create([
+                    ?? Conversation::create([
                         'channel' => $channelType,
                         'key' => $channelKey,
                         'conversation_id' => $conversations->storeConversation(
@@ -141,12 +147,12 @@ class ProcessMessage implements ShouldQueue
                         ),
                     ]);
             } catch (UniqueConstraintViolationException) {
-                $channelConversation = ChannelConversation::where('channel', $channelType)
+                $conversation = Conversation::where('channel', $channelType)
                     ->where('key', $channelKey)
                     ->first();
             }
 
-            $conversationId = $channelConversation->conversation_id;
+            $conversationId = $conversation->conversation_id;
         }
 
         // Check for commands before running the agent
@@ -164,6 +170,10 @@ class ProcessMessage implements ShouldQueue
 
         $agent = new ChatBotAgent(
             channel: $this->channel,
+            skillRegistry: $skillRegistry,
+            pendingImageReply: $pendingImageReply,
+            pendingAudioReply: $pendingAudioReply,
+            conversation: $conversation,
             calendarDriver: $calendarDriver,
         );
 
@@ -175,9 +185,9 @@ class ProcessMessage implements ShouldQueue
             ? $agent->prompt($text, $agentAttachments)
             : $agent->forUser($user)->prompt($text, $agentAttachments);
 
-        $audioReply = app(PendingAudioReply::class);
-        $imageReply = app(PendingImageReply::class);
-        $fileReply = app(PendingFileReply::class);
+        $audioReply = $pendingAudioReply;
+        $imageReply = $pendingImageReply;
+        $fileReply = $pendingFileReply;
 
         foreach ($audioReply->paths as $audioPath) {
             $this->channel->sendAudio($audioPath);

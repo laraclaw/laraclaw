@@ -9,7 +9,7 @@ use LaraClaw\Tables;
 
 class UserAccount extends Model
 {
-    protected $table = Tables::USER_ACCOUNTS;
+    protected $table = Tables::ACCOUNTS;
 
     protected $fillable = ['user_id', 'channel', 'account'];
 

@@ -6,11 +6,11 @@ use Illuminate\Database\Eloquent\Model;
 use LaraClaw\Enums\ChannelType;
 use LaraClaw\Tables;
 
-class ChannelConversation extends Model
+class Conversation extends Model
 {
-    protected $table = Tables::CHANNEL_CONVERSATIONS;
+    protected $table = Tables::CONVERSATIONS;
 
-    protected $fillable = ['channel', 'key', 'conversation_id'];
+    protected $fillable = ['channel', 'key', 'conversation_id', 'persona'];
 
     protected function casts(): array
     {

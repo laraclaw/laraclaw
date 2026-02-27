@@ -8,15 +8,16 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('laraclaw_channel_conversations', function (Blueprint $table) {
+        Schema::create('laraclaw_conversations', function (Blueprint $table) {
             $table->id();
             $table->string('channel');
             $table->string('key');
 
             // References a laravel/ai conversation. No foreign key constraint is placed
-            // here because agent_conversations belongs to the laravel/ai package and
+            // here because agent_conversations belongs to the laravel/ai package, so
             // coupling our migrations to it creates fragile package dependencies.
-            $table->uuid('conversation_id');
+            $table->uuid('conversation_id')->nullable();
+            $table->string('persona')->nullable();
             $table->timestamps();
 
             $table->unique(['channel', 'key']);
@@ -25,6 +26,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('laraclaw_channel_conversations');
+        Schema::dropIfExists('laraclaw_conversations');
     }
 };

@@ -4,6 +4,7 @@ namespace LaraClaw\Agents;
 
 use LaraClaw\Calendar\Contracts\CalendarDriver;
 use LaraClaw\Channels\Channel;
+use LaraClaw\Models\Conversation;
 use LaraClaw\PendingAudioReply;
 use LaraClaw\PendingImageReply;
 use LaraClaw\SkillRegistry;
@@ -25,7 +26,6 @@ use Laravel\Ai\Contracts\HasTools;
 use Laravel\Ai\Contracts\Providers\SupportsWebSearch;
 use Laravel\Ai\Promptable;
 use Laravel\Ai\Providers\Tools\WebSearch;
-use Stringable;
 
 class ChatBotAgent implements Agent, Conversational, HasTools
 {
@@ -33,25 +33,29 @@ class ChatBotAgent implements Agent, Conversational, HasTools
 
     public function __construct(
         private Channel $channel,
+        private SkillRegistry $skillRegistry,
+        private PendingImageReply $pendingImageReply,
+        private PendingAudioReply $pendingAudioReply,
+        private ?Conversation $conversation = null,
         private ?CalendarDriver $calendarDriver = null,
     ) {}
 
-    public function instructions(): Stringable|string
+    public function instructions(): string
     {
+        $base = $this->buildPrompt();
         $persona = $this->resolvePersona();
-        $base = $this->buildPrompt('default');
 
-        return $persona ? $persona . PHP_EOL . PHP_EOL . $base : $base;
+        return $base . $persona;
     }
 
     public function tools(): iterable
     {
         $tools = [
-            new UseSkill(app(SkillRegistry::class)),
+            new UseSkill($this->skillRegistry),
+            new ImageManager($this->channel, $this->pendingImageReply),
             new Files($this->channel),
-            new ImageManager($this->channel, app(PendingImageReply::class)),
             new WebRequest($this->channel),
-            new Persona,
+            new Persona($this->conversation),
             new ReminderManager($this->channel),
             new HeartbeatManager($this->channel),
         ];
@@ -65,7 +69,7 @@ class ChatBotAgent implements Agent, Conversational, HasTools
         }
 
         if (config('laraclaw.tools.tts.enabled')) {
-            $tools[] = new TextToSpeech(app(PendingAudioReply::class));
+            $tools[] = new TextToSpeech($this->pendingAudioReply);
         }
 
         if ($this->calendarDriver) {
@@ -75,27 +79,20 @@ class ChatBotAgent implements Agent, Conversational, HasTools
         return $tools;
     }
 
-    // Inject the default persona only for new conversations. Existing ones have
-    // it in their message history already, so injecting it again would cause
-    // duplicate persona instructions in conversation context on each turn.
-    private function resolvePersona(): ?string
+    private function resolvePersona(): string
     {
-        if ($this->conversationId) {
-            return null;
-        }
-
-        $persona = config('laraclaw.personas.default');
+        $persona = $this->conversation?->persona ?? config('laraclaw.personas.default');
 
         if (! $persona) {
-            return null;
+            return '';
         }
 
         $path = config('laraclaw.personas.path') . '/' . basename($persona) . '.md';
 
-        return file_exists($path) ? file_get_contents($path) : null;
+        return file_exists($path) ? file_get_contents($path) : '';
     }
 
-    private function buildPrompt(string $name): string
+    private function buildPrompt(string $name = 'default'): string
     {
         $published = resource_path("laraclaw/prompts/{$name}.md");
         $tz = config('app.timezone', 'UTC');
