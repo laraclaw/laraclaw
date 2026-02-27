@@ -35,5 +35,8 @@
     "config": {
         "optimize-autoloader": true,
         "sort-packages": true
+    },
+    "require-dev": {
+        "tightenco/duster": "^3.3"
     }
 }
