@@ -2,6 +2,8 @@
 
 namespace LaraClaw\Agents;
 
+use LaraClaw\Calendar\Contracts\CalendarDriver;
+use LaraClaw\Channels\Channel;
 use LaraClaw\PendingAudioReply;
 use LaraClaw\PendingImageReply;
 use LaraClaw\SkillRegistry;
@@ -15,17 +17,14 @@ use LaraClaw\Tools\ReminderManager;
 use LaraClaw\Tools\TextToSpeech;
 use LaraClaw\Tools\UseSkill;
 use LaraClaw\Tools\WebRequest;
-use LaraClaw\Calendar\Contracts\CalendarDriver;
 use Laravel\Ai\Ai;
-use Laravel\Ai\Contracts\Providers\SupportsWebSearch;
-use Laravel\Ai\Providers\Tools\WebSearch;
-use LaraClaw\Channels\Channel;
 use Laravel\Ai\Concerns\RemembersConversations;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\Conversational;
 use Laravel\Ai\Contracts\HasTools;
-use Laravel\Ai\Contracts\Tool;
+use Laravel\Ai\Contracts\Providers\SupportsWebSearch;
 use Laravel\Ai\Promptable;
+use Laravel\Ai\Providers\Tools\WebSearch;
 use Stringable;
 
 class ChatBotAgent implements Agent, Conversational, HasTools
@@ -39,40 +38,12 @@ class ChatBotAgent implements Agent, Conversational, HasTools
 
     public function instructions(): Stringable|string
     {
-        $tz = config('app.timezone', 'UTC');
-        $now = now()->setTimezone($tz)->toDateTimeString();
-        $base = "You are a helpful assistant. The current date and time is {$now} ({$tz}). You can see images attached to messages. "
-            . 'Be direct and action-oriented. '
-            . 'When asked to do something, just do it — use sensible defaults and act immediately rather than asking clarifying questions upfront. '
-            . 'Only ask a question if the task is genuinely impossible to attempt without the missing information. '
-            . 'For dates and times, use the current date and timezone above as reference unless the user specifies otherwise. '
-            . 'For files and locations, use the most obvious choice unless told otherwise. '
-            . 'Keep replies concise. '
-            . 'IMPORTANT: Before calling any tool, check your conversation history. '
-            . 'If you already called the same tool with the same arguments, DO NOT call it again. '
-            . 'Instead, reference the previous result in your response.';
+        $persona = $this->resolvePersona();
+        $base = $this->buildPrompt('default');
 
-        // Only inject default persona for new conversations; existing ones carry it in message history.
-        if (! $this->conversationId) {
-            $persona = config('laraclaw.persona.default');
-
-            if ($persona) {
-                $path = config('laraclaw.persona.path').'/'.basename($persona).'.md';
-
-                if (file_exists($path)) {
-                    return file_get_contents($path)."\n\n".$base;
-                }
-            }
-        }
-
-        return $base;
+        return $persona ? $persona . PHP_EOL . PHP_EOL . $base : $base;
     }
 
-    /**
-     * Get the tools available to the agent.
-     *
-     * @return Tool[]
-     */
     public function tools(): iterable
     {
         $tools = [
@@ -81,17 +52,19 @@ class ChatBotAgent implements Agent, Conversational, HasTools
             new ImageManager($this->channel, app(PendingImageReply::class)),
             new WebRequest($this->channel),
             new Persona,
+            new ReminderManager($this->channel),
+            new HeartbeatManager($this->channel),
         ];
 
         if (Ai::textProvider(config('ai.default')) instanceof SupportsWebSearch) {
             $tools[] = new WebSearch;
         }
 
-        if (config('laraclaw.email.enabled')) {
-            $tools[] = new EmailManager($this->channel, config('laraclaw.email.mailbox', 'default'));
+        if (config('laraclaw.channels.email.enabled')) {
+            $tools[] = new EmailManager($this->channel, config('laraclaw.channels.email.imap.mailbox', 'default'));
         }
 
-        if (config('laraclaw.tts.enabled')) {
+        if (config('laraclaw.tools.tts.enabled')) {
             $tools[] = new TextToSpeech(app(PendingAudioReply::class));
         }
 
@@ -99,10 +72,37 @@ class ChatBotAgent implements Agent, Conversational, HasTools
             $tools[] = new CalendarManager($this->channel, $this->calendarDriver);
         }
 
-        $tools[] = new ReminderManager($this->channel);
-        $tools[] = new HeartbeatManager($this->channel);
-
         return $tools;
     }
 
+    // Inject the default persona only for new conversations. Existing ones have
+    // it in their message history already, so injecting it again would cause
+    // duplicate persona instructions in conversation context on each turn.
+    private function resolvePersona(): ?string
+    {
+        if ($this->conversationId) {
+            return null;
+        }
+
+        $persona = config('laraclaw.personas.default');
+
+        if (! $persona) {
+            return null;
+        }
+
+        $path = config('laraclaw.personas.path') . '/' . basename($persona) . '.md';
+
+        return file_exists($path) ? file_get_contents($path) : null;
+    }
+
+    private function buildPrompt(string $name): string
+    {
+        $published = resource_path("laraclaw/prompts/{$name}.md");
+        $tz = config('app.timezone', 'UTC');
+        $now = now()->setTimezone($tz)->toDateTimeString();
+
+        return file_get_contents(
+            file_exists($published) ? $published : __DIR__ . "/../../resources/prompts/{$name}.md"
+        ) . PHP_EOL . PHP_EOL . "Current date and time: {$now} ({$tz})";
+    }
 }
