@@ -13,7 +13,10 @@ use Illuminate\Support\Facades\Log;
 use LaraClaw\Agents\ChatBotAgent;
 use LaraClaw\Calendar\Contracts\CalendarDriver;
 use LaraClaw\Channels\Channel;
-use LaraClaw\Channels\DTOs\AttachmentType;
+use LaraClaw\Channels\Contracts\SupportsAcknowledgement;
+use LaraClaw\Channels\Contracts\SupportsAudio;
+use LaraClaw\Channels\Contracts\SupportsFiles;
+use LaraClaw\Channels\Contracts\SupportsPhotos;
 use LaraClaw\Commands\CommandRegistry;
 use LaraClaw\Models\Conversation;
 use LaraClaw\Models\UserAccount;
@@ -55,13 +58,15 @@ class ProcessMessage implements ShouldQueue
 
     public function handle(ConversationStore $conversations, SkillRegistry $skillRegistry, PendingAudioReply $pendingAudioReply, PendingImageReply $pendingImageReply, PendingFileReply $pendingFileReply, ?CalendarDriver $calendarDriver = null): void
     {
-        $this->channel->acknowledge();
+        if ($this->channel instanceof SupportsAcknowledgement) {
+            $this->channel->acknowledge();
+        }
 
         $text = $this->channel->text() ?? '';
 
         // Transcribe audio if no text provided
         if (blank($text)) {
-            $audio = $this->channel->attachments()->first(fn ($a) => $a->type === AttachmentType::Audio);
+            $audio = $this->channel->attachments()->first(fn ($a) => $a->isAudio());
             if ($audio) {
                 $text = Transcription::fromStorage($audio->path, $audio->disk)->generate()->text;
             }
@@ -70,9 +75,9 @@ class ProcessMessage implements ShouldQueue
         // Build attachment objects for the agent
         $agentAttachments = [];
         foreach ($this->channel->attachments() as $attachment) {
-            $agentAttachments[] = match ($attachment->type) {
-                AttachmentType::Image => Image::fromStorage($attachment->path, $attachment->disk),
-                AttachmentType::Document => Document::fromStorage($attachment->path, $attachment->disk),
+            $agentAttachments[] = match (true) {
+                $attachment->isImage() => Image::fromStorage($attachment->path, $attachment->disk),
+                $attachment->isDocument() => Document::fromStorage($attachment->path, $attachment->disk),
                 default => null,
             };
         }
@@ -80,8 +85,8 @@ class ProcessMessage implements ShouldQueue
 
         // Append attachment metadata so the agent knows the disk/path for tool use
         $attachmentMeta = collect($this->channel->attachments())
-            ->filter(fn ($a) => in_array($a->type, [AttachmentType::Image, AttachmentType::Document]))
-            ->map(fn ($a) => ['type' => $a->type->value, 'disk' => $a->disk, 'path' => $a->path])
+            ->filter(fn ($a) => $a->isImage() || $a->isDocument())
+            ->map(fn ($a) => ['type' => $a->mimeType, 'disk' => $a->disk, 'path' => $a->path])
             ->values()
             ->all();
 
@@ -189,18 +194,20 @@ class ProcessMessage implements ShouldQueue
         $imageReply = $pendingImageReply;
         $fileReply = $pendingFileReply;
 
-        foreach ($audioReply->paths as $audioPath) {
-            $this->channel->sendAudio($audioPath);
-            if (file_exists($audioPath)) {
-                unlink($audioPath);
+        if ($this->channel instanceof SupportsAudio) {
+            foreach ($audioReply->paths as $audioPath) {
+                $this->channel->sendAudio($audioPath);
+                if (file_exists($audioPath)) {
+                    unlink($audioPath);
+                }
             }
         }
 
-        if ($imageReply->path && $imageReply->disk) {
+        if ($this->channel instanceof SupportsPhotos && $imageReply->path && $imageReply->disk) {
             $this->channel->sendPhoto($imageReply->disk, $imageReply->path);
         }
 
-        if (! empty($fileReply->files)) {
+        if ($this->channel instanceof SupportsFiles && ! empty($fileReply->files)) {
             $this->channel->sendFiles($fileReply->files);
         }
 

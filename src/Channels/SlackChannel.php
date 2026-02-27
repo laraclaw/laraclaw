@@ -7,12 +7,15 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use LaraClaw\Channels\Contracts\SupportsAcknowledgement;
+use LaraClaw\Channels\Contracts\SupportsAudio;
+use LaraClaw\Channels\Contracts\SupportsFiles;
+use LaraClaw\Channels\Contracts\SupportsPhotos;
 use LaraClaw\Channels\DTOs\Attachment;
-use LaraClaw\Channels\DTOs\AttachmentType;
 use RuntimeException;
 use Throwable;
 
-class SlackChannel extends Channel
+class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsAudio, SupportsFiles, SupportsPhotos
 {
     public function __construct(
         private string $channelId,
@@ -70,7 +73,6 @@ class SlackChannel extends Channel
                 Storage::disk($disk)->put($path, $response->body());
 
                 $attachments->push(new Attachment(
-                    type: AttachmentType::fromMimeType($mimeType),
                     path: $path,
                     disk: $disk,
                     mimeType: $mimeType,

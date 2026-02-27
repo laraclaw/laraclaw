@@ -6,8 +6,10 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use LaraClaw\Channels\Contracts\SupportsAcknowledgement;
+use LaraClaw\Channels\Contracts\SupportsAudio;
+use LaraClaw\Channels\Contracts\SupportsPhotos;
 use LaraClaw\Channels\DTOs\Attachment;
-use LaraClaw\Channels\DTOs\AttachmentType;
 use League\CommonMark\CommonMarkConverter;
 use SergiX44\Nutgram\Nutgram;
 use SergiX44\Nutgram\Telegram\Properties\ChatAction;
@@ -17,7 +19,7 @@ use SergiX44\Nutgram\Telegram\Types\Media\PhotoSize;
 use SergiX44\Nutgram\Telegram\Types\Message\Message;
 use Throwable;
 
-class TelegramChannel extends Channel
+class TelegramChannel extends Channel implements SupportsAcknowledgement, SupportsAudio, SupportsPhotos
 {
     public function __construct(
         private int|string $chatId,
@@ -83,7 +85,6 @@ class TelegramChannel extends Channel
         }
 
         $attachments->push(new Attachment(
-            type: AttachmentType::fromMimeType($mimeType),
             path: $path,
             disk: $disk,
             mimeType: $mimeType,

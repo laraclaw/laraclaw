@@ -10,14 +10,16 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use LaraClaw\Channels\Contracts\SupportsAudio;
+use LaraClaw\Channels\Contracts\SupportsFiles;
+use LaraClaw\Channels\Contracts\SupportsPhotos;
 use LaraClaw\Channels\DTOs\Attachment;
-use LaraClaw\Channels\DTOs\AttachmentType;
 use LaraClaw\Mail\ChannelReply;
 use League\CommonMark\CommonMarkConverter;
 
 use function LaraClaw\Support\stripHtml;
 
-class EmailChannel extends Channel
+class EmailChannel extends Channel implements SupportsAudio, SupportsFiles, SupportsPhotos
 {
     /** @var array<int, array{disk: string, path: string}> */
     private array $pendingAttachments = [];
@@ -72,7 +74,6 @@ class EmailChannel extends Channel
         Storage::disk($disk)->put($path, $contents);
 
         $attachments->push(new Attachment(
-            type: AttachmentType::fromMimeType($mimeType),
             path: $path,
             disk: $disk,
             mimeType: $mimeType,

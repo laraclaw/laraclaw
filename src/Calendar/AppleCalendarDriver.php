@@ -131,11 +131,11 @@ class AppleCalendarDriver implements CalendarDriver
             );
 
             $homeSet = $this->xpath(
-                $this->propfind($this->server.$principal, '<c:calendar-home-set xmlns:c="urn:ietf:params:xml:ns:caldav"/>')->body(),
+                $this->propfind($this->server . $principal, '<c:calendar-home-set xmlns:c="urn:ietf:params:xml:ns:caldav"/>')->body(),
                 '//c:calendar-home-set/d:href',
             );
 
-            return rtrim($this->server.$this->calendarHref($this->server.$homeSet), '/');
+            return rtrim($this->server . $this->calendarHref($this->server . $homeSet), '/');
         });
     }
 

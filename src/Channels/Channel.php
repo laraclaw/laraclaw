@@ -6,11 +6,6 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Redis;
 use LaraClaw\Channels\DTOs\Attachment;
 
-/**
- * Base class for all bot communication channels (Telegram, Slack, Email, CLI, etc.)
- *
- * Subclasses only need to implement identifier() and send().
- */
 abstract class Channel
 {
     protected ?string $messageText = null;
@@ -31,26 +26,6 @@ abstract class Channel
     public function attachments(): Collection
     {
         return $this->messageAttachments ??= collect();
-    }
-
-    public function acknowledge(): void
-    {
-        // No-op by default. Subclasses can override to send typing indicators, reactions, etc.
-    }
-
-    public function sendAudio(string $filePath): void
-    {
-        // No-op by default. Subclasses that support audio should override this.
-    }
-
-    public function sendPhoto(string $disk, string $path): void
-    {
-        // No-op by default. Subclasses that support photo sending should override this.
-    }
-
-    public function sendFiles(array $files): void
-    {
-        // No-op by default. Subclasses that support file attachments should override this.
     }
 
     public function userIdentifier(): ?string
