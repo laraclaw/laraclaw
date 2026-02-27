@@ -4,9 +4,8 @@ namespace LaraClaw\Calendar;
 
 use DateTimeImmutable;
 use DateTimeInterface;
-use DOMDocument;
-use DOMXPath;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -15,6 +14,7 @@ use LaraClaw\Calendar\DTOs\CalendarEvent;
 use RuntimeException;
 use Sabre\VObject\Component\VCalendar;
 use Sabre\VObject\Reader;
+use SimpleXMLElement;
 
 class AppleCalendarDriver implements CalendarDriver
 {
@@ -27,34 +27,21 @@ class AppleCalendarDriver implements CalendarDriver
 
     public function list(DateTimeInterface $start, DateTimeInterface $end): array
     {
-        $baseUrl = $this->resolveCalendarUrl();
-
-        $xml = <<<'XML'
-<?xml version="1.0" encoding="UTF-8"?>
-<c:calendar-query xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav">
-  <d:prop>
-    <d:getetag/>
-    <c:calendar-data/>
-  </d:prop>
-  <c:filter>
-    <c:comp-filter name="VCALENDAR">
-      <c:comp-filter name="VEVENT">
-        <c:time-range start="{START}" end="{END}"/>
-      </c:comp-filter>
-    </c:comp-filter>
-  </c:filter>
-</c:calendar-query>
-XML;
-
-        $xml = str_replace(
-            ['{START}', '{END}'],
-            [$start->format('Ymd\THis\Z'), $end->format('Ymd\THis\Z')],
-            $xml,
-        );
-
-        $response = $this->http()->send('REPORT', $baseUrl, [
+        $response = $this->http()->send('REPORT', $this->resolveCalendarUrl(), [
             'headers' => ['Content-Type' => 'application/xml', 'Depth' => '1'],
-            'body' => $xml,
+            'body' => <<<XML
+                <?xml version="1.0" encoding="UTF-8"?>
+                <c:calendar-query xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav">
+                  <d:prop><d:getetag/><c:calendar-data/></d:prop>
+                  <c:filter>
+                    <c:comp-filter name="VCALENDAR">
+                      <c:comp-filter name="VEVENT">
+                        <c:time-range start="{$start->format('Ymd\THis\Z')}" end="{$end->format('Ymd\THis\Z')}"/>
+                      </c:comp-filter>
+                    </c:comp-filter>
+                  </c:filter>
+                </c:calendar-query>
+                XML,
         ]);
 
         return $this->parseMultiStatus($response->body());
@@ -62,9 +49,7 @@ XML;
 
     public function create(CalendarEvent $event): string
     {
-        $baseUrl = $this->resolveCalendarUrl();
         $uid = Str::uuid()->toString();
-
         $vcalendar = new VCalendar;
         $vevent = $vcalendar->add('VEVENT', [
             'SUMMARY' => $event->title,
@@ -85,7 +70,7 @@ XML;
             $vevent->add('ATTENDEE', "mailto:{$email}", ['RSVP' => 'TRUE']);
         }
 
-        $this->http()->send('PUT', "{$baseUrl}/{$uid}.ics", [
+        $this->http()->send('PUT', "{$this->resolveCalendarUrl()}/{$uid}.ics", [
             'headers' => ['Content-Type' => 'text/calendar'],
             'body' => $vcalendar->serialize(),
         ]);
@@ -95,11 +80,8 @@ XML;
 
     public function update(string $id, CalendarEvent $event): void
     {
-        $baseUrl = $this->resolveCalendarUrl();
-        $url = "{$baseUrl}/{$id}.ics";
-
-        $response = $this->http()->send('GET', $url);
-        $vcalendar = Reader::read($response->body());
+        $url = "{$this->resolveCalendarUrl()}/{$id}.ics";
+        $vcalendar = Reader::read($this->http()->send('GET', $url)->body());
         $vevent = $vcalendar->VEVENT;
 
         if ($event->title !== null) {
@@ -137,119 +119,65 @@ XML;
 
     public function delete(string $id): void
     {
-        $baseUrl = $this->resolveCalendarUrl();
-
-        $this->http()->send('DELETE', "{$baseUrl}/{$id}.ics");
+        $this->http()->send('DELETE', "{$this->resolveCalendarUrl()}/{$id}.ics");
     }
 
     private function resolveCalendarUrl(): string
     {
-        return Cache::remember(
-            "caldav:calendar_url:{$this->username}:{$this->calendar}",
-            3600,
-            function () {
-                $response = $this->http()->send('PROPFIND', $this->server, [
-                    'headers' => ['Content-Type' => 'application/xml', 'Depth' => '0'],
-                    'body' => '<?xml version="1.0"?><d:propfind xmlns:d="DAV:"><d:prop><d:current-user-principal/></d:prop></d:propfind>',
-                ]);
-                $principal = $this->extractHref($response->body(), 'current-user-principal');
+        return Cache::remember("caldav:calendar_url:{$this->username}:{$this->calendar}", 3600, function () {
+            $principal = $this->xpath(
+                $this->propfind($this->server, '<d:current-user-principal/>')->body(),
+                '//d:current-user-principal/d:href',
+            );
 
-                $response = $this->http()->send('PROPFIND', $this->server . $principal, [
-                    'headers' => ['Content-Type' => 'application/xml', 'Depth' => '0'],
-                    'body' => '<?xml version="1.0"?><d:propfind xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav"><d:prop><c:calendar-home-set/></d:prop></d:propfind>',
-                ]);
-                $homeSet = $this->extractHref($response->body(), 'calendar-home-set');
+            $homeSet = $this->xpath(
+                $this->propfind($this->server.$principal, '<c:calendar-home-set xmlns:c="urn:ietf:params:xml:ns:caldav"/>')->body(),
+                '//c:calendar-home-set/d:href',
+            );
 
-                $response = $this->http()->send('PROPFIND', $this->server . $homeSet, [
-                    'headers' => ['Content-Type' => 'application/xml', 'Depth' => '1'],
-                    'body' => '<?xml version="1.0"?><d:propfind xmlns:d="DAV:"><d:prop><d:displayname/></d:prop></d:propfind>',
-                ]);
-
-                return rtrim($this->server . $this->findCalendarHref($response->body(), $this->calendar), '/');
-            },
-        );
+            return rtrim($this->server.$this->calendarHref($this->server.$homeSet), '/');
+        });
     }
 
-    private function extractHref(string $xml, string $property): string
+    private function propfind(string $url, string $prop, int $depth = 0): Response
     {
-        $doc = new DOMDocument;
-        $doc->loadXML($xml);
-
-        $xpath = new DOMXPath($doc);
-        $xpath->registerNamespace('d', 'DAV:');
-        $xpath->registerNamespace('c', 'urn:ietf:params:xml:ns:caldav');
-
-        $nodes = $xpath->query("//d:{$property}/d:href");
-
-        if ($nodes === false || $nodes->length === 0) {
-            $nodes = $xpath->query("//c:{$property}/d:href");
-        }
-
-        if ($nodes === false || $nodes->length === 0) {
-            throw new RuntimeException("Could not find {$property} in CalDAV response.");
-        }
-
-        return $nodes->item(0)->textContent;
+        return $this->http()->send('PROPFIND', $url, [
+            'headers' => ['Content-Type' => 'application/xml', 'Depth' => (string) $depth],
+            'body' => "<?xml version=\"1.0\"?><d:propfind xmlns:d=\"DAV:\"><d:prop>{$prop}</d:prop></d:propfind>",
+        ]);
     }
 
-    private function findCalendarHref(string $xml, string $name): string
+    private function calendarHref(string $url): string
     {
-        $doc = new DOMDocument;
-        $doc->loadXML($xml);
+        $xml = $this->loadXml($this->propfind($url, '<d:displayname/>', 1)->body());
 
-        $xpath = new DOMXPath($doc);
-        $xpath->registerNamespace('d', 'DAV:');
-
-        $responses = $xpath->query('//d:response');
-
-        foreach ($responses as $response) {
-            $displayName = $xpath->query('.//d:displayname', $response);
-            if ($displayName !== false && $displayName->length > 0 && $displayName->item(0)->textContent === $name) {
-                $href = $xpath->query('.//d:href', $response);
-                if ($href !== false && $href->length > 0) {
-                    return $href->item(0)->textContent;
-                }
+        foreach ($xml->xpath('//d:response') as $response) {
+            if ((string) $response->xpath('.//d:displayname')[0] === $this->calendar) {
+                return (string) $response->xpath('.//d:href')[0];
             }
         }
 
-        throw new RuntimeException("Calendar '{$name}' not found on CalDAV server.");
+        throw new RuntimeException("Calendar '{$this->calendar}' not found on CalDAV server.");
     }
 
-    private function parseMultiStatus(string $xml): array
+    private function parseMultiStatus(string $body): array
     {
-        $doc = new DOMDocument;
-        $doc->loadXML($xml);
-
-        $xpath = new DOMXPath($doc);
-        $xpath->registerNamespace('d', 'DAV:');
-        $xpath->registerNamespace('c', 'urn:ietf:params:xml:ns:caldav');
-
         $events = [];
-        $calendarDataNodes = $xpath->query('//c:calendar-data');
 
-        if ($calendarDataNodes === false) {
-            return $events;
-        }
+        foreach ($this->loadXml($body)->xpath('//c:calendar-data') as $data) {
+            $vcalendar = Reader::read((string) $data);
 
-        foreach ($calendarDataNodes as $node) {
-            $ical = $node->textContent;
-            if (empty($ical)) {
-                continue;
-            }
-
-            $vcalendar = Reader::read($ical);
             if (! isset($vcalendar->VEVENT)) {
                 continue;
             }
 
             $vevent = $vcalendar->VEVENT;
             $attendees = [];
-            if (isset($vevent->ATTENDEE)) {
-                foreach ($vevent->ATTENDEE as $attendee) {
-                    $email = str_replace('mailto:', '', (string) $attendee->getValue());
-                    if ($email !== '') {
-                        $attendees[] = $email;
-                    }
+
+            foreach ($vevent->ATTENDEE ?? [] as $attendee) {
+                $email = str_replace('mailto:', '', (string) $attendee->getValue());
+                if ($email !== '') {
+                    $attendees[] = $email;
                 }
             }
 
@@ -265,6 +193,26 @@ XML;
         }
 
         return $events;
+    }
+
+    private function loadXml(string $xml): SimpleXMLElement
+    {
+        $el = simplexml_load_string($xml);
+        $el->registerXPathNamespace('d', 'DAV:');
+        $el->registerXPathNamespace('c', 'urn:ietf:params:xml:ns:caldav');
+
+        return $el;
+    }
+
+    private function xpath(string $xml, string $path): string
+    {
+        $results = $this->loadXml($xml)->xpath($path);
+
+        if (empty($results)) {
+            throw new RuntimeException("XPath '{$path}' returned no results in CalDAV response.");
+        }
+
+        return (string) $results[0];
     }
 
     private function http(): PendingRequest
