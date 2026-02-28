@@ -1,7 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use LaraClaw\Handlers\Slack;
+use LaraClaw\Http\Controllers\SlackController;
 use SergiX44\Nutgram\Nutgram;
 
 if (config('laraclaw.channels.telegram.enabled') && class_exists(Nutgram::class)) {
@@ -9,5 +9,5 @@ if (config('laraclaw.channels.telegram.enabled') && class_exists(Nutgram::class)
 }
 
 if (config('laraclaw.channels.slack.enabled')) {
-    Route::post('slack/webhook', Slack::class)->middleware('slack.signature');
+    Route::post('slack/webhook', SlackController::class)->middleware('slack.signature');
 }

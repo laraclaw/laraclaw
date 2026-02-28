@@ -127,6 +127,8 @@ class TelegramChannel extends Channel implements SupportsAcknowledgement, Suppor
 
     public function sendAudio(Attachment $attachment, ?string $caption = null): void
     {
+        // Nutgram requires a local file stream — read from disk into a temp file.
+        // This assumes the attachments disk is readable; remote-only disks (e.g. S3) will fail here.
         $contents = Storage::disk($attachment->disk)->get($attachment->path);
         $tempPath = sys_get_temp_dir() . '/' . basename($attachment->path);
         file_put_contents($tempPath, $contents);
@@ -141,6 +143,8 @@ class TelegramChannel extends Channel implements SupportsAcknowledgement, Suppor
 
     public function sendImage(Attachment $attachment): void
     {
+        // Nutgram requires a local file stream — read from disk into a temp file.
+        // This assumes the attachments disk is readable; remote-only disks (e.g. S3) will fail here.
         $contents = Storage::disk($attachment->disk)->get($attachment->path);
         $tempPath = sys_get_temp_dir() . '/' . basename($attachment->path);
         file_put_contents($tempPath, $contents);

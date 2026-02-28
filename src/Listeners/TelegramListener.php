@@ -1,21 +1,17 @@
 <?php
 
-namespace LaraClaw\Handlers;
+namespace LaraClaw\Listeners;
 
 use Illuminate\Support\Facades\Redis;
 use LaraClaw\Channels\TelegramChannel;
+use LaraClaw\Events\TelegramMessageReceived;
 use LaraClaw\Jobs\ProcessMessage;
-use SergiX44\Nutgram\Nutgram;
 
-class Telegram
+class TelegramListener
 {
-    public function __invoke(Nutgram $bot): void
+    public function __invoke(TelegramMessageReceived $event): void
     {
-        if (! config('laraclaw.channels.telegram.enabled')) {
-            return;
-        }
-
-        $message = $bot->message();
+        $message = $event->message;
         $text = $message->text ?? $message->caption ?? null;
         $identifier = "telegram:{$message->chat->id}";
 
@@ -28,7 +24,7 @@ class Telegram
             return;
         }
 
-        $channel = TelegramChannel::fromMessage($message, $bot);
+        $channel = TelegramChannel::fromMessage($message, $event->bot);
 
         if (blank($channel->text()) && $channel->attachments()->isEmpty()) {
             return;

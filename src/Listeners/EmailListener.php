@@ -1,6 +1,6 @@
 <?php
 
-namespace LaraClaw\Handlers;
+namespace LaraClaw\Listeners;
 
 use DirectoryTree\ImapEngine\Laravel\Events\MessageReceived;
 use Illuminate\Support\Facades\Redis;
@@ -8,7 +8,7 @@ use Illuminate\Support\Str;
 use LaraClaw\Channels\EmailChannel;
 use LaraClaw\Jobs\ProcessMessage;
 
-class Email
+class EmailListener
 {
     public function __invoke(MessageReceived $event): void
     {

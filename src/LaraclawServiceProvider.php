@@ -17,8 +17,9 @@ use LaraClaw\Console\Commands\ChannelAddCommand;
 use LaraClaw\Console\Commands\ProcessHeartbeats;
 use LaraClaw\Console\Commands\SendReminders;
 use LaraClaw\Console\Commands\SetupWizard;
-use LaraClaw\Handlers\Email;
-use LaraClaw\Handlers\Telegram;
+use LaraClaw\Events\TelegramMessageReceived;
+use LaraClaw\Listeners\EmailListener;
+use LaraClaw\Listeners\TelegramListener;
 use LaraClaw\Http\Middleware\VerifySlackSignature;
 use LaraClaw\Listeners\LogAgentRequest;
 use Laravel\Ai\Events\AgentPrompted;
@@ -56,8 +57,9 @@ class LaraclawServiceProvider extends ServiceProvider
             });
 
             $this->app->resolving(\SergiX44\Nutgram\Nutgram::class, function (\SergiX44\Nutgram\Nutgram $bot) {
-                $bot->onMessage(Telegram::class);
+                $bot->onMessage(fn (\SergiX44\Nutgram\Nutgram $bot) => event(new TelegramMessageReceived($bot->message(), $bot)));
             });
+
         }
 
         if (config('laraclaw.channels.email.enabled')) {
@@ -126,7 +128,11 @@ class LaraclawServiceProvider extends ServiceProvider
         ], 'laraclaw');
 
         if (config('laraclaw.channels.email.enabled')) {
-            Event::listen(MessageReceived::class, Email::class);
+            Event::listen(MessageReceived::class, EmailListener::class);
+        }
+
+        if (config('laraclaw.channels.telegram.enabled')) {
+            Event::listen(TelegramMessageReceived::class, TelegramListener::class);
         }
 
         Event::listen(AgentPrompted::class, LogAgentRequest::class);

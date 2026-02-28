@@ -192,12 +192,13 @@ class ProcessMessage implements ShouldQueue
             : $agent->forUser($user)->prompt($text, $agentAttachments);
 
         foreach ($replyAttachments as $attachment) {
-            match (true) {
-                $attachment->isAudio() && $this->channel instanceof SupportsAudio => $this->channel->sendAudio($attachment),
-                $attachment->isImage() && $this->channel instanceof SupportsImages => $this->channel->sendImage($attachment),
-                $this->channel instanceof SupportsFiles => $this->channel->sendFile($attachment),
-                default => null,
-            };
+            if ($attachment->isAudio() && $this->channel instanceof SupportsAudio) {
+                $this->channel->sendAudio($attachment);
+            } elseif ($attachment->isImage() && $this->channel instanceof SupportsImages) {
+                $this->channel->sendImage($attachment);
+            } elseif ($this->channel instanceof SupportsFiles) {
+                $this->channel->sendFile($attachment);
+            }
         }
 
         $this->channel->send($response);

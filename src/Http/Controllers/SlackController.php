@@ -1,14 +1,15 @@
 <?php
 
-namespace LaraClaw\Handlers;
+namespace LaraClaw\Http\Controllers;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Redis;
 use LaraClaw\Channels\SlackChannel;
 use LaraClaw\Jobs\ProcessMessage;
 
-class Slack
+class SlackController extends Controller
 {
     public function __invoke(Request $request): JsonResponse
     {
