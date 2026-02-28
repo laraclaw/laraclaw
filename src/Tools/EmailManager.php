@@ -248,11 +248,11 @@ class EmailManager extends BaseTool
         $folderName = $request['folder'] ?? 'INBOX';
 
         $count = count($uids);
-        $message = $count === 1
+        $prompt = $count === 1
             ? "Delete message {$uids[0]} from {$folderName}?"
             : "Delete {$count} messages (UIDs: " . implode(', ', $uids) . ") from {$folderName}?";
 
-        if (! $this->message->channel->confirm($this->message, $message)) {
+        if (! $this->message->channel->confirm($this->message, $prompt)) {
             return 'Cancelled by user.';
         }
 
@@ -397,11 +397,11 @@ class EmailManager extends BaseTool
         }
 
         $count = count($folders);
-        $message = $count === 1
+        $prompt = $count === 1
             ? "Delete folder \"{$folders[0]}\"?"
             : "Delete {$count} folders: " . implode(', ', $folders) . '?';
 
-        if (! $this->message->channel->confirm($this->message, $message)) {
+        if (! $this->message->channel->confirm($this->message, $prompt)) {
             return 'Cancelled by user.';
         }
 

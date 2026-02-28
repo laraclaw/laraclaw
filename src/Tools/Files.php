@@ -149,11 +149,11 @@ class Files extends BaseTool
         }
 
         $count = count($paths);
-        $message = $count === 1
+        $prompt = $count === 1
             ? "Delete \"{$paths[0]}\" from disk \"{$request['disk']}\"?"
             : "Delete {$count} files from disk \"{$request['disk']}\": " . implode(', ', $paths) . '?';
 
-        if (! $this->message->channel->confirm($this->message, $message)) {
+        if (! $this->message->channel->confirm($this->message, $prompt)) {
             return 'Cancelled by user.';
         }
 

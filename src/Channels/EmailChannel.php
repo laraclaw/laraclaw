@@ -118,12 +118,12 @@ class EmailChannel extends Channel implements SupportsConfirmation
 
     public readonly string $name = 'email';
 
-    public function conversationKey(): string
+    private function conversationKey(): string
     {
         return $this->senderEmail;
     }
 
-    public function conversationIsDirectMessage(): bool
+    private function conversationIsDirectMessage(): bool
     {
         return true;
     }

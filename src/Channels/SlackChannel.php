@@ -133,7 +133,7 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsC
 
     public readonly string $name = 'slack';
 
-    public function conversationKey(): string
+    private function conversationKey(): string
     {
         return $this->conversationIsDirectMessage()
             ? $this->userId ?? throw new \RuntimeException('Slack DM event is missing user ID.')
@@ -214,7 +214,7 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsC
     /**
      * Slack DM channel IDs start with 'D'.
      */
-    public function conversationIsDirectMessage(): bool
+    private function conversationIsDirectMessage(): bool
     {
         return str_starts_with($this->channelId, 'D');
     }

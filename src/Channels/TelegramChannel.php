@@ -54,7 +54,7 @@ class TelegramChannel extends Channel implements SupportsAcknowledgement, Suppor
 
     public readonly string $name = 'telegram';
 
-    public function conversationKey(): string
+    private function conversationKey(): string
     {
         return (string) $this->chatId;
     }
@@ -180,7 +180,7 @@ class TelegramChannel extends Channel implements SupportsAcknowledgement, Suppor
     /**
      * Positive chat IDs are private chats; negative are groups.
      */
-    public function conversationIsDirectMessage(): bool
+    private function conversationIsDirectMessage(): bool
     {
         return $this->chatId > 0;
     }
