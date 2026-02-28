@@ -18,7 +18,7 @@ use SergiX44\Nutgram\Telegram\Properties\ChatAction;
 use SergiX44\Nutgram\Telegram\Properties\ParseMode;
 use SergiX44\Nutgram\Telegram\Types\Internal\InputFile;
 use SergiX44\Nutgram\Telegram\Types\Media\PhotoSize;
-use SergiX44\Nutgram\Telegram\Types\Message\Message;
+use SergiX44\Nutgram\Telegram\Types\Message\Message as NutgramMessage;
 use Throwable;
 
 class TelegramChannel extends Channel implements SupportsAcknowledgement, SupportsAudio, SupportsConfirmation, SupportsImages
@@ -27,44 +27,39 @@ class TelegramChannel extends Channel implements SupportsAcknowledgement, Suppor
 
     public function __construct(
         private int|string $chatId,
-        ?string $text = null,
-        ?Collection $attachments = null,
-    ) {
-        $this->messageText = $text;
-        $this->messageAttachments = $attachments ?? collect();
-    }
+    ) {}
 
-    public static function fromMessage(Message $message, Nutgram $bot): self
+    public static function from(NutgramMessage $raw, Nutgram $bot): \LaraClaw\Message
     {
         $attachments = collect();
         $disk = config('laraclaw.filesystem.attachments_disk', 'local');
         $basePath = config('laraclaw.filesystem.attachments_path', 'attachments') . '/telegram';
 
         // Photo (array of PhotoSize, pick largest)
-        if (! empty($message->photo)) {
-            $photo = collect($message->photo)->sortByDesc(fn (PhotoSize $p) => $p->file_size ?? 0)->first();
+        if (! empty($raw->photo)) {
+            $photo = collect($raw->photo)->sortByDesc(fn (PhotoSize $p) => $p->file_size ?? 0)->first();
             self::downloadFile($bot, $photo->file_id, 'image/jpeg', null, $disk, $basePath, $attachments);
         }
 
-        if ($message->audio) {
-            self::downloadFile($bot, $message->audio->file_id, $message->audio->mime_type ?? 'audio/mpeg', $message->audio->file_name, $disk, $basePath, $attachments);
+        if ($raw->audio) {
+            self::downloadFile($bot, $raw->audio->file_id, $raw->audio->mime_type ?? 'audio/mpeg', $raw->audio->file_name, $disk, $basePath, $attachments);
         }
 
-        if ($message->voice) {
-            self::downloadFile($bot, $message->voice->file_id, $message->voice->mime_type ?? 'audio/ogg', null, $disk, $basePath, $attachments);
+        if ($raw->voice) {
+            self::downloadFile($bot, $raw->voice->file_id, $raw->voice->mime_type ?? 'audio/ogg', null, $disk, $basePath, $attachments);
         }
 
-        if ($message->video) {
-            self::downloadFile($bot, $message->video->file_id, $message->video->mime_type ?? 'video/mp4', $message->video->file_name, $disk, $basePath, $attachments);
+        if ($raw->video) {
+            self::downloadFile($bot, $raw->video->file_id, $raw->video->mime_type ?? 'video/mp4', $raw->video->file_name, $disk, $basePath, $attachments);
         }
 
-        if ($message->document) {
-            self::downloadFile($bot, $message->document->file_id, $message->document->mime_type ?? 'application/octet-stream', $message->document->file_name, $disk, $basePath, $attachments);
+        if ($raw->document) {
+            self::downloadFile($bot, $raw->document->file_id, $raw->document->mime_type ?? 'application/octet-stream', $raw->document->file_name, $disk, $basePath, $attachments);
         }
 
-        return new self(
-            chatId: $message->chat->id,
-            text: $message->text ?? $message->caption ?? null,
+        return new \LaraClaw\Message(
+            channel: new self(chatId: $raw->chat->id),
+            text: $raw->text ?? $raw->caption ?? null,
             attachments: $attachments,
         );
     }

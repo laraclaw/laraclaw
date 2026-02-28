@@ -6,7 +6,6 @@ use DirectoryTree\ImapEngine\Attachment as ImapAttachment;
 use DirectoryTree\ImapEngine\Enums\ImapFlag;
 use DirectoryTree\ImapEngine\Laravel\Facades\Imap;
 use DirectoryTree\ImapEngine\MessageInterface;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -32,14 +31,9 @@ class EmailChannel extends Channel implements SupportsAudio, SupportsFiles, Supp
         private string $threadId,
         private int $uid,
         private string $mailbox,
-        ?string $text = null,
-        ?Collection $attachments = null,
-    ) {
-        $this->messageText = $text;
-        $this->messageAttachments = $attachments ?? collect();
-    }
+    ) {}
 
-    public static function fromMessage(MessageInterface $message): self
+    public static function from(MessageInterface $message): \LaraClaw\Message
     {
         $attachments = collect();
         $disk = config('laraclaw.filesystem.attachments_disk', 'local');
@@ -51,14 +45,16 @@ class EmailChannel extends Channel implements SupportsAudio, SupportsFiles, Supp
 
         $from = $message->from();
 
-        return new self(
-            senderEmail: $from?->email() ?? 'unknown',
-            senderName: $from?->name(),
-            subject: $message->subject(),
-            messageId: $message->messageId(),
-            threadId: self::resolveThreadId($message),
-            uid: $message->uid(),
-            mailbox: config('laraclaw.channels.email.imap.mailbox', 'default'),
+        return new \LaraClaw\Message(
+            channel: new self(
+                senderEmail: $from?->email() ?? 'unknown',
+                senderName: $from?->name(),
+                subject: $message->subject(),
+                messageId: $message->messageId(),
+                threadId: self::resolveThreadId($message),
+                uid: $message->uid(),
+                mailbox: config('laraclaw.channels.email.imap.mailbox', 'default'),
+            ),
             text: $message->text() ?? stripHtml($message->html()),
             attachments: $attachments,
         );

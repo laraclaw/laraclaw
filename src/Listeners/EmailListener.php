@@ -16,11 +16,11 @@ class EmailListener
             return;
         }
 
-        $message = $event->message;
+        $raw = $event->message;
 
         // Prevent loops — ignore emails from ourselves
         $botEmail = config('imap.mailboxes.' . config('laraclaw.channels.email.imap.mailbox', 'default') . '.username');
-        $fromEmail = $message->from()?->email() ?? 'unknown';
+        $fromEmail = $raw->from()?->email() ?? 'unknown';
 
         if ($fromEmail === $botEmail) {
             return;
@@ -34,7 +34,7 @@ class EmailListener
         }
 
         // Authentication check — reject unless both DKIM and SPF pass
-        if (config('laraclaw.channels.email.verify_sender_dkim_and_spf') && ! $this->passesAuthCheck($message)) {
+        if (config('laraclaw.channels.email.verify_sender_dkim_and_spf') && ! $this->passesAuthCheck($raw)) {
             return;
         }
 
@@ -42,7 +42,7 @@ class EmailListener
 
         // If a tool is waiting for confirmation, push the reply and return early
         if (Redis::exists("awaiting_confirm:{$identifier}")) {
-            $text = $message->text();
+            $text = $raw->text();
             if ($text !== null) {
                 Redis::rpush("confirm:{$identifier}", $text);
             }
@@ -50,13 +50,13 @@ class EmailListener
             return;
         }
 
-        $channel = EmailChannel::fromMessage($message);
+        $message = EmailChannel::from($raw);
 
-        if (blank($channel->text()) && $channel->attachments()->isEmpty()) {
+        if (blank($message->text) && $message->attachments->isEmpty()) {
             return;
         }
 
-        ProcessMessage::dispatch($channel);
+        ProcessMessage::dispatch($message);
     }
 
     private function passesAuthCheck($message): bool

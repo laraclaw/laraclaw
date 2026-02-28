@@ -11,9 +11,9 @@ class TelegramListener
 {
     public function __invoke(TelegramMessageReceived $event): void
     {
-        $message = $event->message;
-        $text = $message->text ?? $message->caption ?? null;
-        $identifier = "telegram:{$message->chat->id}";
+        $raw = $event->message;
+        $text = $raw->text ?? $raw->caption ?? null;
+        $identifier = "telegram:{$raw->chat->id}";
 
         // If a tool is waiting for confirmation, push the reply and return early
         if (Redis::exists("awaiting_confirm:{$identifier}")) {
@@ -24,16 +24,16 @@ class TelegramListener
             return;
         }
 
-        $channel = TelegramChannel::fromMessage($message, $event->bot);
+        $message = TelegramChannel::from($raw, $event->bot);
 
-        if (blank($channel->text()) && $channel->attachments()->isEmpty()) {
+        if (blank($message->text) && $message->attachments->isEmpty()) {
             return;
         }
 
-        if (! $channel->shouldRespond()) {
+        if (! $message->channel->shouldRespond($message->text)) {
             return;
         }
 
-        ProcessMessage::dispatch($channel);
+        ProcessMessage::dispatch($message);
     }
 }

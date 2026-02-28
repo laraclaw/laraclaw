@@ -8,20 +8,20 @@ use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use LaraClaw\Agents\ChatBotAgent;
 use LaraClaw\Calendar\Contracts\CalendarDriver;
-use LaraClaw\Channels\Channel;
 use LaraClaw\Channels\Contracts\SupportsAcknowledgement;
 use LaraClaw\Channels\Contracts\SupportsAudio;
 use LaraClaw\Channels\Contracts\SupportsFiles;
 use LaraClaw\Channels\Contracts\SupportsImages;
 use LaraClaw\Commands\CommandRegistry;
+use LaraClaw\DTOs\Attachment;
+use LaraClaw\Message;
 use LaraClaw\Models\Conversation;
 use LaraClaw\Models\UserAccount;
-use LaraClaw\DTOs\Attachment;
-use Illuminate\Support\Collection;
 use LaraClaw\SkillRegistry;
 use Laravel\Ai\Contracts\ConversationStore;
 use Laravel\Ai\Files\Document;
@@ -38,18 +38,18 @@ class ProcessMessage implements ShouldQueue
     public int $tries = 1;
 
     public function __construct(
-        private Channel $channel,
+        private Message $message,
     ) {}
 
     public function failed(Throwable $exception): void
     {
         Log::error('ProcessMessage failed', [
-            'channel' => $this->channel->identifier(),
+            'channel' => $this->message->channel->identifier(),
             'error' => $exception->getMessage(),
         ]);
 
         try {
-            $this->channel->send('Sorry, something went wrong processing your message. Please try again.');
+            $this->message->channel->send('Sorry, something went wrong processing your message. Please try again.');
         } catch (Throwable) {
             // Nothing more we can do if the channel itself is unavailable.
         }
@@ -60,15 +60,17 @@ class ProcessMessage implements ShouldQueue
         /** @var Collection<int, Attachment> $replyAttachments */
         $replyAttachments = collect();
 
-        if ($this->channel instanceof SupportsAcknowledgement) {
-            $this->channel->acknowledge();
+        $channel = $this->message->channel;
+
+        if ($channel instanceof SupportsAcknowledgement) {
+            $channel->acknowledge();
         }
 
-        $text = $this->channel->text() ?? '';
+        $text = $this->message->text ?? '';
 
         // Transcribe audio if no text provided
         if (blank($text)) {
-            $audio = $this->channel->attachments()->first(fn ($a) => $a->isAudio());
+            $audio = $this->message->attachments->first(fn ($a) => $a->isAudio());
             if ($audio) {
                 $text = Transcription::fromStorage($audio->path, $audio->disk)->generate()->text;
             }
@@ -76,7 +78,7 @@ class ProcessMessage implements ShouldQueue
 
         // Build attachment objects for the agent
         $agentAttachments = [];
-        foreach ($this->channel->attachments() as $attachment) {
+        foreach ($this->message->attachments as $attachment) {
             $agentAttachments[] = match (true) {
                 $attachment->isImage() => Image::fromStorage($attachment->path, $attachment->disk),
                 $attachment->isDocument() => Document::fromStorage($attachment->path, $attachment->disk),
@@ -86,7 +88,7 @@ class ProcessMessage implements ShouldQueue
         $agentAttachments = array_filter($agentAttachments);
 
         // Append attachment metadata so the agent knows the disk/path for tool use
-        $attachmentMeta = collect($this->channel->attachments())
+        $attachmentMeta = $this->message->attachments
             ->filter(fn ($a) => $a->isImage() || $a->isDocument())
             ->map(fn ($a) => ['type' => $a->mimeType, 'disk' => $a->disk, 'path' => $a->path])
             ->values()
@@ -97,7 +99,7 @@ class ProcessMessage implements ShouldQueue
         }
 
         // Resolve user and conversation
-        $userIdentifier = $this->channel->userIdentifier();
+        $userIdentifier = $channel->userIdentifier();
 
         if ($userIdentifier !== null) {
             // DM: must be the registered owner
@@ -139,7 +141,7 @@ class ProcessMessage implements ShouldQueue
 
             // Group conversations are never reset via !new — that's per-user and doesn't
             // apply to a shared channel conversation.
-            [$channelType, $channelKey] = $this->parseIdentifier($this->channel->identifier());
+            [$channelType, $channelKey] = $this->parseIdentifier($channel->identifier());
 
             try {
                 $conversation = Conversation::where('channel', $channelType)
@@ -150,7 +152,7 @@ class ProcessMessage implements ShouldQueue
                         'key' => $channelKey,
                         'conversation_id' => $conversations->storeConversation(
                             $user->getAuthIdentifier(),
-                            $this->channel->identifier(),
+                            $channel->identifier(),
                         ),
                     ]);
             } catch (UniqueConstraintViolationException) {
@@ -166,17 +168,17 @@ class ProcessMessage implements ShouldQueue
         $command = app(CommandRegistry::class)->match($text);
 
         if ($command) {
-            $response = $command->handle($this->channel, $user);
+            $response = $command->handle($channel, $user);
 
             if ($response) {
-                $this->channel->send($response);
+                $channel->send($response);
             }
 
             return;
         }
 
         $agent = new ChatBotAgent(
-            channel: $this->channel,
+            channel: $channel,
             skillRegistry: $skillRegistry,
             replyAttachments: $replyAttachments,
             conversation: $conversation,
@@ -192,16 +194,16 @@ class ProcessMessage implements ShouldQueue
             : $agent->forUser($user)->prompt($text, $agentAttachments);
 
         foreach ($replyAttachments as $attachment) {
-            if ($attachment->isAudio() && $this->channel instanceof SupportsAudio) {
-                $this->channel->sendAudio($attachment);
-            } elseif ($attachment->isImage() && $this->channel instanceof SupportsImages) {
-                $this->channel->sendImage($attachment);
-            } elseif ($this->channel instanceof SupportsFiles) {
-                $this->channel->sendFile($attachment);
+            if ($attachment->isAudio() && $channel instanceof SupportsAudio) {
+                $channel->sendAudio($attachment);
+            } elseif ($attachment->isImage() && $channel instanceof SupportsImages) {
+                $channel->sendImage($attachment);
+            } elseif ($channel instanceof SupportsFiles) {
+                $channel->sendFile($attachment);
             }
         }
 
-        $this->channel->send($response);
+        $channel->send($response);
     }
 
     private function parseIdentifier(string $identifier): array

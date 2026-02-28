@@ -57,17 +57,17 @@ class SlackController extends Controller
             return response()->json(['ok' => true]);
         }
 
-        $channel = SlackChannel::fromEvent($event);
+        $message = SlackChannel::from($event);
 
-        if (blank($channel->text()) && $channel->attachments()->isEmpty()) {
+        if (blank($message->text) && $message->attachments->isEmpty()) {
             return response()->json(['ok' => true]);
         }
 
-        if (! $channel->shouldRespond()) {
+        if (! $message->channel->shouldRespond($message->text)) {
             return response()->json(['ok' => true]);
         }
 
-        ProcessMessage::dispatch($channel);
+        ProcessMessage::dispatch($message);
 
         return response()->json(['ok' => true]);
     }

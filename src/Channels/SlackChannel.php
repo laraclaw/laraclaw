@@ -26,12 +26,7 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsA
         private ?string $threadTs = null,
         private ?string $messageTs = null,
         private ?string $userId = null,
-        ?string $text = null,
-        ?Collection $attachments = null,
-    ) {
-        $this->messageText = $text;
-        $this->messageAttachments = $attachments ?? collect();
-    }
+    ) {}
 
     public static function openDm(string $userId): self
     {
@@ -49,7 +44,7 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsA
         return new self(channelId: $channelId);
     }
 
-    public static function fromEvent(array $event): self
+    public static function from(array $event): \LaraClaw\Message
     {
         $botToken = config('laraclaw.channels.slack.bot_token');
         $attachments = collect();
@@ -87,11 +82,13 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsA
             }
         }
 
-        return new self(
-            channelId: $event['channel'],
-            threadTs: $event['thread_ts'] ?? $event['ts'] ?? null,
-            messageTs: $event['ts'] ?? null,
-            userId: $event['user'] ?? null,
+        return new \LaraClaw\Message(
+            channel: new self(
+                channelId: $event['channel'],
+                threadTs: $event['thread_ts'] ?? $event['ts'] ?? null,
+                messageTs: $event['ts'] ?? null,
+                userId: $event['user'] ?? null,
+            ),
             text: $event['text'] ?? null,
             attachments: $attachments,
         );
@@ -109,7 +106,7 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsA
         return $this->isDm() ? "slack:{$this->userId}" : null;
     }
 
-    public function shouldRespond(): bool
+    public function shouldRespond(?string $text = null): bool
     {
         if ($this->isDm()) {
             return true;
@@ -117,7 +114,7 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsA
 
         $botUserId = config('laraclaw.channels.slack.bot_user_id');
 
-        return $botUserId && str_contains($this->messageText ?? '', "<@{$botUserId}>");
+        return $botUserId && str_contains($text ?? '', "<@{$botUserId}>");
     }
 
     public function acknowledge(): void
