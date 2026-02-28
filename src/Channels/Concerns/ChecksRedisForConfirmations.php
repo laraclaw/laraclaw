@@ -4,18 +4,25 @@ namespace LaraClaw\Channels\Concerns;
 
 use Illuminate\Support\Facades\Redis;
 
-trait ConfirmsViaRedis
+trait ChecksRedisForConfirmations
 {
+    private const AWAITING_KEY = 'awaiting_confirm:';
+
+    private const CONFIRM_KEY = 'confirm:';
+
     public function intercept(?string $text): bool
     {
         $identifier = $this->identifier();
 
-        if (! Redis::exists("awaiting_confirm:{$identifier}")) {
+        // If no confirmation is pending for this conversation, the incoming message
+        // is not a reply to a pending confirm prompt and we should not intercept
+        // it. Returning false signals that the message can proceed as normal.
+        if (! Redis::exists(self::AWAITING_KEY . $identifier)) {
             return false;
         }
 
         if ($text !== null) {
-            Redis::rpush("confirm:{$identifier}", $text);
+            Redis::rpush(self::CONFIRM_KEY . $identifier, $text);
         }
 
         return true;
@@ -24,8 +31,8 @@ trait ConfirmsViaRedis
     public function confirm(string $message, int $timeout = 120): bool
     {
         $identifier = $this->identifier();
-        $awaitingKey = "awaiting_confirm:{$identifier}";
-        $confirmKey = "confirm:{$identifier}";
+        $awaitingKey = self::AWAITING_KEY . $identifier;
+        $confirmKey = self::CONFIRM_KEY . $identifier;
 
         // Signal to the handler that the next message is a confirmation reply
         Redis::set($awaitingKey, 1, 'EX', $timeout);

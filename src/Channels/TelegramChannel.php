@@ -6,7 +6,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use LaraClaw\Channels\Concerns\ConfirmsViaRedis;
+use LaraClaw\Channels\Concerns\ChecksRedisForConfirmations;
 use LaraClaw\Channels\Contracts\SupportsAcknowledgement;
 use LaraClaw\Channels\Contracts\SupportsAudio;
 use LaraClaw\Channels\Contracts\SupportsConfirmation;
@@ -24,7 +24,7 @@ use Throwable;
 
 class TelegramChannel extends Channel implements SupportsAcknowledgement, SupportsAudio, SupportsConfirmation, SupportsImages
 {
-    use ConfirmsViaRedis;
+    use ChecksRedisForConfirmations;
 
     public function __construct(
         private int|string $chatId,

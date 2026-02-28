@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use LaraClaw\Channels\Concerns\ConfirmsViaRedis;
+use LaraClaw\Channels\Concerns\ChecksRedisForConfirmations;
 use LaraClaw\Channels\Contracts\SupportsAcknowledgement;
 use LaraClaw\Channels\Contracts\SupportsAudio;
 use LaraClaw\Channels\Contracts\SupportsConfirmation;
@@ -19,7 +19,7 @@ use Throwable;
 
 class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsAudio, SupportsConfirmation, SupportsFiles, SupportsImages
 {
-    use ConfirmsViaRedis;
+    use ChecksRedisForConfirmations;
 
     public function __construct(
         private string $channelId,

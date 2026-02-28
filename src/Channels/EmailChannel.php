@@ -9,7 +9,7 @@ use DirectoryTree\ImapEngine\MessageInterface;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use LaraClaw\Channels\Concerns\ConfirmsViaRedis;
+use LaraClaw\Channels\Concerns\ChecksRedisForConfirmations;
 use LaraClaw\Channels\Contracts\SupportsAudio;
 use LaraClaw\Channels\Contracts\SupportsConfirmation;
 use LaraClaw\Channels\Contracts\SupportsFiles;
@@ -23,7 +23,7 @@ use function LaraClaw\Support\stripHtml;
 
 class EmailChannel extends Channel implements SupportsAudio, SupportsConfirmation, SupportsFiles, SupportsImages
 {
-    use ConfirmsViaRedis;
+    use ChecksRedisForConfirmations;
 
     /** @var Attachment[] */
     private array $replyAttachments = [];
