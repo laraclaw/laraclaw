@@ -63,7 +63,7 @@ class SlackController extends Controller
             return response()->json(['ok' => true]);
         }
 
-        if (! $message->channel->shouldRespond($message->text)) {
+        if ($message->shouldBeIgnored()) {
             return response()->json(['ok' => true]);
         }
 

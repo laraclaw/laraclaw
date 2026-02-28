@@ -30,7 +30,7 @@ class TelegramListener
             return;
         }
 
-        if (! $message->channel->shouldRespond($message->text)) {
+        if ($message->shouldBeIgnored()) {
             return;
         }
 

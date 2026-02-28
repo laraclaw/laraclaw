@@ -12,4 +12,14 @@ class Message
         public readonly ?string $text = null,
         public readonly Collection $attachments = new Collection,
     ) {}
+
+    public function identifier(): string
+    {
+        return $this->channel->identifier();
+    }
+
+    public function shouldBeIgnored(): bool
+    {
+        return ! $this->channel->shouldRespond($this->text);
+    }
 }
