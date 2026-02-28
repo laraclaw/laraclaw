@@ -50,8 +50,8 @@ class ChatBotAgent implements Agent, Conversational, HasTools
     {
         $tools = [
             new UseSkill($this->skillRegistry),
-            new ImageManager($this->channel, \\$this->replyAttachments),
-            new Files($this->channel, \\$this->replyAttachments),
+            new ImageManager($this->channel, $this->replyAttachments),
+            new Files($this->channel, $this->replyAttachments),
             new WebRequest($this->channel),
             new Persona($this->conversation),
             new ReminderManager($this->channel),
@@ -67,7 +67,7 @@ class ChatBotAgent implements Agent, Conversational, HasTools
         }
 
         if (config('laraclaw.tools.tts.enabled')) {
-            $tools[] = new TextToSpeech(\\$this->replyAttachments);
+            $tools[] = new TextToSpeech($this->replyAttachments);
         }
 
         if ($this->calendarDriver) {
