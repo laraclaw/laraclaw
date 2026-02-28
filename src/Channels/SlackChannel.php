@@ -183,6 +183,9 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsC
         }
     }
 
+    /**
+     * Key DM conversations by user ID and threaded conversations by channel and thread timestamp.
+     */
     private function conversationKey(): string
     {
         return $this->conversationIsDirectMessage()

@@ -107,6 +107,9 @@ class TelegramChannel extends Channel implements SupportsAcknowledgement, Suppor
         }
     }
 
+    /**
+     * Use the Telegram chat ID as the conversation key.
+     */
     private function conversationKey(): string
     {
         return (string) $this->chatId;

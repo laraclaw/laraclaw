@@ -17,14 +17,20 @@ class TerminalChannel extends Channel implements SupportsConfirmation
      */
     public function __construct(private Command $command) {}
 
+    /**
+     * Use the current process ID as the conversation key.
+     */
     public function conversationKey(): string
     {
         return (string) getmypid();
     }
 
+    /**
+     * Terminal sessions are always direct messages.
+     */
     public function conversationIsDirectMessage(): bool
     {
-        return false;
+        return true;
     }
 
     /**

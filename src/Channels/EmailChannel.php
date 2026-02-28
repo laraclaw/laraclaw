@@ -26,7 +26,7 @@ class EmailChannel extends Channel implements SupportsConfirmation
     public readonly string $name = 'email';
 
     /** @var Attachment[] */
-    private array $replyAttachments = [];
+    private array $attachments = [];
 
     /**
      * Create a new EmailChannel instance.
@@ -115,7 +115,7 @@ class EmailChannel extends Channel implements SupportsConfirmation
      */
     public function handleAttachments(Collection $attachments): void
     {
-        $this->replyAttachments = array_merge($this->replyAttachments, $attachments->all());
+        $this->attachments = array_merge($this->attachments, $attachments->all());
     }
 
     /**
@@ -128,7 +128,7 @@ class EmailChannel extends Channel implements SupportsConfirmation
             inReplyTo: $this->messageId,
         );
 
-        foreach ($this->replyAttachments as $attachment) {
+        foreach ($this->attachments as $attachment) {
             $mailable->attach(
                 Storage::disk($attachment->disk)->path($attachment->path),
                 ['as' => $attachment->filename ?? basename($attachment->path)],
@@ -143,11 +143,17 @@ class EmailChannel extends Channel implements SupportsConfirmation
         $this->markSeen();
     }
 
+    /**
+     * Use the sender's email address as the conversation key.
+     */
     private function conversationKey(): string
     {
         return $this->senderEmail;
     }
 
+    /**
+     * Email conversations are always direct messages.
+     */
     private function conversationIsDirectMessage(): bool
     {
         return true;
