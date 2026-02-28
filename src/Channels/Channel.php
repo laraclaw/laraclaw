@@ -13,6 +13,11 @@ abstract class Channel
         return null;
     }
 
+    public function intercept(?string $text): bool
+    {
+        return false;
+    }
+
     public function shouldRespond(?string $text = null): bool
     {
         return true;

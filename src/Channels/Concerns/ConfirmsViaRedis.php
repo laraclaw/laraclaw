@@ -6,8 +6,10 @@ use Illuminate\Support\Facades\Redis;
 
 trait ConfirmsViaRedis
 {
-    public static function intercept(string $identifier, ?string $text): bool
+    public function intercept(?string $text): bool
     {
+        $identifier = $this->identifier();
+
         if (! Redis::exists("awaiting_confirm:{$identifier}")) {
             return false;
         }
@@ -21,7 +23,7 @@ trait ConfirmsViaRedis
 
     public function confirm(string $message, int $timeout = 120): bool
     {
-        $identifier = $this->confirmIdentifier();
+        $identifier = $this->identifier();
         $awaitingKey = "awaiting_confirm:{$identifier}";
         $confirmKey = "confirm:{$identifier}";
 
@@ -34,19 +36,14 @@ trait ConfirmsViaRedis
         // Prompt the user
         $this->send("⚠️ {$message} Reply 'Yes' to confirm.");
 
-        // Block until the handler pushes a reply or we time out.
-        // Use the laraclaw-blocking connection (read_write_timeout = -1) so Predis
-        // doesn't throw a TimeoutException before blpop returns naturally.
+        // Block until the listener pushes a reply into the confirm queue or we time
+        // out. We use the laraclaw-blocking connection (read_write_timeout = -1)
+        // so that Predis won't throw a TimeoutException before blpop returns.
         $reply = Redis::connection('laraclaw-blocking')->blpop($confirmKey, $timeout);
 
         // Clean up the awaiting flag
         Redis::del($awaitingKey);
 
         return $reply && strtolower($reply[1]) === 'yes';
-    }
-
-    protected function confirmIdentifier(): string
-    {
-        return $this->identifier();
     }
 }

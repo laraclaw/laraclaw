@@ -65,11 +65,6 @@ class TelegramChannel extends Channel implements SupportsAcknowledgement, Suppor
         );
     }
 
-    public static function identifierFor(int|string $chatId): string
-    {
-        return "telegram:{$chatId}";
-    }
-
     private static function downloadFile(Nutgram $bot, string $fileId, string $mimeType, ?string $fileName, string $disk, string $basePath, Collection $attachments): void
     {
         $file = $bot->getFile($fileId);
@@ -99,7 +94,7 @@ class TelegramChannel extends Channel implements SupportsAcknowledgement, Suppor
 
     public function identifier(): string
     {
-        return static::identifierFor($this->chatId);
+        return "telegram:{$this->chatId}";
     }
 
     public function userIdentifier(): ?string

@@ -44,19 +44,6 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsA
         return new self(channelId: $channelId);
     }
 
-    public static function identifierFor(array $event): string
-    {
-        $channelId = $event['channel'];
-
-        if (str_starts_with($channelId, 'D')) {
-            return "slack:{$event['user']}";
-        }
-
-        $threadTs = $event['thread_ts'] ?? $event['ts'] ?? '';
-
-        return "slack:{$channelId}:{$threadTs}";
-    }
-
     public static function from(array $event): \LaraClaw\Message
     {
         $botToken = config('laraclaw.channels.slack.bot_token');

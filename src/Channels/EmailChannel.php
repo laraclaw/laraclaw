@@ -65,11 +65,6 @@ class EmailChannel extends Channel implements SupportsAudio, SupportsConfirmatio
         );
     }
 
-    public static function identifierFor(string $email): string
-    {
-        return "email:{$email}";
-    }
-
     private static function downloadAttachment(ImapAttachment $attachment, string $disk, string $basePath, Collection $attachments): void
     {
         $filename = $attachment->filename() ?? 'attachment.' . ($attachment->extension() ?? 'bin');
@@ -113,7 +108,7 @@ class EmailChannel extends Channel implements SupportsAudio, SupportsConfirmatio
 
     public function userIdentifier(): string
     {
-        return static::identifierFor($this->senderEmail);
+        return "email:{$this->senderEmail}";
     }
 
     public function sendImage(Attachment $attachment): void
@@ -165,11 +160,6 @@ class EmailChannel extends Channel implements SupportsAudio, SupportsConfirmatio
         Mail::send($mailable);
 
         $this->markSeen();
-    }
-
-    protected function confirmIdentifier(): string
-    {
-        return $this->userIdentifier();
     }
 
     private function markSeen(): void

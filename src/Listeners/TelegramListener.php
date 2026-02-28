@@ -11,12 +11,11 @@ class TelegramListener
     public function __invoke(TelegramMessageReceived $event): void
     {
         $raw = $event->message;
-        $text = $raw->text ?? $raw->caption ?? null;
-        if (TelegramChannel::intercept(TelegramChannel::identifierFor($raw->chat->id), $text)) {
+        $message = TelegramChannel::from($raw, $event->bot);
+
+        if ($message->channel->intercept($message->text)) {
             return;
         }
-
-        $message = TelegramChannel::from($raw, $event->bot);
 
         if (blank($message->text) && $message->attachments->isEmpty()) {
             return;

@@ -38,18 +38,15 @@ class SlackController extends Controller
             return response()->json(['ok' => true]);
         }
 
-        $channelId = $event['channel'] ?? null;
-        $text = $event['text'] ?? null;
-
-        if (! $channelId) {
-            return response()->json(['ok' => true]);
-        }
-
-        if (SlackChannel::intercept(SlackChannel::identifierFor($event), $text)) {
+        if (! ($event['channel'] ?? null)) {
             return response()->json(['ok' => true]);
         }
 
         $message = SlackChannel::from($event);
+
+        if ($message->channel->intercept($message->text)) {
+            return response()->json(['ok' => true]);
+        }
 
         if (blank($message->text) && $message->attachments->isEmpty()) {
             return response()->json(['ok' => true]);

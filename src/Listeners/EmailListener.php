@@ -38,11 +38,11 @@ class EmailListener
             return;
         }
 
-        if (EmailChannel::intercept(EmailChannel::identifierFor($fromEmail), $raw->text())) {
+        $message = EmailChannel::from($raw);
+
+        if ($message->channel->intercept($message->text)) {
             return;
         }
-
-        $message = EmailChannel::from($raw);
 
         if (blank($message->text) && $message->attachments->isEmpty()) {
             return;
