@@ -8,9 +8,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use LaraClaw\Channels\Concerns\ChecksRedisForConfirmations;
 use LaraClaw\Channels\Contracts\SupportsAcknowledgement;
-use LaraClaw\Channels\Contracts\SupportsAudio;
 use LaraClaw\Channels\Contracts\SupportsConfirmation;
-use LaraClaw\Channels\Contracts\SupportsImages;
 use LaraClaw\DTOs\Attachment;
 use LaraClaw\Message;
 use League\CommonMark\CommonMarkConverter;
@@ -22,74 +20,24 @@ use SergiX44\Nutgram\Telegram\Types\Media\PhotoSize;
 use SergiX44\Nutgram\Telegram\Types\Message\Message as NutgramMessage;
 use Throwable;
 
-class TelegramChannel extends Channel implements SupportsAcknowledgement, SupportsAudio, SupportsConfirmation, SupportsImages
+class TelegramChannel extends Channel implements SupportsAcknowledgement, SupportsConfirmation
 {
     use ChecksRedisForConfirmations;
 
     public function __construct(
         private int|string $chatId,
+        private Nutgram $bot,
     ) {}
 
-    public static function from(NutgramMessage $raw, Nutgram $bot): \LaraClaw\Message
+    public static function parseIncomingMessage(NutgramMessage $raw, Nutgram $bot): Message
     {
-        $attachments = collect();
-        $disk = config('laraclaw.filesystem.attachments_disk', 'local');
-        $basePath = config('laraclaw.filesystem.attachments_path', 'attachments') . '/telegram';
-
-        // Photo (array of PhotoSize, pick largest)
-        if (! empty($raw->photo)) {
-            $photo = collect($raw->photo)->sortByDesc(fn (PhotoSize $p) => $p->file_size ?? 0)->first();
-            self::downloadFile($bot, $photo->file_id, 'image/jpeg', null, $disk, $basePath, $attachments);
-        }
-
-        if ($raw->audio) {
-            self::downloadFile($bot, $raw->audio->file_id, $raw->audio->mime_type ?? 'audio/mpeg', $raw->audio->file_name, $disk, $basePath, $attachments);
-        }
-
-        if ($raw->voice) {
-            self::downloadFile($bot, $raw->voice->file_id, $raw->voice->mime_type ?? 'audio/ogg', null, $disk, $basePath, $attachments);
-        }
-
-        if ($raw->video) {
-            self::downloadFile($bot, $raw->video->file_id, $raw->video->mime_type ?? 'video/mp4', $raw->video->file_name, $disk, $basePath, $attachments);
-        }
-
-        if ($raw->document) {
-            self::downloadFile($bot, $raw->document->file_id, $raw->document->mime_type ?? 'application/octet-stream', $raw->document->file_name, $disk, $basePath, $attachments);
-        }
+        $channel = new self(chatId: $raw->chat->id, bot: $bot);
 
         return new Message(
-            channel: new self(chatId: $raw->chat->id),
+            channel: $channel,
             text: $raw->text ?? $raw->caption ?? null,
-            attachments: $attachments,
+            attachments: $channel->collectAttachments($raw),
         );
-    }
-
-    private static function downloadFile(Nutgram $bot, string $fileId, string $mimeType, ?string $fileName, string $disk, string $basePath, Collection $attachments): void
-    {
-        $file = $bot->getFile($fileId);
-
-        if (! $file) {
-            return;
-        }
-
-        $fileName ??= basename($file->file_path ?? $fileId);
-        $path = $basePath . '/' . Str::uuid() . '/' . $fileName;
-
-        $tempPath = sys_get_temp_dir() . '/' . Str::uuid();
-        $file->save($tempPath);
-
-        Storage::disk($disk)->put($path, file_get_contents($tempPath));
-        if (file_exists($tempPath)) {
-            unlink($tempPath);
-        }
-
-        $attachments->push(new Attachment(
-            path: $path,
-            disk: $disk,
-            mimeType: $mimeType,
-            filename: $fileName,
-        ));
     }
 
     public function identifier(): string
@@ -105,7 +53,7 @@ class TelegramChannel extends Channel implements SupportsAcknowledgement, Suppor
     public function acknowledge(): void
     {
         try {
-            app(Nutgram::class)->sendChatAction(ChatAction::TYPING, chat_id: $this->chatId);
+            $this->bot->sendChatAction(ChatAction::TYPING, chat_id: $this->chatId);
         } catch (Throwable $e) {
             Log::warning('Telegram typing indicator failed', ['error' => $e->getMessage()]);
         }
@@ -118,43 +66,112 @@ class TelegramChannel extends Channel implements SupportsAcknowledgement, Suppor
         $html = strip_tags($html, '<b><strong><i><em><u><s><a><code><pre><blockquote>');
         $html = trim($html);
 
-        app(Nutgram::class)->sendMessage($html, chat_id: $this->chatId, parse_mode: ParseMode::HTML);
+        $this->bot->sendMessage($html, chat_id: $this->chatId, parse_mode: ParseMode::HTML);
     }
 
-    public function sendAudio(Attachment $attachment, ?string $caption = null): void
+    public function sendAttachments(Collection $attachments): void
     {
-        // Nutgram requires a local file stream — read from disk into a temp file.
-        // This assumes the attachments disk is readable; remote-only disks (e.g. S3) will fail here.
-        $contents = Storage::disk($attachment->disk)->get($attachment->path);
-        $tempPath = sys_get_temp_dir() . '/' . basename($attachment->path);
-        file_put_contents($tempPath, $contents);
-
-        app(Nutgram::class)->sendVoice(
-            voice: InputFile::make(fopen($tempPath, 'r')),
-            chat_id: $this->chatId,
-        );
-
-        unlink($tempPath);
+        foreach ($attachments as $attachment) {
+            if ($attachment->isAudio()) {
+                $this->withTempFile($attachment, function (string $tempPath) {
+                    $this->bot->sendVoice(
+                        voice: InputFile::make(fopen($tempPath, 'r')),
+                        chat_id: $this->chatId,
+                    );
+                });
+            } elseif ($attachment->isImage()) {
+                $this->withTempFile($attachment, function (string $tempPath) use ($attachment) {
+                    $this->bot->sendPhoto(
+                        photo: InputFile::make(fopen($tempPath, 'r'), basename($attachment->path)),
+                        chat_id: $this->chatId,
+                    );
+                });
+            } else {
+                $this->withTempFile($attachment, function (string $tempPath) use ($attachment) {
+                    $this->bot->sendDocument(
+                        document: InputFile::make(fopen($tempPath, 'r'), $attachment->filename ?? basename($attachment->path)),
+                        chat_id: $this->chatId,
+                    );
+                });
+            }
+        }
     }
 
-    public function sendImage(Attachment $attachment): void
+    private function collectAttachments(NutgramMessage $raw): Collection
     {
-        // Nutgram requires a local file stream — read from disk into a temp file.
-        // This assumes the attachments disk is readable; remote-only disks (e.g. S3) will fail here.
-        $contents = Storage::disk($attachment->disk)->get($attachment->path);
-        $tempPath = sys_get_temp_dir() . '/' . basename($attachment->path);
-        file_put_contents($tempPath, $contents);
+        $disk = config('laraclaw.filesystem.attachments_disk', 'local');
+        $basePath = config('laraclaw.filesystem.attachments_path', 'attachments') . '/telegram';
 
-        app(Nutgram::class)->sendPhoto(
-            photo: InputFile::make(fopen($tempPath, 'r'), basename($attachment->path)),
-            chat_id: $this->chatId,
-        );
+        $files = [];
 
-        unlink($tempPath);
+        if (! empty($raw->photo)) {
+            $photo = collect($raw->photo)->sortByDesc(fn (PhotoSize $p) => $p->file_size ?? 0)->first();
+            $files[] = $this->downloadFile($photo->file_id, 'image/jpeg', null, $disk, $basePath);
+        }
+
+        if ($raw->audio) {
+            $files[] = $this->downloadFile($raw->audio->file_id, $raw->audio->mime_type ?? 'audio/mpeg', $raw->audio->file_name, $disk, $basePath);
+        }
+
+        if ($raw->voice) {
+            $files[] = $this->downloadFile($raw->voice->file_id, $raw->voice->mime_type ?? 'audio/ogg', null, $disk, $basePath);
+        }
+
+        if ($raw->video) {
+            $files[] = $this->downloadFile($raw->video->file_id, $raw->video->mime_type ?? 'video/mp4', $raw->video->file_name, $disk, $basePath);
+        }
+
+        if ($raw->document) {
+            $files[] = $this->downloadFile($raw->document->file_id, $raw->document->mime_type ?? 'application/octet-stream', $raw->document->file_name, $disk, $basePath);
+        }
+
+        return collect($files)->filter()->values();
+    }
+
+    private function downloadFile(string $fileId, string $mimeType, ?string $fileName, string $disk, string $basePath): ?Attachment
+    {
+        $file = $this->bot->getFile($fileId);
+
+        if (! $file) {
+            return null;
+        }
+
+        $fileName ??= basename($file->file_path ?? $fileId);
+        $path = $basePath . '/' . Str::uuid() . '/' . $fileName;
+
+        $tempPath = sys_get_temp_dir() . '/' . Str::uuid();
+
+        try {
+            $file->save($tempPath);
+            Storage::disk($disk)->put($path, file_get_contents($tempPath));
+        } finally {
+            if (file_exists($tempPath)) {
+                unlink($tempPath);
+            }
+        }
+
+        return new Attachment(path: $path, disk: $disk, mimeType: $mimeType, filename: $fileName);
     }
 
     private function isDm(): bool
     {
         return $this->chatId > 0;
+    }
+
+    private function withTempFile(Attachment $attachment, callable $callback): void
+    {
+        // Nutgram requires a local file stream — read from disk into a temp file.
+        // This assumes the attachments disk is readable; remote-only disks (e.g. S3) will fail here.
+        $tempPath = sys_get_temp_dir() . '/' . basename($attachment->path);
+
+        file_put_contents($tempPath, Storage::disk($attachment->disk)->get($attachment->path));
+
+        try {
+            $callback($tempPath);
+        } finally {
+            if (file_exists($tempPath)) {
+                unlink($tempPath);
+            }
+        }
     }
 }

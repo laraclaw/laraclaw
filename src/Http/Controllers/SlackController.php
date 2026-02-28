@@ -7,57 +7,51 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use LaraClaw\Channels\SlackChannel;
 use LaraClaw\Jobs\ProcessMessage;
+use LaraClaw\Message;
 
 class SlackController extends Controller
 {
     public function __invoke(Request $request): JsonResponse
     {
-        if (! config('laraclaw.channels.slack.enabled')) {
-            return response()->json(['ok' => true]);
-        }
-
-        // URL verification challenge
         if ($request->input('type') === 'url_verification') {
             return response()->json(['challenge' => $request->input('challenge')]);
         }
 
-        if ($request->input('type') !== 'event_callback') {
-            return response()->json(['ok' => true]);
+        if (! $this->shouldHandle($request)) {
+            return $this->ok();
         }
 
+        $message = SlackChannel::parseIncomingMessage($request->input('event', []));
+
+        if ($this->shouldDispatch($message)) {
+            ProcessMessage::dispatch($message);
+        }
+
+        return $this->ok();
+    }
+
+    private function shouldHandle(Request $request): bool
+    {
         $event = $request->input('event', []);
-
-        // Only handle message events
-        if (($event['type'] ?? null) !== 'message') {
-            return response()->json(['ok' => true]);
-        }
-
-        // Filter out bot messages and all subtypes except file_share
         $subtype = $event['subtype'] ?? null;
-        if (isset($event['bot_id']) || ($subtype !== null && $subtype !== 'file_share')) {
-            return response()->json(['ok' => true]);
-        }
 
-        if (! ($event['channel'] ?? null)) {
-            return response()->json(['ok' => true]);
-        }
+        return config('laraclaw.channels.slack.enabled')
+            && $request->input('type') === 'event_callback'
+            && ($event['type'] ?? null) === 'message'
+            && empty($event['bot_id'])
+            && in_array($subtype, [null, 'file_share'], true)
+            && filled($event['channel'] ?? null);
+    }
 
-        $message = SlackChannel::from($event);
+    private function shouldDispatch(Message $message): bool
+    {
+        return ! $message->channel->intercept($message->text)
+            && (filled($message->text) || $message->attachments->isNotEmpty())
+            && ! $message->shouldBeIgnored();
+    }
 
-        if ($message->channel->intercept($message->text)) {
-            return response()->json(['ok' => true]);
-        }
-
-        if (blank($message->text) && $message->attachments->isEmpty()) {
-            return response()->json(['ok' => true]);
-        }
-
-        if ($message->shouldBeIgnored()) {
-            return response()->json(['ok' => true]);
-        }
-
-        ProcessMessage::dispatch($message);
-
+    private function ok(): JsonResponse
+    {
         return response()->json(['ok' => true]);
     }
 }

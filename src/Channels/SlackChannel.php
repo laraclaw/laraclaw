@@ -2,22 +2,20 @@
 
 namespace LaraClaw\Channels;
 
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use LaraClaw\Channels\Concerns\ChecksRedisForConfirmations;
 use LaraClaw\Channels\Contracts\SupportsAcknowledgement;
-use LaraClaw\Channels\Contracts\SupportsAudio;
 use LaraClaw\Channels\Contracts\SupportsConfirmation;
-use LaraClaw\Channels\Contracts\SupportsFiles;
-use LaraClaw\Channels\Contracts\SupportsImages;
 use LaraClaw\DTOs\Attachment;
 use LaraClaw\Message;
 use RuntimeException;
 use Throwable;
 
-class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsAudio, SupportsConfirmation, SupportsFiles, SupportsImages
+class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsConfirmation
 {
     use ChecksRedisForConfirmations;
 
@@ -30,10 +28,8 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsA
 
     public static function openDm(string $userId): self
     {
-        $response = Http::withToken(config('laraclaw.channels.slack.bot_token'))
-            ->post('https://slack.com/api/conversations.open', [
-                'users' => $userId,
-            ]);
+        $response = Http::withToken(self::token())
+            ->post('https://slack.com/api/conversations.open', ['users' => $userId]);
 
         $channelId = $response->json('channel.id');
 
@@ -44,44 +40,8 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsA
         return new self(channelId: $channelId);
     }
 
-    public static function from(array $event): \LaraClaw\Message
+    public static function parseIncomingMessage(array $event): Message
     {
-        $botToken = config('laraclaw.channels.slack.bot_token');
-        $attachments = collect();
-
-        foreach ($event['files'] ?? [] as $file) {
-            $url = $file['url_private_download'] ?? $file['url_private'] ?? null;
-            if (! $url) {
-                continue;
-            }
-
-            $mimeType = $file['mimetype'] ?? 'application/octet-stream';
-            $fileName = $file['name'] ?? 'attachment';
-            $disk = config('laraclaw.filesystem.attachments_disk', 'local');
-            $path = config('laraclaw.filesystem.attachments_path', 'attachments') . '/slack/' . Str::uuid() . '/' . $fileName;
-
-            try {
-                $response = Http::withToken($botToken)->get($url);
-
-                if (! $response->successful()) {
-                    Log::warning('Slack file download failed', ['url' => $url, 'status' => $response->status()]);
-
-                    continue;
-                }
-
-                Storage::disk($disk)->put($path, $response->body());
-
-                $attachments->push(new Attachment(
-                    path: $path,
-                    disk: $disk,
-                    mimeType: $mimeType,
-                    filename: $fileName,
-                ));
-            } catch (Throwable $e) {
-                Log::warning('Slack file download error', ['url' => $url, 'error' => $e->getMessage()]);
-            }
-        }
-
         return new Message(
             channel: new self(
                 channelId: $event['channel'],
@@ -90,8 +50,55 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsA
                 userId: $event['user'] ?? null,
             ),
             text: $event['text'] ?? null,
-            attachments: $attachments,
+            attachments: self::collectAttachments($event),
         );
+    }
+
+    private static function collectAttachments(array $event): Collection
+    {
+        $disk = config('laraclaw.filesystem.attachments_disk', 'local');
+        $basePath = config('laraclaw.filesystem.attachments_path', 'attachments') . '/slack';
+
+        return collect($event['files'] ?? [])
+            ->map(fn (array $file) => self::downloadFile($file, $disk, $basePath))
+            ->filter()
+            ->values();
+    }
+
+    private static function downloadFile(array $file, string $disk, string $basePath): ?Attachment
+    {
+        $url = $file['url_private_download'] ?? $file['url_private'] ?? null;
+
+        if (! $url) {
+            return null;
+        }
+
+        $mimeType = $file['mimetype'] ?? 'application/octet-stream';
+        $fileName = $file['name'] ?? 'attachment';
+        $path = $basePath . '/' . Str::uuid() . '/' . $fileName;
+
+        try {
+            $response = Http::withToken(self::token())->get($url);
+
+            if (! $response->successful()) {
+                Log::warning('Slack file download failed', ['url' => $url, 'status' => $response->status()]);
+
+                return null;
+            }
+
+            Storage::disk($disk)->put($path, $response->body());
+
+            return new Attachment(path: $path, disk: $disk, mimeType: $mimeType, filename: $fileName);
+        } catch (Throwable $e) {
+            Log::warning('Slack file download error', ['url' => $url, 'error' => $e->getMessage()]);
+
+            return null;
+        }
+    }
+
+    private static function token(): string
+    {
+        return config('laraclaw.channels.slack.bot_token');
     }
 
     public function identifier(): string
@@ -124,7 +131,7 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsA
         }
 
         try {
-            Http::withToken(config('laraclaw.channels.slack.bot_token'))
+            Http::withToken(self::token())
                 ->post('https://slack.com/api/reactions.add', [
                     'channel' => $this->channelId,
                     'name' => 'thumbsup',
@@ -146,7 +153,7 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsA
             $payload['thread_ts'] = $this->threadTs;
         }
 
-        $response = Http::withToken(config('laraclaw.channels.slack.bot_token'))
+        $response = Http::withToken(self::token())
             ->post('https://slack.com/api/chat.postMessage', $payload);
 
         // If this is the first reply in a group thread, capture the thread_ts for subsequent messages
@@ -158,25 +165,19 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsA
         }
     }
 
-    public function sendAudio(Attachment $attachment, ?string $caption = null): void
+    public function sendAttachments(Collection $attachments): void
     {
-        $filePath = Storage::disk($attachment->disk)->path($attachment->path);
-
-        if (! $this->uploadFile($filePath, $attachment->filename ?? basename($attachment->path), $caption)) {
-            $this->send($caption ?? 'Audio reply generated.');
+        foreach ($attachments as $attachment) {
+            $this->uploadAttachment($attachment);
         }
     }
 
-    public function sendImage(Attachment $attachment): void
+    private function uploadAttachment(Attachment $attachment): bool
     {
-        $filePath = Storage::disk($attachment->disk)->path($attachment->path);
-        $this->uploadFile($filePath, $attachment->filename ?? basename($attachment->path));
-    }
-
-    public function sendFile(Attachment $attachment): void
-    {
-        $filePath = Storage::disk($attachment->disk)->path($attachment->path);
-        $this->uploadFile($filePath, $attachment->filename ?? basename($attachment->path));
+        return $this->uploadFile(
+            Storage::disk($attachment->disk)->path($attachment->path),
+            $attachment->filename ?? basename($attachment->path),
+        );
     }
 
     private function isDm(): bool
@@ -206,12 +207,11 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsA
         return $text;
     }
 
-    private function uploadFile(string $filePath, string $fileName, ?string $title = null): bool
+    private function uploadFile(string $filePath, string $fileName): bool
     {
-        $token = config('laraclaw.channels.slack.bot_token');
         $fileSize = filesize($filePath);
 
-        $urlResponse = Http::withToken($token)
+        $urlResponse = Http::withToken(self::token())
             ->get('https://slack.com/api/files.getUploadURLExternal', [
                 'filename' => $fileName,
                 'length' => $fileSize,
@@ -226,11 +226,10 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsA
         $uploadUrl = $urlResponse->json('upload_url');
         $fileId = $urlResponse->json('file_id');
 
-        Http::attach('file', file_get_contents($filePath), $fileName)
-            ->post($uploadUrl);
+        Http::attach('file', file_get_contents($filePath), $fileName)->post($uploadUrl);
 
         $completePayload = [
-            'files' => [['id' => $fileId, 'title' => $title ?? $fileName]],
+            'files' => [['id' => $fileId, 'title' => $fileName]],
             'channel_id' => $this->channelId,
         ];
 
@@ -238,7 +237,7 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsA
             $completePayload['thread_ts'] = $this->threadTs;
         }
 
-        Http::withToken($token)
+        Http::withToken(self::token())
             ->post('https://slack.com/api/files.completeUploadExternal', $completePayload);
 
         return true;

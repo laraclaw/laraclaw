@@ -11,7 +11,7 @@ class TelegramListener
     public function __invoke(TelegramMessageReceived $event): void
     {
         $raw = $event->message;
-        $message = TelegramChannel::from($raw, $event->bot);
+        $message = TelegramChannel::parseIncomingMessage($raw, $event->bot);
 
         if ($message->channel->intercept($message->text)) {
             return;

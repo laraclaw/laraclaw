@@ -21,6 +21,9 @@ trait ChecksRedisForConfirmations
             return false;
         }
 
+        // A confirmation is pending, so we push the message text into the queue for
+        // `confirm` blpop to pick it up. A `null` text (e.g. a file-only message) is
+        // silently ignored; we still return true to suppress normal handling.
         if ($text !== null) {
             Redis::rpush(self::CONFIRM_KEY . $identifier, $text);
         }
@@ -43,10 +46,13 @@ trait ChecksRedisForConfirmations
         // Prompt the user
         $this->send("⚠️ {$message} Reply 'Yes' to confirm.");
 
-        // Block until the listener pushes a reply into the confirm queue or we time
-        // out. We use the laraclaw-blocking connection (read_write_timeout = -1)
-        // so that Predis won't throw a TimeoutException before blpop returns.
-        $reply = Redis::connection('laraclaw-blocking')->blpop($confirmKey, $timeout);
+        // This dedicated connection is declared in the service provider with
+        // read_write_timeout = -1, overriding the default Redis socket timeout.
+        $connection = Redis::connection('laraclaw-blocking');
+
+        // blpop stands for "blocking left pop", blocks until a value is pushed
+        // into the key or $timeout seconds pass, whichever comes first.
+        $reply = $connection->blpop($confirmKey, $timeout);
 
         // Clean up the awaiting flag
         Redis::del($awaitingKey);

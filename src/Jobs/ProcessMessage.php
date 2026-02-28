@@ -14,9 +14,6 @@ use Illuminate\Support\Facades\Log;
 use LaraClaw\Agents\ChatBotAgent;
 use LaraClaw\Calendar\Contracts\CalendarDriver;
 use LaraClaw\Channels\Contracts\SupportsAcknowledgement;
-use LaraClaw\Channels\Contracts\SupportsAudio;
-use LaraClaw\Channels\Contracts\SupportsFiles;
-use LaraClaw\Channels\Contracts\SupportsImages;
 use LaraClaw\Commands\CommandRegistry;
 use LaraClaw\DTOs\Attachment;
 use LaraClaw\Message;
@@ -193,16 +190,7 @@ class ProcessMessage implements ShouldQueue
             ? $agent->prompt($text, $agentAttachments)
             : $agent->forUser($user)->prompt($text, $agentAttachments);
 
-        foreach ($replyAttachments as $attachment) {
-            if ($attachment->isAudio() && $channel instanceof SupportsAudio) {
-                $channel->sendAudio($attachment);
-            } elseif ($attachment->isImage() && $channel instanceof SupportsImages) {
-                $channel->sendImage($attachment);
-            } elseif ($channel instanceof SupportsFiles) {
-                $channel->sendFile($attachment);
-            }
-        }
-
+        $channel->sendAttachments($replyAttachments);
         $channel->send($response);
     }
 
