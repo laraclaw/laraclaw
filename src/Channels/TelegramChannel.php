@@ -12,6 +12,7 @@ use LaraClaw\Channels\Contracts\SupportsAudio;
 use LaraClaw\Channels\Contracts\SupportsConfirmation;
 use LaraClaw\Channels\Contracts\SupportsImages;
 use LaraClaw\DTOs\Attachment;
+use LaraClaw\Message;
 use League\CommonMark\CommonMarkConverter;
 use SergiX44\Nutgram\Nutgram;
 use SergiX44\Nutgram\Telegram\Properties\ChatAction;
@@ -57,7 +58,7 @@ class TelegramChannel extends Channel implements SupportsAcknowledgement, Suppor
             self::downloadFile($bot, $raw->document->file_id, $raw->document->mime_type ?? 'application/octet-stream', $raw->document->file_name, $disk, $basePath, $attachments);
         }
 
-        return new \LaraClaw\Message(
+        return new Message(
             channel: new self(chatId: $raw->chat->id),
             text: $raw->text ?? $raw->caption ?? null,
             attachments: $attachments,

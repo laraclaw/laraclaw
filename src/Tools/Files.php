@@ -4,10 +4,10 @@ namespace LaraClaw\Tools;
 
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Illuminate\Support\Collection;
 use LaraClaw\Channels\Channel;
 use LaraClaw\DTOs\Attachment;
 use Laravel\Ai\Tools\Request;

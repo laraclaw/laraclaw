@@ -2,11 +2,11 @@
 
 namespace LaraClaw\Agents;
 
+use Illuminate\Support\Collection;
 use LaraClaw\Calendar\Contracts\CalendarDriver;
 use LaraClaw\Channels\Channel;
 use LaraClaw\Models\Conversation;
 use LaraClaw\SkillRegistry;
-use Illuminate\Support\Collection;
 use LaraClaw\Tools\CalendarManager;
 use LaraClaw\Tools\EmailManager;
 use LaraClaw\Tools\Files;

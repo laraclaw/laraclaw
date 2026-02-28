@@ -13,7 +13,7 @@ abstract class Channel
         return null;
     }
 
-    public function shouldRespond(?string $text = null): bool
+    protected function shouldRespond(?string $text = null): bool
     {
         return true;
     }

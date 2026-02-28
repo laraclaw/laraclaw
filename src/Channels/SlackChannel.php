@@ -2,7 +2,6 @@
 
 namespace LaraClaw\Channels;
 
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -14,6 +13,7 @@ use LaraClaw\Channels\Contracts\SupportsConfirmation;
 use LaraClaw\Channels\Contracts\SupportsFiles;
 use LaraClaw\Channels\Contracts\SupportsImages;
 use LaraClaw\DTOs\Attachment;
+use LaraClaw\Message;
 use RuntimeException;
 use Throwable;
 
@@ -82,7 +82,7 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsA
             }
         }
 
-        return new \LaraClaw\Message(
+        return new Message(
             channel: new self(
                 channelId: $event['channel'],
                 threadTs: $event['thread_ts'] ?? $event['ts'] ?? null,
@@ -106,7 +106,7 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsA
         return $this->isDm() ? "slack:{$this->userId}" : null;
     }
 
-    public function shouldRespond(?string $text = null): bool
+    protected function shouldRespond(?string $text = null): bool
     {
         if ($this->isDm()) {
             return true;

@@ -13,6 +13,7 @@ use LaraClaw\Channels\Contracts\SupportsAudio;
 use LaraClaw\Channels\Contracts\SupportsFiles;
 use LaraClaw\Channels\Contracts\SupportsImages;
 use LaraClaw\DTOs\Attachment;
+use LaraClaw\Message;
 use LaraClaw\Mail\ChannelReply;
 use League\CommonMark\CommonMarkConverter;
 
@@ -45,7 +46,7 @@ class EmailChannel extends Channel implements SupportsAudio, SupportsFiles, Supp
 
         $from = $message->from();
 
-        return new \LaraClaw\Message(
+        return new Message(
             channel: new self(
                 senderEmail: $from?->email() ?? 'unknown',
                 senderName: $from?->name(),

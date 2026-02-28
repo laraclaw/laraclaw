@@ -4,9 +4,9 @@ namespace LaraClaw\Tools;
 
 use Exception;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Illuminate\Support\Collection;
 use LaraClaw\DTOs\Attachment;
 use Laravel\Ai\Audio;
 use Laravel\Ai\Contracts\Tool;
@@ -68,5 +68,4 @@ class TextToSpeech implements Tool
             return "Text-to-speech failed: {$e->getMessage()}";
         }
     }
-
 }

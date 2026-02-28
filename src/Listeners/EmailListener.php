@@ -3,6 +3,7 @@
 namespace LaraClaw\Listeners;
 
 use DirectoryTree\ImapEngine\Laravel\Events\MessageReceived;
+use DirectoryTree\ImapEngine\MessageInterface;
 use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Str;
 use LaraClaw\Channels\EmailChannel;
@@ -59,7 +60,7 @@ class EmailListener
         ProcessMessage::dispatch($message);
     }
 
-    private function passesAuthCheck($message): bool
+    private function passesAuthCheck(MessageInterface $message): bool
     {
         $authResults = $message->header('Authentication-Results')?->getRawValue() ?? '';
 
