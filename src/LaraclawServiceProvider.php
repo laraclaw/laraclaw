@@ -32,7 +32,7 @@ class LaraclawServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(__DIR__ . '/../config/laraclaw.php', 'laraclaw');
 
-        // Register a dedicated blocking Redis connection for confirm() blpop calls.
+        // Register a dedicated blocking Redis connection for ChecksRedisForConfirmations::confirm() blpop calls.
         // read_write_timeout = -1 prevents Predis from timing out before blpop returns.
         $this->app->booting(function () {
             $default = config('database.redis.default', []);
