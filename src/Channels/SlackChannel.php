@@ -57,13 +57,17 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsC
      */
     public static function parseIncomingMessage(array $event): Message
     {
+        $channel = new self(
+            channelId: $event['channel'],
+            threadTs: $event['thread_ts'] ?? $event['ts'] ?? null,
+            messageTs: $event['ts'] ?? null,
+            userId: $event['user'] ?? null,
+        );
+
         return new Message(
-            channel: new self(
-                channelId: $event['channel'],
-                threadTs: $event['thread_ts'] ?? $event['ts'] ?? null,
-                messageTs: $event['ts'] ?? null,
-                userId: $event['user'] ?? null,
-            ),
+            channel: $channel,
+            conversationKey: $channel->conversationKey(),
+            conversationIsDirectMessage: $channel->conversationIsDirectMessage(),
             text: $event['text'] ?? null,
             attachments: self::collectAttachments($event),
         );

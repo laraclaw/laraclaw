@@ -4,7 +4,7 @@ namespace LaraClaw\Agents;
 
 use Illuminate\Support\Collection;
 use LaraClaw\Calendar\Contracts\CalendarDriver;
-use LaraClaw\Channels\Channel;
+use LaraClaw\Message;
 use LaraClaw\Models\Conversation;
 use LaraClaw\SkillRegistry;
 use LaraClaw\Tools\CalendarManager;
@@ -33,14 +33,14 @@ class ChatBotAgent implements Agent, Conversational, HasTools
     /**
      * Create a new ChatBotAgent instance.
      *
-     * @param  \LaraClaw\Channels\Channel  $channel
+     * @param  \LaraClaw\Message  $message
      * @param  \LaraClaw\SkillRegistry  $skillRegistry
      * @param  \Illuminate\Support\Collection  $replyAttachments
      * @param  \LaraClaw\Models\Conversation|null  $conversation
      * @param  \LaraClaw\Calendar\Contracts\CalendarDriver|null  $calendarDriver
      */
     public function __construct(
-        private Channel $channel,
+        private Message $message,
         private SkillRegistry $skillRegistry,
         private Collection $replyAttachments,
         private ?Conversation $conversation = null,
@@ -69,12 +69,12 @@ class ChatBotAgent implements Agent, Conversational, HasTools
     {
         $tools = [
             new UseSkill($this->skillRegistry),
-            new ImageManager($this->channel, $this->replyAttachments),
-            new Files($this->channel, $this->replyAttachments),
-            new WebRequest($this->channel),
+            new ImageManager($this->message, $this->replyAttachments),
+            new Files($this->message, $this->replyAttachments),
+            new WebRequest($this->message),
             new Persona($this->conversation),
-            new ReminderManager($this->channel),
-            new HeartbeatManager($this->channel),
+            new ReminderManager($this->message),
+            new HeartbeatManager($this->message),
         ];
 
         if (Ai::textProvider(config('ai.default')) instanceof SupportsWebSearch) {
@@ -82,7 +82,7 @@ class ChatBotAgent implements Agent, Conversational, HasTools
         }
 
         if (config('laraclaw.channels.email.enabled')) {
-            $tools[] = new EmailManager($this->channel, config('laraclaw.channels.email.imap.mailbox', 'default'));
+            $tools[] = new EmailManager($this->message, config('laraclaw.channels.email.imap.mailbox', 'default'));
         }
 
         if (config('laraclaw.tools.tts.enabled')) {
@@ -90,7 +90,7 @@ class ChatBotAgent implements Agent, Conversational, HasTools
         }
 
         if ($this->calendarDriver) {
-            $tools[] = new CalendarManager($this->channel, $this->calendarDriver);
+            $tools[] = new CalendarManager($this->message, $this->calendarDriver);
         }
 
         return $tools;

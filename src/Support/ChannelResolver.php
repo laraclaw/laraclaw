@@ -11,13 +11,6 @@ use SergiX44\Nutgram\Nutgram;
 
 class ChannelResolver
 {
-    public static function from(string $identifier): Channel
-    {
-        [$type, $key] = explode(':', $identifier, 2);
-
-        return self::fromParts(ChannelType::from($type), $key);
-    }
-
     public static function fromParts(ChannelType $channel, string $key): Channel
     {
         return match ($channel) {

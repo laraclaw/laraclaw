@@ -7,7 +7,7 @@ use DateTimeImmutable;
 use Exception;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use LaraClaw\Calendar\Contracts\CalendarDriver;
-use LaraClaw\Channels\Channel;
+use LaraClaw\Message;
 use LaraClaw\DTOs\CalendarEvent;
 use Laravel\Ai\Tools\Request;
 use Stringable;
@@ -20,7 +20,7 @@ class CalendarManager extends BaseTool
     ];
 
     public function __construct(
-        protected Channel $channel,
+        protected Message $message,
         private CalendarDriver $driver,
     ) {}
 

@@ -9,7 +9,7 @@ use Exception;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
-use LaraClaw\Channels\Channel;
+use LaraClaw\Message;
 use Laravel\Ai\Tools\Request;
 use Stringable;
 
@@ -24,7 +24,7 @@ class EmailManager extends BaseTool
     protected array $requiresConfirmation = [];
 
     public function __construct(
-        protected Channel $channel,
+        protected Message $message,
         private string $mailbox,
     ) {}
 
@@ -252,7 +252,7 @@ class EmailManager extends BaseTool
             ? "Delete message {$uids[0]} from {$folderName}?"
             : "Delete {$count} messages (UIDs: " . implode(', ', $uids) . ") from {$folderName}?";
 
-        if (! $this->channel->confirm($message)) {
+        if (! $this->message->channel->confirm($this->message, $message)) {
             return 'Cancelled by user.';
         }
 
@@ -401,7 +401,7 @@ class EmailManager extends BaseTool
             ? "Delete folder \"{$folders[0]}\"?"
             : "Delete {$count} folders: " . implode(', ', $folders) . '?';
 
-        if (! $this->channel->confirm($message)) {
+        if (! $this->message->channel->confirm($this->message, $message)) {
             return 'Cancelled by user.';
         }
 

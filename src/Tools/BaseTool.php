@@ -4,8 +4,8 @@ namespace LaraClaw\Tools;
 
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Storage;
-use LaraClaw\Channels\Channel;
 use LaraClaw\Enums\ChannelType;
+use LaraClaw\Message;
 use LaraClaw\Models\UserAccount;
 use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Tools\Request;
@@ -15,7 +15,7 @@ abstract class BaseTool implements Tool
 {
     protected array $requiresConfirmation = [];
 
-    public function __construct(protected Channel $channel) {}
+    public function __construct(protected Message $message) {}
 
     public function handle(Request $request): Stringable|string
     {
@@ -42,13 +42,13 @@ abstract class BaseTool implements Tool
             return null;
         }
 
-        $message = preg_replace_callback('/\{(\w+)\}/', function ($m) use ($request) {
+        $prompt = preg_replace_callback('/\{(\w+)\}/', function ($m) use ($request) {
             $value = $request[$m[1]] ?? $m[0];
 
             return is_array($value) ? implode(', ', $value) : $value;
         }, $this->requiresConfirmation[$operation]);
 
-        if (! $this->channel->confirm($message)) {
+        if (! $this->message->channel->confirm($this->message, $prompt)) {
             return 'Cancelled by user.';
         }
 
@@ -87,9 +87,7 @@ abstract class BaseTool implements Tool
             }
         }
 
-        [$type, $key] = explode(':', $this->channel->identifier(), 2);
-
-        return [ChannelType::from($type), $key];
+        return [ChannelType::from($this->message->channel->name), $this->message->conversationKey];
     }
 
     protected function isProtectedPath(string $path): bool

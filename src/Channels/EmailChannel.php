@@ -57,16 +57,20 @@ class EmailChannel extends Channel implements SupportsConfirmation
         $basePath = config('laraclaw.filesystem.attachments_path', 'attachments') . '/email';
         $from = $message->from();
 
+        $channel = new self(
+            senderEmail: $from?->email() ?? 'unknown',
+            senderName: $from?->name(),
+            subject: $message->subject(),
+            messageId: $message->messageId(),
+            threadId: self::resolveThreadId($message),
+            uid: $message->uid(),
+            mailbox: config('laraclaw.channels.email.imap.mailbox', 'default'),
+        );
+
         return new Message(
-            channel: new self(
-                senderEmail: $from?->email() ?? 'unknown',
-                senderName: $from?->name(),
-                subject: $message->subject(),
-                messageId: $message->messageId(),
-                threadId: self::resolveThreadId($message),
-                uid: $message->uid(),
-                mailbox: config('laraclaw.channels.email.imap.mailbox', 'default'),
-            ),
+            channel: $channel,
+            conversationKey: $channel->conversationKey(),
+            conversationIsDirectMessage: $channel->conversationIsDirectMessage(),
             text: $message->text() ?? stripHtml($message->html()),
             attachments: collect($message->attachments())
                 ->map(fn (ImapAttachment $a) => self::storeAttachment($a, $disk, $basePath)),

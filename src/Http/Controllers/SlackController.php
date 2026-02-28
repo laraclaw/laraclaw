@@ -50,7 +50,7 @@ class SlackController extends Controller
         $message = SlackChannel::parseIncomingMessage($event);
         $channel = $message->channel;
 
-        if ($channel->intercept($message->text)) {
+        if ($channel->intercept($message)) {
             $bail = 'INTERCEPTED';
         }
 
@@ -62,7 +62,7 @@ class SlackController extends Controller
             $bail = 'UNRECOGNIZED_ACCOUNT';
         }
 
-        if (! $channel->conversationIsDirectMessage()) {
+        if (! $message->conversationIsDirectMessage) {
             $botUserId = config('laraclaw.channels.slack.bot_user_id');
 
             if (! $botUserId || ! str_contains($message->text ?? '', "<@{$botUserId}>")) {

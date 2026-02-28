@@ -6,6 +6,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 use LaraClaw\Channels\Contracts\SupportsConfirmation;
 use LaraClaw\DTOs\Attachment;
+use LaraClaw\Message;
 
 class TerminalChannel extends Channel implements SupportsConfirmation
 {
@@ -31,10 +32,10 @@ class TerminalChannel extends Channel implements SupportsConfirmation
     /**
      * Terminal never intercepts messages; always returns false.
      *
-     * @param  string|null  $text
+     * @param  \LaraClaw\Message  $message
      * @return bool
      */
-    public function intercept(?string $text): bool
+    public function intercept(Message $message): bool
     {
         return false;
     }
@@ -63,8 +64,8 @@ class TerminalChannel extends Channel implements SupportsConfirmation
     /**
      * Prompt for interactive confirmation via the Artisan command.
      */
-    public function confirm(string $message, int $timeout = 120): bool
+    public function confirm(Message $context, string $prompt, int $timeout = 120): bool
     {
-        return $this->command->confirm("⚠️ {$message}");
+        return $this->command->confirm("⚠️ {$prompt}");
     }
 }

@@ -8,7 +8,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use LaraClaw\Channels\Channel;
+use LaraClaw\Message;
 use LaraClaw\DTOs\Attachment;
 use Laravel\Ai\Tools\Request;
 use Stringable;
@@ -21,7 +21,7 @@ class Files extends BaseTool
         'move' => 'Move "{path}" to "{destination}"?',
     ];
 
-    public function __construct(protected Channel $channel, private Collection $attachments) {}
+    public function __construct(protected Message $message, private Collection $attachments) {}
 
     public function description(): Stringable|string
     {
@@ -153,7 +153,7 @@ class Files extends BaseTool
             ? "Delete \"{$paths[0]}\" from disk \"{$request['disk']}\"?"
             : "Delete {$count} files from disk \"{$request['disk']}\": " . implode(', ', $paths) . '?';
 
-        if (! $this->channel->confirm($message)) {
+        if (! $this->message->channel->confirm($this->message, $message)) {
             return 'Cancelled by user.';
         }
 

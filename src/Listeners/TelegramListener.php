@@ -13,7 +13,7 @@ class TelegramListener
         $raw = $event->message;
         $message = TelegramChannel::parseIncomingMessage($raw, $event->bot);
 
-        if ($message->channel->intercept($message->text)) {
+        if ($message->channel->intercept($message)) {
             return;
         }
 

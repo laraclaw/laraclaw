@@ -41,7 +41,8 @@ class ProcessMessage implements ShouldQueue
     public function failed(Throwable $exception): void
     {
         Log::error('ProcessMessage failed', [
-            'channel' => $this->message->channel->identifier(),
+            'channel' => $this->message->channel->name,
+            'key' => $this->message->conversationKey,
             'error' => $exception->getMessage(),
         ]);
 
@@ -96,9 +97,9 @@ class ProcessMessage implements ShouldQueue
         }
 
         // Resolve user and conversation
-        if ($channel->conversationIsDirectMessage()) {
+        if ($this->message->conversationIsDirectMessage) {
             $userAccount = UserAccount::where('channel', $channel->name)
-                ->where('account', $channel->conversationKey())
+                ->where('account', $this->message->conversationKey)
                 ->with('user')
                 ->firstOrFail();
 
@@ -106,7 +107,7 @@ class ProcessMessage implements ShouldQueue
 
             $conversation = Conversation::firstOrCreate([
                 'channel' => $channel->name,
-                'key' => $channel->conversationKey(),
+                'key' => $this->message->conversationKey,
             ]);
 
             $startFresh = Cache::pull("new_conversation:{$user->getAuthIdentifier()}");
@@ -126,19 +127,19 @@ class ProcessMessage implements ShouldQueue
             // apply to a shared channel conversation.
             try {
                 $conversation = Conversation::where('channel', $channel->name)
-                    ->where('key', $channel->conversationKey())
+                    ->where('key', $this->message->conversationKey)
                     ->first()
                     ?? Conversation::create([
                         'channel' => $channel->name,
-                        'key' => $channel->conversationKey(),
+                        'key' => $this->message->conversationKey,
                         'conversation_id' => $conversations->storeConversation(
                             $user->getAuthIdentifier(),
-                            $channel->name . ':' . $channel->conversationKey(),
+                            $channel->name . ':' . $this->message->conversationKey,
                         ),
                     ]);
             } catch (UniqueConstraintViolationException) {
                 $conversation = Conversation::where('channel', $channel->name)
-                    ->where('key', $channel->conversationKey())
+                    ->where('key', $this->message->conversationKey)
                     ->first();
             }
 
@@ -159,7 +160,7 @@ class ProcessMessage implements ShouldQueue
         }
 
         $agent = new ChatBotAgent(
-            channel: $channel,
+            message: $this->message,
             skillRegistry: $skillRegistry,
             replyAttachments: $replyAttachments,
             conversation: $conversation,

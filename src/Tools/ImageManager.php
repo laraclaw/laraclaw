@@ -6,6 +6,7 @@ use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Collection;
 use LaraClaw\DTOs\Attachment;
+use LaraClaw\Message;
 use Laravel\Ai\Tools\Request;
 use RuntimeException;
 use Spatie\Image\Enums\FlipDirection;
@@ -18,7 +19,7 @@ class ImageManager extends BaseTool
 {
     private const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'tif'];
 
-    public function __construct(protected \LaraClaw\Channels\Channel $channel, private ?Collection $attachments = null) {}
+    public function __construct(protected Message $message, private ?Collection $attachments = null) {}
 
     public function description(): Stringable|string
     {

@@ -45,6 +45,8 @@ class TelegramChannel extends Channel implements SupportsAcknowledgement, Suppor
 
         return new Message(
             channel: $channel,
+            conversationKey: $channel->conversationKey(),
+            conversationIsDirectMessage: $channel->conversationIsDirectMessage(),
             text: $raw->text ?? $raw->caption ?? null,
             attachments: $channel->collectAttachments($raw),
         );
