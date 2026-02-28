@@ -26,6 +26,17 @@ class EmailChannel extends Channel implements SupportsConfirmation
     /** @var Attachment[] */
     private array $replyAttachments = [];
 
+    /**
+     * Create a new EmailChannel instance.
+     *
+     * @param  string  $senderEmail
+     * @param  string|null  $senderName
+     * @param  string|null  $subject
+     * @param  string|null  $messageId
+     * @param  string  $threadId
+     * @param  int  $uid
+     * @param  string  $mailbox
+     */
     public function __construct(
         private string $senderEmail,
         private ?string $senderName,
@@ -101,28 +112,24 @@ class EmailChannel extends Channel implements SupportsConfirmation
         return $header && preg_match('/<([^>]+)>/', $header, $m) ? $m[1] : null;
     }
 
-    /**
-     * Conversation identifier keyed by thread root, so all replies
-     * share the same context.
-     */
-    public function identifier(): string
+    public readonly string $name = 'email';
+
+    public function conversationKey(): string
     {
-        return "email:{$this->threadId}";
+        return $this->senderEmail;
     }
 
-    /**
-     * User identifier keyed by sender address for DM routing.
-     */
-    public function userIdentifier(): string
-    {
-        return "email:{$this->senderEmail}";
-    }
-
-    public function shouldRespond(?string $text = null): bool
+    public function conversationIsDirectMessage(): bool
     {
         return true;
     }
 
+    /**
+     * Queue attachments to be included in the outgoing reply.
+     *
+     * @param  \Illuminate\Support\Collection  $attachments
+     * @return void
+     */
     public function handleAttachments(Collection $attachments): void
     {
         $this->replyAttachments = array_merge($this->replyAttachments, $attachments->all());

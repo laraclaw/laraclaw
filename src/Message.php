@@ -4,6 +4,7 @@ namespace LaraClaw;
 
 use Illuminate\Support\Collection;
 use LaraClaw\Channels\Channel;
+use LaraClaw\Models\UserAccount;
 
 class Message
 {
@@ -13,8 +14,14 @@ class Message
         public readonly Collection $attachments = new Collection,
     ) {}
 
-    public function shouldBeIgnored(): bool
+    public function isFromUnrecognizedAccount(): bool
     {
-        return ! $this->channel->shouldRespond($this->text);
+        if (! $this->channel->conversationIsDirectMessage()) {
+            return false;
+        }
+
+        return ! UserAccount::where('channel', $this->channel->name)
+            ->where('account', $this->channel->conversationKey())
+            ->exists();
     }
 }

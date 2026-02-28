@@ -10,9 +10,17 @@ trait ChecksRedisForConfirmations
 
     private const CONFIRM_KEY = 'confirm:';
 
+    /**
+     * Intercept an incoming message if a confirmation is pending for this channel.
+     *
+     * Returns true if the message was consumed and should not be processed further.
+     *
+     * @param  string|null  $text
+     * @return bool
+     */
     public function intercept(?string $text): bool
     {
-        $identifier = $this->identifier();
+        $identifier = $this->name . ':' . $this->conversationKey();
 
         // If no confirmation is pending for this conversation, the incoming message
         // is not a reply to a pending confirm prompt and we should not intercept
@@ -31,9 +39,16 @@ trait ChecksRedisForConfirmations
         return true;
     }
 
+    /**
+     * Prompt the user for confirmation via Redis and block until a reply arrives.
+     *
+     * @param  string  $message
+     * @param  int  $timeout
+     * @return bool
+     */
     public function confirm(string $message, int $timeout = 120): bool
     {
-        $identifier = $this->identifier();
+        $identifier = $this->name . ':' . $this->conversationKey();
         $awaitingKey = self::AWAITING_KEY . $identifier;
         $confirmKey = self::CONFIRM_KEY . $identifier;
 

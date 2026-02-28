@@ -7,7 +7,6 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use LaraClaw\Channels\SlackChannel;
 use LaraClaw\Jobs\ProcessMessage;
-use LaraClaw\Message;
 
 class SlackController extends Controller
 {
@@ -17,41 +16,71 @@ class SlackController extends Controller
             return response()->json(['challenge' => $request->input('challenge')]);
         }
 
-        if (! $this->shouldHandle($request)) {
-            return $this->ok();
-        }
-
-        $message = SlackChannel::parseIncomingMessage($request->input('event', []));
-
-        if ($this->shouldDispatch($message)) {
-            ProcessMessage::dispatch($message);
-        }
-
-        return $this->ok();
-    }
-
-    private function shouldHandle(Request $request): bool
-    {
+        $bail = null;
         $event = $request->input('event', []);
-        $subtype = $event['subtype'] ?? null;
 
-        return config('laraclaw.channels.slack.enabled')
-            && $request->input('type') === 'event_callback'
-            && ($event['type'] ?? null) === 'message'
-            && empty($event['bot_id'])
-            && in_array($subtype, [null, 'file_share'], true)
-            && filled($event['channel'] ?? null);
+        if (! config('laraclaw.channels.slack.enabled')) {
+            $bail = 'CHANNEL_DISABLED';
+        }
+
+        if ($request->input('type') !== 'event_callback') {
+            $bail = 'NOT_CALLBACK_EVENT';
+        }
+
+        if (($event['type'] ?? null) !== 'message') {
+            $bail = 'NOT_MESSAGE';
+        }
+
+        if (! empty($event['bot_id'])) {
+            $bail = 'BOT_MESSAGE';
+        }
+
+        if (! in_array($event['subtype'] ?? null, [null, 'file_share'], true)) {
+            $bail = 'UNSUPPORTED_SUBTYPE';
+        }
+
+        if (blank($event['channel'] ?? null)) {
+            $bail = 'NO_CHANNEL';
+        }
+
+        if ($bail) {
+            return $this->bail($bail);
+        }
+
+        $message = SlackChannel::parseIncomingMessage($event);
+        $channel = $message->channel;
+
+        if ($channel->intercept($message->text)) {
+            $bail = 'INTERCEPTED';
+        }
+
+        if (blank($message->text) && $message->attachments->isEmpty()) {
+            $bail = 'EMPTY_MESSAGE';
+        }
+
+        if ($message->isFromUnrecognizedAccount()) {
+            $bail = 'UNRECOGNIZED_ACCOUNT';
+        }
+
+        if (! $channel->conversationIsDirectMessage()) {
+            $botUserId = config('laraclaw.channels.slack.bot_user_id');
+
+            if (! $botUserId || ! str_contains($message->text ?? '', "<@{$botUserId}>")) {
+                $bail = 'NOT_MENTIONED';
+            }
+        }
+
+        if ($bail) {
+            return $this->bail($bail);
+        }
+
+        ProcessMessage::dispatch($message);
+
+        return response()->json(['success' => true]);
     }
 
-    private function shouldDispatch(Message $message): bool
+    private function bail(string $code): JsonResponse
     {
-        return ! $message->channel->intercept($message->text)
-            && (filled($message->text) || $message->attachments->isNotEmpty())
-            && ! $message->shouldBeIgnored();
-    }
-
-    private function ok(): JsonResponse
-    {
-        return response()->json(['ok' => true]);
+        return response()->json(['success' => true, 'bailed' => true, 'code' => $code]);
     }
 }

@@ -19,6 +19,14 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsC
 {
     use ChecksRedisForConfirmations;
 
+    /**
+     * Create a new SlackChannel instance.
+     *
+     * @param  string  $channelId
+     * @param  string|null  $threadTs
+     * @param  string|null  $messageTs
+     * @param  string|null  $userId
+     */
     public function __construct(
         private string $channelId,
         private ?string $threadTs = null,
@@ -109,41 +117,23 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsC
         }
     }
 
+    /**
+     * Retrieve the configured Slack bot token.
+     *
+     * @return string
+     */
     private static function token(): string
     {
         return config('laraclaw.channels.slack.bot_token');
     }
 
-    /**
-     * Conversation identifier: per-user for DMs, per-thread for channels.
-     */
-    public function identifier(): string
+    public readonly string $name = 'slack';
+
+    public function conversationKey(): string
     {
-        return $this->isDm()
-            ? "slack:{$this->userId}"
-            : "slack:{$this->channelId}:{$this->threadTs}";
-    }
-
-    /**
-     * User identifier for DM routing; null for channel messages.
-     */
-    public function userIdentifier(): ?string
-    {
-        return $this->isDm() ? "slack:{$this->userId}" : null;
-    }
-
-    /**
-     * Respond to all DMs; in channels, only respond when @mentioned.
-     */
-    public function shouldRespond(?string $text = null): bool
-    {
-        if ($this->isDm()) {
-            return true;
-        }
-
-        $botUserId = config('laraclaw.channels.slack.bot_user_id');
-
-        return $botUserId && str_contains($text ?? '', "<@{$botUserId}>");
+        return $this->conversationIsDirectMessage()
+            ? $this->userId ?? throw new \RuntimeException('Slack DM event is missing user ID.')
+            : "{$this->channelId}:{$this->threadTs}";
     }
 
     /**
@@ -178,14 +168,14 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsC
             'text' => $this->toMrkdwn($message),
         ];
 
-        if (! $this->isDm() && $this->threadTs) {
+        if (! $this->conversationIsDirectMessage() && $this->threadTs) {
             $payload['thread_ts'] = $this->threadTs;
         }
 
         $response = Http::withToken(self::token())
             ->post('https://slack.com/api/chat.postMessage', $payload);
 
-        if (! $this->isDm() && ! $this->threadTs && $response->successful()) {
+        if (! $this->conversationIsDirectMessage() && ! $this->threadTs && $response->successful()) {
             $data = $response->json();
             if ($data['ok'] && isset($data['ts'])) {
                 $this->threadTs = $data['ts'];
@@ -203,6 +193,12 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsC
         }
     }
 
+    /**
+     * Upload a single attachment DTO to Slack.
+     *
+     * @param  \LaraClaw\DTOs\Attachment  $attachment
+     * @return bool
+     */
     private function uploadAttachment(Attachment $attachment): bool
     {
         return $this->uploadFile(
@@ -214,10 +210,12 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsC
     /**
      * Slack DM channel IDs start with 'D'.
      */
-    private function isDm(): bool
+    public function conversationIsDirectMessage(): bool
     {
         return str_starts_with($this->channelId, 'D');
     }
+
+
 
     /**
      * Convert Markdown to Slack mrkdwn format.

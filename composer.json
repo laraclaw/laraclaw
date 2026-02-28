@@ -5,7 +5,7 @@
     "description": "AI-powered chatbot package for Laravel (Telegram, Slack, Email)",
     "license": "MIT",
     "require": {
-        "php": "^8.2",
+        "php": "^8.4",
         "laravel/ai": "^0.2",
         "laravel/framework": "^12.0",
         "symfony/yaml": "^7.0"

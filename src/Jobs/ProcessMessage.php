@@ -96,31 +96,17 @@ class ProcessMessage implements ShouldQueue
         }
 
         // Resolve user and conversation
-        $userIdentifier = $channel->userIdentifier();
-
-        if ($userIdentifier !== null) {
-            // DM: must be the registered owner
-            [$channelType, $accountKey] = $this->parseIdentifier($userIdentifier);
-
-            $userAccount = UserAccount::where('channel', $channelType)
-                ->where('account', $accountKey)
+        if ($channel->conversationIsDirectMessage()) {
+            $userAccount = UserAccount::where('channel', $channel->name)
+                ->where('account', $channel->conversationKey())
                 ->with('user')
-                ->first();
-
-            if (! $userAccount) {
-                Log::info('LaraClaw: message from unregistered account ignored', [
-                    'channel' => $channelType,
-                    'account' => $accountKey,
-                ]);
-
-                return;
-            }
+                ->firstOrFail();
 
             $user = $userAccount->user;
 
             $conversation = Conversation::firstOrCreate([
-                'channel' => $channelType,
-                'key' => $accountKey,
+                'channel' => $channel->name,
+                'key' => $channel->conversationKey(),
             ]);
 
             $startFresh = Cache::pull("new_conversation:{$user->getAuthIdentifier()}");
@@ -138,23 +124,21 @@ class ProcessMessage implements ShouldQueue
 
             // Group conversations are never reset via !new — that's per-user and doesn't
             // apply to a shared channel conversation.
-            [$channelType, $channelKey] = $this->parseIdentifier($channel->identifier());
-
             try {
-                $conversation = Conversation::where('channel', $channelType)
-                    ->where('key', $channelKey)
+                $conversation = Conversation::where('channel', $channel->name)
+                    ->where('key', $channel->conversationKey())
                     ->first()
                     ?? Conversation::create([
-                        'channel' => $channelType,
-                        'key' => $channelKey,
+                        'channel' => $channel->name,
+                        'key' => $channel->conversationKey(),
                         'conversation_id' => $conversations->storeConversation(
                             $user->getAuthIdentifier(),
-                            $channel->identifier(),
+                            $channel->name . ':' . $channel->conversationKey(),
                         ),
                     ]);
             } catch (UniqueConstraintViolationException) {
-                $conversation = Conversation::where('channel', $channelType)
-                    ->where('key', $channelKey)
+                $conversation = Conversation::where('channel', $channel->name)
+                    ->where('key', $channel->conversationKey())
                     ->first();
             }
 
@@ -190,12 +174,8 @@ class ProcessMessage implements ShouldQueue
             ? $agent->prompt($text, $agentAttachments)
             : $agent->forUser($user)->prompt($text, $agentAttachments);
 
-        $channel->sendAttachments($replyAttachments);
+        $channel->handleAttachments($replyAttachments);
         $channel->send($response);
     }
 
-    private function parseIdentifier(string $identifier): array
-    {
-        return explode(':', $identifier, 2);
-    }
 }

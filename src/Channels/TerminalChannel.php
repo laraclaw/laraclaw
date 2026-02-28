@@ -9,32 +9,34 @@ use LaraClaw\DTOs\Attachment;
 
 class TerminalChannel extends Channel implements SupportsConfirmation
 {
+    /**
+     * Create a new TerminalChannel instance.
+     *
+     * @param  \Illuminate\Console\Command  $command
+     */
     public function __construct(private Command $command) {}
 
-    /**
-     * Conversation identifier keyed by process ID.
-     */
-    public function identifier(): string
+    public readonly string $name = 'terminal';
+
+    public function conversationKey(): string
     {
-        return 'terminal:' . getmypid();
+        return (string) getmypid();
     }
 
-    /**
-     * Terminal has no concept of a remote user; always the owner.
-     */
-    public function userIdentifier(): ?string
-    {
-        return null;
-    }
-
-    public function intercept(?string $text): bool
+    public function conversationIsDirectMessage(): bool
     {
         return false;
     }
 
-    public function shouldRespond(?string $text = null): bool
+    /**
+     * Terminal never intercepts messages; always returns false.
+     *
+     * @param  string|null  $text
+     * @return bool
+     */
+    public function intercept(?string $text): bool
     {
-        return true;
+        return false;
     }
 
     /**
@@ -47,6 +49,12 @@ class TerminalChannel extends Channel implements SupportsConfirmation
         }
     }
 
+    /**
+     * Output the message to the terminal.
+     *
+     * @param  string  $message
+     * @return void
+     */
     public function send(string $message): void
     {
         $this->command->info($message);

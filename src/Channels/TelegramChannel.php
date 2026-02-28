@@ -24,6 +24,12 @@ class TelegramChannel extends Channel implements SupportsAcknowledgement, Suppor
 {
     use ChecksRedisForConfirmations;
 
+    /**
+     * Create a new TelegramChannel instance.
+     *
+     * @param  int|string  $chatId
+     * @param  \SergiX44\Nutgram\Nutgram  $bot
+     */
     public function __construct(
         private int|string $chatId,
         private Nutgram $bot,
@@ -44,25 +50,11 @@ class TelegramChannel extends Channel implements SupportsAcknowledgement, Suppor
         );
     }
 
-    /**
-     * Conversation identifier keyed by chat ID.
-     */
-    public function identifier(): string
-    {
-        return "telegram:{$this->chatId}";
-    }
+    public readonly string $name = 'telegram';
 
-    /**
-     * User identifier for DM routing; null for group chats.
-     */
-    public function userIdentifier(): ?string
+    public function conversationKey(): string
     {
-        return $this->isDm() ? $this->identifier() : null;
-    }
-
-    public function shouldRespond(?string $text = null): bool
-    {
-        return true;
+        return (string) $this->chatId;
     }
 
     /**
@@ -186,7 +178,7 @@ class TelegramChannel extends Channel implements SupportsAcknowledgement, Suppor
     /**
      * Positive chat IDs are private chats; negative are groups.
      */
-    private function isDm(): bool
+    public function conversationIsDirectMessage(): bool
     {
         return $this->chatId > 0;
     }

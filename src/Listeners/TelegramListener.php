@@ -21,7 +21,7 @@ class TelegramListener
             return;
         }
 
-        if ($message->shouldBeIgnored()) {
+        if ($message->isFromUnrecognizedAccount()) {
             return;
         }
 
