@@ -44,6 +44,19 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsA
         return new self(channelId: $channelId);
     }
 
+    public static function identifierFor(array $event): string
+    {
+        $channelId = $event['channel'];
+
+        if (str_starts_with($channelId, 'D')) {
+            return "slack:{$event['user']}";
+        }
+
+        $threadTs = $event['thread_ts'] ?? $event['ts'] ?? '';
+
+        return "slack:{$channelId}:{$threadTs}";
+    }
+
     public static function from(array $event): \LaraClaw\Message
     {
         $botToken = config('laraclaw.channels.slack.bot_token');
@@ -106,7 +119,7 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsA
         return $this->isDm() ? "slack:{$this->userId}" : null;
     }
 
-    protected function shouldRespond(?string $text = null): bool
+    public function shouldRespond(?string $text = null): bool
     {
         if ($this->isDm()) {
             return true;

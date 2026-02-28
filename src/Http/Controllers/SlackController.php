@@ -5,7 +5,6 @@ namespace LaraClaw\Http\Controllers;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
-use Illuminate\Support\Facades\Redis;
 use LaraClaw\Channels\SlackChannel;
 use LaraClaw\Jobs\ProcessMessage;
 
@@ -46,14 +45,7 @@ class SlackController extends Controller
             return response()->json(['ok' => true]);
         }
 
-        $identifier = "slack:{$channelId}";
-
-        // If a tool is waiting for confirmation, push the reply and return early
-        if (Redis::exists("awaiting_confirm:{$identifier}")) {
-            if ($text !== null) {
-                Redis::rpush("confirm:{$identifier}", $text);
-            }
-
+        if (SlackChannel::intercept(SlackChannel::identifierFor($event), $text)) {
             return response()->json(['ok' => true]);
         }
 

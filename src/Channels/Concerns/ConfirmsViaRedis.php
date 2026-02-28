@@ -6,9 +6,22 @@ use Illuminate\Support\Facades\Redis;
 
 trait ConfirmsViaRedis
 {
+    public static function intercept(string $identifier, ?string $text): bool
+    {
+        if (! Redis::exists("awaiting_confirm:{$identifier}")) {
+            return false;
+        }
+
+        if ($text !== null) {
+            Redis::rpush("confirm:{$identifier}", $text);
+        }
+
+        return true;
+    }
+
     public function confirm(string $message, int $timeout = 120): bool
     {
-        $identifier = $this->identifier();
+        $identifier = $this->confirmIdentifier();
         $awaitingKey = "awaiting_confirm:{$identifier}";
         $confirmKey = "confirm:{$identifier}";
 
@@ -30,5 +43,10 @@ trait ConfirmsViaRedis
         Redis::del($awaitingKey);
 
         return $reply && strtolower($reply[1]) === 'yes';
+    }
+
+    protected function confirmIdentifier(): string
+    {
+        return $this->identifier();
     }
 }

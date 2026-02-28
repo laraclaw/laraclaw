@@ -44,7 +44,7 @@ class ProcessMessage implements ShouldQueue
     public function failed(Throwable $exception): void
     {
         Log::error('ProcessMessage failed', [
-            'channel' => $this->message->identifier(),
+            'channel' => $this->message->channel->identifier(),
             'error' => $exception->getMessage(),
         ]);
 

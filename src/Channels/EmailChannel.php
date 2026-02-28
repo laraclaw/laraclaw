@@ -9,18 +9,22 @@ use DirectoryTree\ImapEngine\MessageInterface;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use LaraClaw\Channels\Concerns\ConfirmsViaRedis;
 use LaraClaw\Channels\Contracts\SupportsAudio;
+use LaraClaw\Channels\Contracts\SupportsConfirmation;
 use LaraClaw\Channels\Contracts\SupportsFiles;
 use LaraClaw\Channels\Contracts\SupportsImages;
 use LaraClaw\DTOs\Attachment;
-use LaraClaw\Message;
 use LaraClaw\Mail\ChannelReply;
+use LaraClaw\Message;
 use League\CommonMark\CommonMarkConverter;
 
 use function LaraClaw\Support\stripHtml;
 
-class EmailChannel extends Channel implements SupportsAudio, SupportsFiles, SupportsImages
+class EmailChannel extends Channel implements SupportsAudio, SupportsConfirmation, SupportsFiles, SupportsImages
 {
+    use ConfirmsViaRedis;
+
     /** @var Attachment[] */
     private array $replyAttachments = [];
 
@@ -59,6 +63,11 @@ class EmailChannel extends Channel implements SupportsAudio, SupportsFiles, Supp
             text: $message->text() ?? stripHtml($message->html()),
             attachments: $attachments,
         );
+    }
+
+    public static function identifierFor(string $email): string
+    {
+        return "email:{$email}";
     }
 
     private static function downloadAttachment(ImapAttachment $attachment, string $disk, string $basePath, Collection $attachments): void
@@ -104,7 +113,7 @@ class EmailChannel extends Channel implements SupportsAudio, SupportsFiles, Supp
 
     public function userIdentifier(): string
     {
-        return "email:{$this->senderEmail}";
+        return static::identifierFor($this->senderEmail);
     }
 
     public function sendImage(Attachment $attachment): void
@@ -156,6 +165,11 @@ class EmailChannel extends Channel implements SupportsAudio, SupportsFiles, Supp
         Mail::send($mailable);
 
         $this->markSeen();
+    }
+
+    protected function confirmIdentifier(): string
+    {
+        return $this->userIdentifier();
     }
 
     private function markSeen(): void

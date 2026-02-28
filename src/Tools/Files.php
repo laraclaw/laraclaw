@@ -17,11 +17,11 @@ class Files extends BaseTool
 {
     private const MAX_READ_BYTES = 100 * 1024;
 
-    public function __construct(protected Channel $channel, private Collection $attachments) {}
-
     protected array $requiresConfirmation = [
         'move' => 'Move "{path}" to "{destination}"?',
     ];
+
+    public function __construct(protected Channel $channel, private Collection $attachments) {}
 
     public function description(): Stringable|string
     {

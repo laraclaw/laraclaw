@@ -2,7 +2,6 @@
 
 namespace LaraClaw\Listeners;
 
-use Illuminate\Support\Facades\Redis;
 use LaraClaw\Channels\TelegramChannel;
 use LaraClaw\Events\TelegramMessageReceived;
 use LaraClaw\Jobs\ProcessMessage;
@@ -13,14 +12,7 @@ class TelegramListener
     {
         $raw = $event->message;
         $text = $raw->text ?? $raw->caption ?? null;
-        $identifier = "telegram:{$raw->chat->id}";
-
-        // If a tool is waiting for confirmation, push the reply and return early
-        if (Redis::exists("awaiting_confirm:{$identifier}")) {
-            if ($text !== null) {
-                Redis::rpush("confirm:{$identifier}", $text);
-            }
-
+        if (TelegramChannel::intercept(TelegramChannel::identifierFor($raw->chat->id), $text)) {
             return;
         }
 

@@ -4,7 +4,6 @@ namespace LaraClaw\Listeners;
 
 use DirectoryTree\ImapEngine\Laravel\Events\MessageReceived;
 use DirectoryTree\ImapEngine\MessageInterface;
-use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Str;
 use LaraClaw\Channels\EmailChannel;
 use LaraClaw\Jobs\ProcessMessage;
@@ -39,15 +38,7 @@ class EmailListener
             return;
         }
 
-        $identifier = "email:{$fromEmail}";
-
-        // If a tool is waiting for confirmation, push the reply and return early
-        if (Redis::exists("awaiting_confirm:{$identifier}")) {
-            $text = $raw->text();
-            if ($text !== null) {
-                Redis::rpush("confirm:{$identifier}", $text);
-            }
-
+        if (EmailChannel::intercept(EmailChannel::identifierFor($fromEmail), $raw->text())) {
             return;
         }
 
