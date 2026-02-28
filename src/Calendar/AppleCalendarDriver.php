@@ -18,6 +18,14 @@ use SimpleXMLElement;
 
 class AppleCalendarDriver implements CalendarDriver
 {
+    /**
+     * Create a new AppleCalendarDriver instance.
+     *
+     * @param  string  $server
+     * @param  string  $username
+     * @param  string  $password
+     * @param  string  $calendar
+     */
     public function __construct(
         private string $server,
         private string $username,
@@ -25,6 +33,13 @@ class AppleCalendarDriver implements CalendarDriver
         private string $calendar,
     ) {}
 
+    /**
+     * List all events within the given date range via a CalDAV REPORT request.
+     *
+     * @param  \DateTimeInterface  $start
+     * @param  \DateTimeInterface  $end
+     * @return \LaraClaw\DTOs\CalendarEvent[]
+     */
     public function list(DateTimeInterface $start, DateTimeInterface $end): array
     {
         $response = $this->http()->send('REPORT', $this->resolveCalendarUrl(), [
@@ -47,6 +62,12 @@ class AppleCalendarDriver implements CalendarDriver
         return $this->parseMultiStatus($response->body());
     }
 
+    /**
+     * Create a new iCalendar event via CalDAV PUT and return its UID.
+     *
+     * @param  \LaraClaw\DTOs\CalendarEvent  $event
+     * @return string
+     */
     public function create(CalendarEvent $event): string
     {
         $uid = Str::uuid()->toString();
@@ -78,6 +99,13 @@ class AppleCalendarDriver implements CalendarDriver
         return $uid;
     }
 
+    /**
+     * Fetch the existing .ics file, patch the changed fields, and PUT it back.
+     *
+     * @param  string  $id
+     * @param  \LaraClaw\DTOs\CalendarEvent  $event
+     * @return void
+     */
     public function update(string $id, CalendarEvent $event): void
     {
         $url = "{$this->resolveCalendarUrl()}/{$id}.ics";
@@ -117,11 +145,22 @@ class AppleCalendarDriver implements CalendarDriver
         ]);
     }
 
+    /**
+     * Delete the event's .ics file from the CalDAV server.
+     *
+     * @param  string  $id
+     * @return void
+     */
     public function delete(string $id): void
     {
         $this->http()->send('DELETE', "{$this->resolveCalendarUrl()}/{$id}.ics");
     }
 
+    /**
+     * Resolve and cache the full CalDAV URL for the configured calendar.
+     *
+     * @return string
+     */
     private function resolveCalendarUrl(): string
     {
         return Cache::remember("caldav:calendar_url:{$this->username}:{$this->calendar}", 3600, function () {
@@ -139,6 +178,14 @@ class AppleCalendarDriver implements CalendarDriver
         });
     }
 
+    /**
+     * Send a CalDAV PROPFIND request and return the response.
+     *
+     * @param  string  $url
+     * @param  string  $prop
+     * @param  int  $depth
+     * @return \Illuminate\Http\Client\Response
+     */
     private function propfind(string $url, string $prop, int $depth = 0): Response
     {
         return $this->http()->send('PROPFIND', $url, [
@@ -147,6 +194,14 @@ class AppleCalendarDriver implements CalendarDriver
         ]);
     }
 
+    /**
+     * Find the href of the named calendar within the calendar home set.
+     *
+     * @param  string  $url
+     * @return string
+     *
+     * @throws \RuntimeException
+     */
     private function calendarHref(string $url): string
     {
         $xml = $this->loadXml($this->propfind($url, '<d:displayname/>', 1)->body());
@@ -160,6 +215,12 @@ class AppleCalendarDriver implements CalendarDriver
         throw new RuntimeException("Calendar '{$this->calendar}' not found on CalDAV server.");
     }
 
+    /**
+     * Parse a CalDAV multi-status response body into an array of CalendarEvent DTOs.
+     *
+     * @param  string  $body
+     * @return \LaraClaw\DTOs\CalendarEvent[]
+     */
     private function parseMultiStatus(string $body): array
     {
         $events = [];
@@ -195,6 +256,12 @@ class AppleCalendarDriver implements CalendarDriver
         return $events;
     }
 
+    /**
+     * Parse an XML string and register the DAV and CalDAV namespaces for XPath.
+     *
+     * @param  string  $xml
+     * @return \SimpleXMLElement
+     */
     private function loadXml(string $xml): SimpleXMLElement
     {
         $el = simplexml_load_string($xml);
@@ -204,6 +271,15 @@ class AppleCalendarDriver implements CalendarDriver
         return $el;
     }
 
+    /**
+     * Evaluate an XPath expression against an XML string and return the first result.
+     *
+     * @param  string  $xml
+     * @param  string  $path
+     * @return string
+     *
+     * @throws \RuntimeException
+     */
     private function xpath(string $xml, string $path): string
     {
         $results = $this->loadXml($xml)->xpath($path);
@@ -215,6 +291,11 @@ class AppleCalendarDriver implements CalendarDriver
         return (string) $results[0];
     }
 
+    /**
+     * Build an HTTP client pre-configured with Basic Auth credentials.
+     *
+     * @return \Illuminate\Http\Client\PendingRequest
+     */
     private function http(): PendingRequest
     {
         return Http::withBasicAuth($this->username, $this->password);

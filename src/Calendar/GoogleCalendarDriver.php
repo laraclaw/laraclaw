@@ -12,6 +12,13 @@ use Spatie\GoogleCalendar\Event as SpatieEvent;
 
 class GoogleCalendarDriver implements CalendarDriver
 {
+    /**
+     * List all events within the given date range via the Google Calendar API.
+     *
+     * @param  \DateTimeInterface  $start
+     * @param  \DateTimeInterface  $end
+     * @return \LaraClaw\DTOs\CalendarEvent[]
+     */
     public function list(DateTimeInterface $start, DateTimeInterface $end): array
     {
         return collect($this->getEvents(Carbon::instance($start), Carbon::instance($end)))
@@ -31,6 +38,12 @@ class GoogleCalendarDriver implements CalendarDriver
             ->all();
     }
 
+    /**
+     * Create a new Google Calendar event and return its ID.
+     *
+     * @param  \LaraClaw\DTOs\CalendarEvent  $event
+     * @return string
+     */
     public function create(CalendarEvent $event): string
     {
         $spatieEvent = $this->newEvent();
@@ -55,6 +68,13 @@ class GoogleCalendarDriver implements CalendarDriver
         return $saved->id;
     }
 
+    /**
+     * Fetch the existing Google Calendar event and patch the changed fields.
+     *
+     * @param  string  $id
+     * @param  \LaraClaw\DTOs\CalendarEvent  $event
+     * @return void
+     */
     public function update(string $id, CalendarEvent $event): void
     {
         $spatieEvent = $this->findEvent($id);
@@ -89,21 +109,45 @@ class GoogleCalendarDriver implements CalendarDriver
         $spatieEvent->save();
     }
 
+    /**
+     * Delete a Google Calendar event by ID.
+     *
+     * @param  string  $id
+     * @return void
+     */
     public function delete(string $id): void
     {
         $this->findEvent($id)->delete();
     }
 
+    /**
+     * Retrieve Spatie Google Calendar events for the given range.
+     *
+     * @param  \Carbon\Carbon  $start
+     * @param  \Carbon\Carbon  $end
+     * @return \Illuminate\Support\Collection
+     */
     protected function getEvents(Carbon $start, Carbon $end): Collection
     {
         return SpatieEvent::get($start, $end);
     }
 
+    /**
+     * Instantiate a new Spatie Event for creation.
+     *
+     * @return \Spatie\GoogleCalendar\Event
+     */
     protected function newEvent(): SpatieEvent
     {
         return new SpatieEvent;
     }
 
+    /**
+     * Find an existing Spatie Event by its Google Calendar ID.
+     *
+     * @param  string  $id
+     * @return \Spatie\GoogleCalendar\Event
+     */
     protected function findEvent(string $id): SpatieEvent
     {
         return SpatieEvent::find($id);
