@@ -15,9 +15,6 @@ trait ChecksRedisForConfirmations
      * Intercept an incoming message if a confirmation is pending for this channel.
      *
      * Returns true if the message was consumed and should not be processed further.
-     *
-     * @param  \LaraClaw\Message  $message
-     * @return bool
      */
     public function intercept(Message $message): bool
     {
@@ -42,11 +39,6 @@ trait ChecksRedisForConfirmations
 
     /**
      * Prompt the user for confirmation via Redis and block until a reply arrives.
-     *
-     * @param  \LaraClaw\Message  $context
-     * @param  string  $prompt
-     * @param  int  $timeout
-     * @return bool
      */
     public function confirm(Message $context, string $prompt, int $timeout = 120): bool
     {

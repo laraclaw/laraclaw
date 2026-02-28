@@ -32,12 +32,6 @@ class ChatBotAgent implements Agent, Conversational, HasTools
 
     /**
      * Create a new ChatBotAgent instance.
-     *
-     * @param  \LaraClaw\Message  $message
-     * @param  \LaraClaw\SkillRegistry  $skillRegistry
-     * @param  \Illuminate\Support\Collection  $replyAttachments
-     * @param  \LaraClaw\Models\Conversation|null  $conversation
-     * @param  \LaraClaw\Calendar\Contracts\CalendarDriver|null  $calendarDriver
      */
     public function __construct(
         private Message $message,
@@ -49,8 +43,6 @@ class ChatBotAgent implements Agent, Conversational, HasTools
 
     /**
      * Build the system instructions for the agent, appending the active persona.
-     *
-     * @return string
      */
     public function instructions(): string
     {
@@ -62,8 +54,6 @@ class ChatBotAgent implements Agent, Conversational, HasTools
 
     /**
      * Return the tool instances available to the agent.
-     *
-     * @return iterable
      */
     public function tools(): iterable
     {
@@ -99,8 +89,6 @@ class ChatBotAgent implements Agent, Conversational, HasTools
     /**
      * Load the active persona prompt from disk, returning an empty string
      * if no persona is configured or the file does not exist.
-     *
-     * @return string
      */
     private function resolvePersona(): string
     {
@@ -118,9 +106,6 @@ class ChatBotAgent implements Agent, Conversational, HasTools
     /**
      * Load the base prompt from the published resource path, falling back
      * to the package default, and append the current date and timezone.
-     *
-     * @param  string  $name
-     * @return string
      */
     private function buildPrompt(string $name = 'default'): string
     {

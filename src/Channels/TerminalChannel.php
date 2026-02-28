@@ -10,14 +10,12 @@ use LaraClaw\Message;
 
 class TerminalChannel extends Channel implements SupportsConfirmation
 {
+    public readonly string $name = 'terminal';
+
     /**
      * Create a new TerminalChannel instance.
-     *
-     * @param  \Illuminate\Console\Command  $command
      */
     public function __construct(private Command $command) {}
-
-    public readonly string $name = 'terminal';
 
     public function conversationKey(): string
     {
@@ -31,9 +29,6 @@ class TerminalChannel extends Channel implements SupportsConfirmation
 
     /**
      * Terminal never intercepts messages; always returns false.
-     *
-     * @param  \LaraClaw\Message  $message
-     * @return bool
      */
     public function intercept(Message $message): bool
     {
@@ -52,9 +47,6 @@ class TerminalChannel extends Channel implements SupportsConfirmation
 
     /**
      * Output the message to the terminal.
-     *
-     * @param  string  $message
-     * @return void
      */
     public function send(string $message): void
     {

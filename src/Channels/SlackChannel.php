@@ -19,13 +19,10 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsC
 {
     use ChecksRedisForConfirmations;
 
+    public readonly string $name = 'slack';
+
     /**
      * Create a new SlackChannel instance.
-     *
-     * @param  string  $channelId
-     * @param  string|null  $threadTs
-     * @param  string|null  $messageTs
-     * @param  string|null  $userId
      */
     public function __construct(
         private string $channelId,
@@ -45,7 +42,7 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsC
         $channelId = $response->json('channel.id');
 
         if (! $response->successful() || ! $channelId) {
-            throw new RuntimeException("Failed to open Slack DM with user {$userId}: " . $response->body());
+            throw new RuntimeException("Failed to open Slack DM with user {$userId}: ".$response->body());
         }
 
         return new self(channelId: $channelId);
@@ -79,7 +76,7 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsC
     private static function collectAttachments(array $event): Collection
     {
         $disk = config('laraclaw.filesystem.attachments_disk', 'local');
-        $basePath = config('laraclaw.filesystem.attachments_path', 'attachments') . '/slack';
+        $basePath = config('laraclaw.filesystem.attachments_path', 'attachments').'/slack';
 
         return collect($event['files'] ?? [])
             ->map(fn (array $file) => self::downloadFile($file, $disk, $basePath))
@@ -100,7 +97,7 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsC
 
         $mimeType = $file['mimetype'] ?? 'application/octet-stream';
         $fileName = $file['name'] ?? 'attachment';
-        $path = $basePath . '/' . Str::uuid() . '/' . $fileName;
+        $path = $basePath.'/'.Str::uuid().'/'.$fileName;
 
         try {
             $response = Http::withToken(self::token())->get($url);
@@ -123,21 +120,10 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsC
 
     /**
      * Retrieve the configured Slack bot token.
-     *
-     * @return string
      */
     private static function token(): string
     {
         return config('laraclaw.channels.slack.bot_token');
-    }
-
-    public readonly string $name = 'slack';
-
-    private function conversationKey(): string
-    {
-        return $this->conversationIsDirectMessage()
-            ? $this->userId ?? throw new \RuntimeException('Slack DM event is missing user ID.')
-            : "{$this->channelId}:{$this->threadTs}";
     }
 
     /**
@@ -197,11 +183,15 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsC
         }
     }
 
+    private function conversationKey(): string
+    {
+        return $this->conversationIsDirectMessage()
+            ? $this->userId ?? throw new RuntimeException('Slack DM event is missing user ID.')
+            : "{$this->channelId}:{$this->threadTs}";
+    }
+
     /**
      * Upload a single attachment DTO to Slack.
-     *
-     * @param  \LaraClaw\DTOs\Attachment  $attachment
-     * @return bool
      */
     private function uploadAttachment(Attachment $attachment): bool
     {
@@ -218,8 +208,6 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsC
     {
         return str_starts_with($this->channelId, 'D');
     }
-
-
 
     /**
      * Convert Markdown to Slack mrkdwn format.

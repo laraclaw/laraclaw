@@ -23,19 +23,13 @@ class EmailChannel extends Channel implements SupportsConfirmation
 {
     use ChecksRedisForConfirmations;
 
+    public readonly string $name = 'email';
+
     /** @var Attachment[] */
     private array $replyAttachments = [];
 
     /**
      * Create a new EmailChannel instance.
-     *
-     * @param  string  $senderEmail
-     * @param  string|null  $senderName
-     * @param  string|null  $subject
-     * @param  string|null  $messageId
-     * @param  string  $threadId
-     * @param  int  $uid
-     * @param  string  $mailbox
      */
     public function __construct(
         private string $senderEmail,
@@ -54,7 +48,7 @@ class EmailChannel extends Channel implements SupportsConfirmation
     public static function parseIncomingMessage(MessageInterface $message): Message
     {
         $disk = config('laraclaw.filesystem.attachments_disk', 'local');
-        $basePath = config('laraclaw.filesystem.attachments_path', 'attachments') . '/email';
+        $basePath = config('laraclaw.filesystem.attachments_path', 'attachments').'/email';
         $from = $message->from();
 
         $channel = new self(
@@ -82,8 +76,8 @@ class EmailChannel extends Channel implements SupportsConfirmation
      */
     private static function storeAttachment(ImapAttachment $attachment, string $disk, string $basePath): Attachment
     {
-        $filename = $attachment->filename() ?? 'attachment.' . ($attachment->extension() ?? 'bin');
-        $path = $basePath . '/' . Str::uuid() . '/' . $filename;
+        $filename = $attachment->filename() ?? 'attachment.'.($attachment->extension() ?? 'bin');
+        $path = $basePath.'/'.Str::uuid().'/'.$filename;
 
         Storage::disk($disk)->put($path, $attachment->contents());
 
@@ -116,23 +110,8 @@ class EmailChannel extends Channel implements SupportsConfirmation
         return $header && preg_match('/<([^>]+)>/', $header, $m) ? $m[1] : null;
     }
 
-    public readonly string $name = 'email';
-
-    private function conversationKey(): string
-    {
-        return $this->senderEmail;
-    }
-
-    private function conversationIsDirectMessage(): bool
-    {
-        return true;
-    }
-
     /**
      * Queue attachments to be included in the outgoing reply.
-     *
-     * @param  \Illuminate\Support\Collection  $attachments
-     * @return void
      */
     public function handleAttachments(Collection $attachments): void
     {
@@ -157,11 +136,21 @@ class EmailChannel extends Channel implements SupportsConfirmation
         }
 
         $mailable->to($this->senderEmail, $this->senderName)
-            ->subject('Re: ' . ($this->subject ?? 'No Subject'));
+            ->subject('Re: '.($this->subject ?? 'No Subject'));
 
         Mail::send($mailable);
 
         $this->markSeen();
+    }
+
+    private function conversationKey(): string
+    {
+        return $this->senderEmail;
+    }
+
+    private function conversationIsDirectMessage(): bool
+    {
+        return true;
     }
 
     /**

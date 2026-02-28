@@ -8,8 +8,8 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use LaraClaw\Message;
 use LaraClaw\DTOs\Attachment;
+use LaraClaw\Message;
 use Laravel\Ai\Tools\Request;
 use Stringable;
 

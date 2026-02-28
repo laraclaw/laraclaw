@@ -20,11 +20,6 @@ class AppleCalendarDriver implements CalendarDriver
 {
     /**
      * Create a new AppleCalendarDriver instance.
-     *
-     * @param  string  $server
-     * @param  string  $username
-     * @param  string  $password
-     * @param  string  $calendar
      */
     public function __construct(
         private string $server,
@@ -36,8 +31,6 @@ class AppleCalendarDriver implements CalendarDriver
     /**
      * List all events within the given date range via a CalDAV REPORT request.
      *
-     * @param  \DateTimeInterface  $start
-     * @param  \DateTimeInterface  $end
      * @return \LaraClaw\DTOs\CalendarEvent[]
      */
     public function list(DateTimeInterface $start, DateTimeInterface $end): array
@@ -64,9 +57,6 @@ class AppleCalendarDriver implements CalendarDriver
 
     /**
      * Create a new iCalendar event via CalDAV PUT and return its UID.
-     *
-     * @param  \LaraClaw\DTOs\CalendarEvent  $event
-     * @return string
      */
     public function create(CalendarEvent $event): string
     {
@@ -101,10 +91,6 @@ class AppleCalendarDriver implements CalendarDriver
 
     /**
      * Fetch the existing .ics file, patch the changed fields, and PUT it back.
-     *
-     * @param  string  $id
-     * @param  \LaraClaw\DTOs\CalendarEvent  $event
-     * @return void
      */
     public function update(string $id, CalendarEvent $event): void
     {
@@ -147,9 +133,6 @@ class AppleCalendarDriver implements CalendarDriver
 
     /**
      * Delete the event's .ics file from the CalDAV server.
-     *
-     * @param  string  $id
-     * @return void
      */
     public function delete(string $id): void
     {
@@ -158,8 +141,6 @@ class AppleCalendarDriver implements CalendarDriver
 
     /**
      * Resolve and cache the full CalDAV URL for the configured calendar.
-     *
-     * @return string
      */
     private function resolveCalendarUrl(): string
     {
@@ -180,11 +161,6 @@ class AppleCalendarDriver implements CalendarDriver
 
     /**
      * Send a CalDAV PROPFIND request and return the response.
-     *
-     * @param  string  $url
-     * @param  string  $prop
-     * @param  int  $depth
-     * @return \Illuminate\Http\Client\Response
      */
     private function propfind(string $url, string $prop, int $depth = 0): Response
     {
@@ -197,10 +173,8 @@ class AppleCalendarDriver implements CalendarDriver
     /**
      * Find the href of the named calendar within the calendar home set.
      *
-     * @param  string  $url
-     * @return string
      *
-     * @throws \RuntimeException
+     * @throws RuntimeException
      */
     private function calendarHref(string $url): string
     {
@@ -218,7 +192,6 @@ class AppleCalendarDriver implements CalendarDriver
     /**
      * Parse a CalDAV multi-status response body into an array of CalendarEvent DTOs.
      *
-     * @param  string  $body
      * @return \LaraClaw\DTOs\CalendarEvent[]
      */
     private function parseMultiStatus(string $body): array
@@ -258,9 +231,6 @@ class AppleCalendarDriver implements CalendarDriver
 
     /**
      * Parse an XML string and register the DAV and CalDAV namespaces for XPath.
-     *
-     * @param  string  $xml
-     * @return \SimpleXMLElement
      */
     private function loadXml(string $xml): SimpleXMLElement
     {
@@ -274,11 +244,8 @@ class AppleCalendarDriver implements CalendarDriver
     /**
      * Evaluate an XPath expression against an XML string and return the first result.
      *
-     * @param  string  $xml
-     * @param  string  $path
-     * @return string
      *
-     * @throws \RuntimeException
+     * @throws RuntimeException
      */
     private function xpath(string $xml, string $path): string
     {
@@ -293,8 +260,6 @@ class AppleCalendarDriver implements CalendarDriver
 
     /**
      * Build an HTTP client pre-configured with Basic Auth credentials.
-     *
-     * @return \Illuminate\Http\Client\PendingRequest
      */
     private function http(): PendingRequest
     {

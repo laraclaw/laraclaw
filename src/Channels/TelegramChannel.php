@@ -24,11 +24,10 @@ class TelegramChannel extends Channel implements SupportsAcknowledgement, Suppor
 {
     use ChecksRedisForConfirmations;
 
+    public readonly string $name = 'telegram';
+
     /**
      * Create a new TelegramChannel instance.
-     *
-     * @param  int|string  $chatId
-     * @param  \SergiX44\Nutgram\Nutgram  $bot
      */
     public function __construct(
         private int|string $chatId,
@@ -50,13 +49,6 @@ class TelegramChannel extends Channel implements SupportsAcknowledgement, Suppor
             text: $raw->text ?? $raw->caption ?? null,
             attachments: $channel->collectAttachments($raw),
         );
-    }
-
-    public readonly string $name = 'telegram';
-
-    private function conversationKey(): string
-    {
-        return (string) $this->chatId;
     }
 
     /**
@@ -115,13 +107,18 @@ class TelegramChannel extends Channel implements SupportsAcknowledgement, Suppor
         }
     }
 
+    private function conversationKey(): string
+    {
+        return (string) $this->chatId;
+    }
+
     /**
      * Download all media from the incoming message to storage.
      */
     private function collectAttachments(NutgramMessage $raw): Collection
     {
         $disk = config('laraclaw.filesystem.attachments_disk', 'local');
-        $basePath = config('laraclaw.filesystem.attachments_path', 'attachments') . '/telegram';
+        $basePath = config('laraclaw.filesystem.attachments_path', 'attachments').'/telegram';
 
         $files = [];
 
@@ -161,9 +158,9 @@ class TelegramChannel extends Channel implements SupportsAcknowledgement, Suppor
         }
 
         $fileName ??= basename($file->file_path ?? $fileId);
-        $path = $basePath . '/' . Str::uuid() . '/' . $fileName;
+        $path = $basePath.'/'.Str::uuid().'/'.$fileName;
 
-        $tempPath = sys_get_temp_dir() . '/' . Str::uuid();
+        $tempPath = sys_get_temp_dir().'/'.Str::uuid();
 
         try {
             $file->save($tempPath);
@@ -191,7 +188,7 @@ class TelegramChannel extends Channel implements SupportsAcknowledgement, Suppor
      */
     private function withTempFile(Attachment $attachment, callable $callback): void
     {
-        $tempPath = sys_get_temp_dir() . '/' . basename($attachment->path);
+        $tempPath = sys_get_temp_dir().'/'.basename($attachment->path);
 
         file_put_contents($tempPath, Storage::disk($attachment->disk)->get($attachment->path));
 

@@ -178,5 +178,4 @@ class ProcessMessage implements ShouldQueue
         $channel->handleAttachments($replyAttachments);
         $channel->send($response);
     }
-
 }
