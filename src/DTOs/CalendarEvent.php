@@ -1,6 +1,6 @@
 <?php
 
-namespace LaraClaw\Calendar\DTOs;
+namespace LaraClaw\DTOs;
 
 use DateTimeImmutable;
 

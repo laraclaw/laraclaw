@@ -7,13 +7,17 @@ use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use LaraClaw\PendingFileReply;
+use Illuminate\Support\Collection;
+use LaraClaw\Channels\Channel;
+use LaraClaw\DTOs\Attachment;
 use Laravel\Ai\Tools\Request;
 use Stringable;
 
 class Files extends BaseTool
 {
     private const MAX_READ_BYTES = 100 * 1024;
+
+    public function __construct(protected Channel $channel, private Collection $attachments) {}
 
     protected array $requiresConfirmation = [
         'move' => 'Move "{path}" to "{destination}"?',
@@ -241,7 +245,7 @@ class Files extends BaseTool
             return "File not found: {$path}";
         }
 
-        app(PendingFileReply::class)->push($request['disk'], $path);
+        $this->attachments->push(new Attachment(path: $path, disk: $request['disk']));
 
         return "'{$path}' will be attached to your reply.";
     }

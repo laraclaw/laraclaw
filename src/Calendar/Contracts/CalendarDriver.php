@@ -3,7 +3,7 @@
 namespace LaraClaw\Calendar\Contracts;
 
 use DateTimeInterface;
-use LaraClaw\Calendar\DTOs\CalendarEvent;
+use LaraClaw\DTOs\CalendarEvent;
 
 interface CalendarDriver
 {

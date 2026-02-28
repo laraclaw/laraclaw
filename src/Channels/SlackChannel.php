@@ -7,16 +7,20 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use LaraClaw\Channels\Concerns\ConfirmsViaRedis;
 use LaraClaw\Channels\Contracts\SupportsAcknowledgement;
 use LaraClaw\Channels\Contracts\SupportsAudio;
+use LaraClaw\Channels\Contracts\SupportsConfirmation;
 use LaraClaw\Channels\Contracts\SupportsFiles;
 use LaraClaw\Channels\Contracts\SupportsImages;
-use LaraClaw\Channels\DTOs\Attachment;
+use LaraClaw\DTOs\Attachment;
 use RuntimeException;
 use Throwable;
 
-class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsAudio, SupportsFiles, SupportsImages
+class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsAudio, SupportsConfirmation, SupportsFiles, SupportsImages
 {
+    use ConfirmsViaRedis;
+
     public function __construct(
         private string $channelId,
         private ?string $threadTs = null,
@@ -157,25 +161,25 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsA
         }
     }
 
-    public function sendAudio(string $filePath, ?string $caption = null): void
+    public function sendAudio(Attachment $attachment, ?string $caption = null): void
     {
-        if (! $this->uploadFile($filePath, basename($filePath), $caption)) {
+        $filePath = Storage::disk($attachment->disk)->path($attachment->path);
+
+        if (! $this->uploadFile($filePath, $attachment->filename ?? basename($attachment->path), $caption)) {
             $this->send($caption ?? 'Audio reply generated.');
         }
     }
 
-    public function sendImage(string $disk, string $path): void
+    public function sendImage(Attachment $attachment): void
     {
-        $filePath = Storage::disk($disk)->path($path);
-        $this->uploadFile($filePath, basename($path));
+        $filePath = Storage::disk($attachment->disk)->path($attachment->path);
+        $this->uploadFile($filePath, $attachment->filename ?? basename($attachment->path));
     }
 
-    public function sendFiles(array $files): void
+    public function sendFile(Attachment $attachment): void
     {
-        foreach ($files as $file) {
-            $filePath = Storage::disk($file['disk'])->path($file['path']);
-            $this->uploadFile($filePath, basename($file['path']));
-        }
+        $filePath = Storage::disk($attachment->disk)->path($attachment->path);
+        $this->uploadFile($filePath, $attachment->filename ?? basename($attachment->path));
     }
 
     private function isDm(): bool

@@ -38,10 +38,6 @@ class LaraclawServiceProvider extends ServiceProvider
             config(['database.redis.laraclaw-blocking' => array_merge($default, ['read_write_timeout' => -1])]);
         });
 
-        $this->app->scoped(PendingAudioReply::class);
-        $this->app->scoped(PendingImageReply::class);
-        $this->app->scoped(PendingFileReply::class);
-
         $this->app->singleton(CommandRegistry::class, function () {
             $registry = new CommandRegistry;
             $registry->register(new NewConversation);

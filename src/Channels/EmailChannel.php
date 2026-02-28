@@ -13,7 +13,7 @@ use Illuminate\Support\Str;
 use LaraClaw\Channels\Contracts\SupportsAudio;
 use LaraClaw\Channels\Contracts\SupportsFiles;
 use LaraClaw\Channels\Contracts\SupportsImages;
-use LaraClaw\Channels\DTOs\Attachment;
+use LaraClaw\DTOs\Attachment;
 use LaraClaw\Mail\ChannelReply;
 use League\CommonMark\CommonMarkConverter;
 
@@ -21,8 +21,8 @@ use function LaraClaw\Support\stripHtml;
 
 class EmailChannel extends Channel implements SupportsAudio, SupportsFiles, SupportsImages
 {
-    /** @var array<int, array{disk: string, path: string}> */
-    private array $pendingAttachments = [];
+    /** @var Attachment[] */
+    private array $replyAttachments = [];
 
     public function __construct(
         private string $senderEmail,
@@ -110,16 +110,14 @@ class EmailChannel extends Channel implements SupportsAudio, SupportsFiles, Supp
         return "email:{$this->senderEmail}";
     }
 
-    public function sendImage(string $disk, string $path): void
+    public function sendImage(Attachment $attachment): void
     {
-        $this->pendingAttachments[] = ['disk' => $disk, 'path' => $path];
+        $this->replyAttachments[] = $attachment;
     }
 
-    public function sendFiles(array $files): void
+    public function sendFile(Attachment $attachment): void
     {
-        foreach ($files as $file) {
-            $this->pendingAttachments[] = $file;
-        }
+        $this->replyAttachments[] = $attachment;
     }
 
     public function send(string $message): void
@@ -129,10 +127,10 @@ class EmailChannel extends Channel implements SupportsAudio, SupportsFiles, Supp
             inReplyTo: $this->messageId,
         );
 
-        foreach ($this->pendingAttachments as $file) {
+        foreach ($this->replyAttachments as $attachment) {
             $mailable->attach(
-                Storage::disk($file['disk'])->path($file['path']),
-                ['as' => basename($file['path'])],
+                Storage::disk($attachment->disk)->path($attachment->path),
+                ['as' => $attachment->filename ?? basename($attachment->path)],
             );
         }
 
@@ -144,7 +142,7 @@ class EmailChannel extends Channel implements SupportsAudio, SupportsFiles, Supp
         $this->markSeen();
     }
 
-    public function sendAudio(string $filePath, ?string $caption = null): void
+    public function sendAudio(Attachment $attachment, ?string $caption = null): void
     {
         $mailable = new ChannelReply(
             body: $caption ? (new CommonMarkConverter)->convert($caption)->getContent() : '',
@@ -153,7 +151,10 @@ class EmailChannel extends Channel implements SupportsAudio, SupportsFiles, Supp
 
         $mailable->to($this->senderEmail, $this->senderName)
             ->subject('Re: ' . ($this->subject ?? 'No Subject'))
-            ->attach($filePath, ['as' => 'voice.mp3', 'mime' => 'audio/mpeg']);
+            ->attach(
+                Storage::disk($attachment->disk)->path($attachment->path),
+                ['as' => $attachment->filename ?? 'voice.mp3', 'mime' => $attachment->mimeType ?? 'audio/mpeg'],
+            );
 
         Mail::send($mailable);
 

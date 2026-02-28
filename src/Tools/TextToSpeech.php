@@ -4,8 +4,10 @@ namespace LaraClaw\Tools;
 
 use Exception;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use LaraClaw\PendingAudioReply;
+use Illuminate\Support\Collection;
+use LaraClaw\DTOs\Attachment;
 use Laravel\Ai\Audio;
 use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Tools\Request;
@@ -13,7 +15,7 @@ use Stringable;
 
 class TextToSpeech implements Tool
 {
-    public function __construct(private PendingAudioReply $audioReply) {}
+    public function __construct(private Collection $attachments) {}
 
     public function description(): Stringable|string
     {
@@ -49,7 +51,17 @@ class TextToSpeech implements Tool
 
             $response = $pending->generate();
 
-            $this->audioReply->paths[] = $this->storeTempFile($response->content());
+            $disk = config('laraclaw.filesystem.attachments_disk', 'local');
+            $path = config('laraclaw.filesystem.attachments_path', 'attachments') . '/tts/' . Str::uuid() . '.mp3';
+
+            Storage::disk($disk)->put($path, $response->content());
+
+            $this->attachments->push(new Attachment(
+                path: $path,
+                disk: $disk,
+                mimeType: 'audio/mpeg',
+                filename: 'voice.mp3',
+            ));
 
             return 'Audio generated. Reply to the user normally — the audio will be attached automatically.';
         } catch (Exception $e) {
@@ -57,12 +69,4 @@ class TextToSpeech implements Tool
         }
     }
 
-    private function storeTempFile(string $audioContent): string
-    {
-        $path = sys_get_temp_dir() . '/' . Str::uuid() . '.mp3';
-
-        file_put_contents($path, $audioContent);
-
-        return $path;
-    }
 }

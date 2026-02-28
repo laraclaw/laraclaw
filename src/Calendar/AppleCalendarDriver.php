@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use LaraClaw\Calendar\Contracts\CalendarDriver;
-use LaraClaw\Calendar\DTOs\CalendarEvent;
+use LaraClaw\DTOs\CalendarEvent;
 use RuntimeException;
 use Sabre\VObject\Component\VCalendar;
 use Sabre\VObject\Reader;

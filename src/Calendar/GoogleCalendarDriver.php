@@ -7,7 +7,7 @@ use DateTimeImmutable;
 use DateTimeInterface;
 use Illuminate\Support\Collection;
 use LaraClaw\Calendar\Contracts\CalendarDriver;
-use LaraClaw\Calendar\DTOs\CalendarEvent;
+use LaraClaw\DTOs\CalendarEvent;
 use Spatie\GoogleCalendar\Event as SpatieEvent;
 
 class GoogleCalendarDriver implements CalendarDriver

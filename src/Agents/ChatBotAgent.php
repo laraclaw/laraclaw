@@ -5,9 +5,8 @@ namespace LaraClaw\Agents;
 use LaraClaw\Calendar\Contracts\CalendarDriver;
 use LaraClaw\Channels\Channel;
 use LaraClaw\Models\Conversation;
-use LaraClaw\PendingAudioReply;
-use LaraClaw\PendingImageReply;
 use LaraClaw\SkillRegistry;
+use Illuminate\Support\Collection;
 use LaraClaw\Tools\CalendarManager;
 use LaraClaw\Tools\EmailManager;
 use LaraClaw\Tools\Files;
@@ -34,8 +33,7 @@ class ChatBotAgent implements Agent, Conversational, HasTools
     public function __construct(
         private Channel $channel,
         private SkillRegistry $skillRegistry,
-        private PendingImageReply $pendingImageReply,
-        private PendingAudioReply $pendingAudioReply,
+        private Collection $replyAttachments,
         private ?Conversation $conversation = null,
         private ?CalendarDriver $calendarDriver = null,
     ) {}
@@ -52,8 +50,8 @@ class ChatBotAgent implements Agent, Conversational, HasTools
     {
         $tools = [
             new UseSkill($this->skillRegistry),
-            new ImageManager($this->channel, $this->pendingImageReply),
-            new Files($this->channel),
+            new ImageManager($this->channel, \\$this->replyAttachments),
+            new Files($this->channel, \\$this->replyAttachments),
             new WebRequest($this->channel),
             new Persona($this->conversation),
             new ReminderManager($this->channel),
@@ -69,7 +67,7 @@ class ChatBotAgent implements Agent, Conversational, HasTools
         }
 
         if (config('laraclaw.tools.tts.enabled')) {
-            $tools[] = new TextToSpeech($this->pendingAudioReply);
+            $tools[] = new TextToSpeech(\\$this->replyAttachments);
         }
 
         if ($this->calendarDriver) {

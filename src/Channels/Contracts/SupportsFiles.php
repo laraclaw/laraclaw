@@ -2,7 +2,9 @@
 
 namespace LaraClaw\Channels\Contracts;
 
+use LaraClaw\DTOs\Attachment;
+
 interface SupportsFiles
 {
-    public function sendFiles(array $files): void;
+    public function sendFile(Attachment $attachment): void;
 }

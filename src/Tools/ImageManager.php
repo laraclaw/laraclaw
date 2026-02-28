@@ -4,7 +4,8 @@ namespace LaraClaw\Tools;
 
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
-use LaraClaw\PendingImageReply;
+use Illuminate\Support\Collection;
+use LaraClaw\DTOs\Attachment;
 use Laravel\Ai\Tools\Request;
 use RuntimeException;
 use Spatie\Image\Enums\FlipDirection;
@@ -17,12 +18,7 @@ class ImageManager extends BaseTool
 {
     private const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'tif'];
 
-    private ?PendingImageReply $pendingImageReply;
-
-    public function __construct(protected \LaraClaw\Channels\Channel $channel, ?PendingImageReply $pendingImageReply = null)
-    {
-        $this->pendingImageReply = $pendingImageReply;
-    }
+    public function __construct(protected \LaraClaw\Channels\Channel $channel, private ?Collection $attachments = null) {}
 
     public function description(): Stringable|string
     {
@@ -271,10 +267,7 @@ class ImageManager extends BaseTool
 
     private function setPending(string $disk, string $path): void
     {
-        if ($this->pendingImageReply) {
-            $this->pendingImageReply->disk = $disk;
-            $this->pendingImageReply->path = $path;
-        }
+        $this->attachments?->push(new Attachment(path: $path, disk: $disk));
     }
 
     private function toTempFile(Filesystem $storage, string $path): string

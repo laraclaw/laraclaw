@@ -3,8 +3,9 @@
 namespace LaraClaw\Channels;
 
 use Illuminate\Console\Command;
+use LaraClaw\Channels\Contracts\SupportsConfirmation;
 
-class TerminalChannel extends Channel
+class TerminalChannel extends Channel implements SupportsConfirmation
 {
     public function __construct(private Command $command) {}
 

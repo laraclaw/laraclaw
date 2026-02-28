@@ -20,9 +20,8 @@ use LaraClaw\Channels\Contracts\SupportsImages;
 use LaraClaw\Commands\CommandRegistry;
 use LaraClaw\Models\Conversation;
 use LaraClaw\Models\UserAccount;
-use LaraClaw\PendingAudioReply;
-use LaraClaw\PendingFileReply;
-use LaraClaw\PendingImageReply;
+use LaraClaw\DTOs\Attachment;
+use Illuminate\Support\Collection;
 use LaraClaw\SkillRegistry;
 use Laravel\Ai\Contracts\ConversationStore;
 use Laravel\Ai\Files\Document;
@@ -56,8 +55,11 @@ class ProcessMessage implements ShouldQueue
         }
     }
 
-    public function handle(ConversationStore $conversations, SkillRegistry $skillRegistry, PendingAudioReply $pendingAudioReply, PendingImageReply $pendingImageReply, PendingFileReply $pendingFileReply, ?CalendarDriver $calendarDriver = null): void
+    public function handle(ConversationStore $conversations, SkillRegistry $skillRegistry, ?CalendarDriver $calendarDriver = null): void
     {
+        /** @var Collection<int, Attachment> $replyAttachments */
+        $replyAttachments = collect();
+
         if ($this->channel instanceof SupportsAcknowledgement) {
             $this->channel->acknowledge();
         }
@@ -176,8 +178,7 @@ class ProcessMessage implements ShouldQueue
         $agent = new ChatBotAgent(
             channel: $this->channel,
             skillRegistry: $skillRegistry,
-            pendingImageReply: $pendingImageReply,
-            pendingAudioReply: $pendingAudioReply,
+            replyAttachments: $replyAttachments,
             conversation: $conversation,
             calendarDriver: $calendarDriver,
         );
@@ -190,25 +191,13 @@ class ProcessMessage implements ShouldQueue
             ? $agent->prompt($text, $agentAttachments)
             : $agent->forUser($user)->prompt($text, $agentAttachments);
 
-        $audioReply = $pendingAudioReply;
-        $imageReply = $pendingImageReply;
-        $fileReply = $pendingFileReply;
-
-        if ($this->channel instanceof SupportsAudio) {
-            foreach ($audioReply->paths as $audioPath) {
-                $this->channel->sendAudio($audioPath);
-                if (file_exists($audioPath)) {
-                    unlink($audioPath);
-                }
-            }
-        }
-
-        if ($this->channel instanceof SupportsImages && $imageReply->path && $imageReply->disk) {
-            $this->channel->sendImage($imageReply->disk, $imageReply->path);
-        }
-
-        if ($this->channel instanceof SupportsFiles && ! empty($fileReply->files)) {
-            $this->channel->sendFiles($fileReply->files);
+        foreach ($replyAttachments as $attachment) {
+            match (true) {
+                $attachment->isAudio() && $this->channel instanceof SupportsAudio => $this->channel->sendAudio($attachment),
+                $attachment->isImage() && $this->channel instanceof SupportsImages => $this->channel->sendImage($attachment),
+                $this->channel instanceof SupportsFiles => $this->channel->sendFile($attachment),
+                default => null,
+            };
         }
 
         $this->channel->send($response);

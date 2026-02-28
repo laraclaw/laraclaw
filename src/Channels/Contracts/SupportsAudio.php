@@ -2,7 +2,9 @@
 
 namespace LaraClaw\Channels\Contracts;
 
+use LaraClaw\DTOs\Attachment;
+
 interface SupportsAudio
 {
-    public function sendAudio(string $filePath): void;
+    public function sendAudio(Attachment $attachment, ?string $caption = null): void;
 }

@@ -6,10 +6,12 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use LaraClaw\Channels\Concerns\ConfirmsViaRedis;
 use LaraClaw\Channels\Contracts\SupportsAcknowledgement;
 use LaraClaw\Channels\Contracts\SupportsAudio;
+use LaraClaw\Channels\Contracts\SupportsConfirmation;
 use LaraClaw\Channels\Contracts\SupportsImages;
-use LaraClaw\Channels\DTOs\Attachment;
+use LaraClaw\DTOs\Attachment;
 use League\CommonMark\CommonMarkConverter;
 use SergiX44\Nutgram\Nutgram;
 use SergiX44\Nutgram\Telegram\Properties\ChatAction;
@@ -19,8 +21,10 @@ use SergiX44\Nutgram\Telegram\Types\Media\PhotoSize;
 use SergiX44\Nutgram\Telegram\Types\Message\Message;
 use Throwable;
 
-class TelegramChannel extends Channel implements SupportsAcknowledgement, SupportsAudio, SupportsImages
+class TelegramChannel extends Channel implements SupportsAcknowledgement, SupportsAudio, SupportsConfirmation, SupportsImages
 {
+    use ConfirmsViaRedis;
+
     public function __construct(
         private int|string $chatId,
         ?string $text = null,
@@ -121,22 +125,28 @@ class TelegramChannel extends Channel implements SupportsAcknowledgement, Suppor
         app(Nutgram::class)->sendMessage($html, chat_id: $this->chatId, parse_mode: ParseMode::HTML);
     }
 
-    public function sendAudio(string $filePath): void
+    public function sendAudio(Attachment $attachment, ?string $caption = null): void
     {
+        $contents = Storage::disk($attachment->disk)->get($attachment->path);
+        $tempPath = sys_get_temp_dir() . '/' . basename($attachment->path);
+        file_put_contents($tempPath, $contents);
+
         app(Nutgram::class)->sendVoice(
-            voice: InputFile::make(fopen($filePath, 'r')),
+            voice: InputFile::make(fopen($tempPath, 'r')),
             chat_id: $this->chatId,
         );
+
+        unlink($tempPath);
     }
 
-    public function sendImage(string $disk, string $path): void
+    public function sendImage(Attachment $attachment): void
     {
-        $contents = Storage::disk($disk)->get($path);
-        $tempPath = sys_get_temp_dir() . '/' . basename($path);
+        $contents = Storage::disk($attachment->disk)->get($attachment->path);
+        $tempPath = sys_get_temp_dir() . '/' . basename($attachment->path);
         file_put_contents($tempPath, $contents);
 
         app(Nutgram::class)->sendPhoto(
-            photo: InputFile::make(fopen($tempPath, 'r'), basename($path)),
+            photo: InputFile::make(fopen($tempPath, 'r'), basename($attachment->path)),
             chat_id: $this->chatId,
         );
 

@@ -7,7 +7,7 @@ use DateTimeImmutable;
 use Exception;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use LaraClaw\Calendar\Contracts\CalendarDriver;
-use LaraClaw\Calendar\DTOs\CalendarEvent;
+use LaraClaw\DTOs\CalendarEvent;
 use LaraClaw\Channels\Channel;
 use Laravel\Ai\Tools\Request;
 use Stringable;

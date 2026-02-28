@@ -1,6 +1,6 @@
 <?php
 
-namespace LaraClaw\Channels\DTOs;
+namespace LaraClaw\DTOs;
 
 class Attachment
 {
