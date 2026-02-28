@@ -10,20 +10,11 @@ abstract class Channel
 
     abstract public function send(string $message): void;
 
-    public function sendAttachments(Collection $attachments): void {}
+    abstract public function handleAttachments(Collection $attachments): void;
 
-    public function userIdentifier(): ?string
-    {
-        return null;
-    }
+    abstract public function userIdentifier(): ?string;
 
-    public function intercept(?string $text): bool
-    {
-        return false;
-    }
+    abstract public function intercept(?string $text): bool;
 
-    public function shouldRespond(?string $text = null): bool
-    {
-        return true;
-    }
+    abstract public function shouldRespond(?string $text = null): bool;
 }

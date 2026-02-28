@@ -26,6 +26,9 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsC
         private ?string $userId = null,
     ) {}
 
+    /**
+     * Open or retrieve a DM channel with the given Slack user ID.
+     */
     public static function openDm(string $userId): self
     {
         $response = Http::withToken(self::token())
@@ -40,6 +43,10 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsC
         return new self(channelId: $channelId);
     }
 
+    /**
+     * Build a Message from a raw Slack event payload, downloading any
+     * file attachments to storage.
+     */
     public static function parseIncomingMessage(array $event): Message
     {
         return new Message(
@@ -54,6 +61,9 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsC
         );
     }
 
+    /**
+     * Download all file attachments from the event payload to storage.
+     */
     private static function collectAttachments(array $event): Collection
     {
         $disk = config('laraclaw.filesystem.attachments_disk', 'local');
@@ -65,6 +75,9 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsC
             ->values();
     }
 
+    /**
+     * Download a single Slack file to storage and return its DTO.
+     */
     private static function downloadFile(array $file, string $disk, string $basePath): ?Attachment
     {
         $url = $file['url_private_download'] ?? $file['url_private'] ?? null;
@@ -101,6 +114,9 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsC
         return config('laraclaw.channels.slack.bot_token');
     }
 
+    /**
+     * Conversation identifier: per-user for DMs, per-thread for channels.
+     */
     public function identifier(): string
     {
         return $this->isDm()
@@ -108,11 +124,17 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsC
             : "slack:{$this->channelId}:{$this->threadTs}";
     }
 
+    /**
+     * User identifier for DM routing; null for channel messages.
+     */
     public function userIdentifier(): ?string
     {
         return $this->isDm() ? "slack:{$this->userId}" : null;
     }
 
+    /**
+     * Respond to all DMs; in channels, only respond when @mentioned.
+     */
     public function shouldRespond(?string $text = null): bool
     {
         if ($this->isDm()) {
@@ -124,6 +146,9 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsC
         return $botUserId && str_contains($text ?? '', "<@{$botUserId}>");
     }
 
+    /**
+     * React with a thumbsup to acknowledge the incoming message.
+     */
     public function acknowledge(): void
     {
         if (! $this->messageTs) {
@@ -142,6 +167,10 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsC
         }
     }
 
+    /**
+     * Convert Markdown to Slack mrkdwn and post to the channel or thread.
+     * Captures the thread_ts on the first reply so subsequent messages thread correctly.
+     */
     public function send(string $message): void
     {
         $payload = [
@@ -156,7 +185,6 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsC
         $response = Http::withToken(self::token())
             ->post('https://slack.com/api/chat.postMessage', $payload);
 
-        // If this is the first reply in a group thread, capture the thread_ts for subsequent messages
         if (! $this->isDm() && ! $this->threadTs && $response->successful()) {
             $data = $response->json();
             if ($data['ok'] && isset($data['ts'])) {
@@ -165,7 +193,10 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsC
         }
     }
 
-    public function sendAttachments(Collection $attachments): void
+    /**
+     * Upload each attachment to Slack via the external upload API.
+     */
+    public function handleAttachments(Collection $attachments): void
     {
         foreach ($attachments as $attachment) {
             $this->uploadAttachment($attachment);
@@ -180,11 +211,17 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsC
         );
     }
 
+    /**
+     * Slack DM channel IDs start with 'D'.
+     */
     private function isDm(): bool
     {
         return str_starts_with($this->channelId, 'D');
     }
 
+    /**
+     * Convert Markdown to Slack mrkdwn format.
+     */
     private function toMrkdwn(string $text): string
     {
         // Bold: **text** or __text__ → *text*
@@ -207,6 +244,10 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsC
         return $text;
     }
 
+    /**
+     * Upload a file to Slack using the two-step external upload API:
+     * first get a signed upload URL, then complete the upload to post it.
+     */
     private function uploadFile(string $filePath, string $fileName): bool
     {
         $fileSize = filesize($filePath);

@@ -118,7 +118,12 @@ class EmailChannel extends Channel implements SupportsConfirmation
         return "email:{$this->senderEmail}";
     }
 
-    public function sendAttachments(Collection $attachments): void
+    public function shouldRespond(?string $text = null): bool
+    {
+        return true;
+    }
+
+    public function handleAttachments(Collection $attachments): void
     {
         $this->replyAttachments = array_merge($this->replyAttachments, $attachments->all());
     }

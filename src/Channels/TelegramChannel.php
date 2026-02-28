@@ -29,6 +29,10 @@ class TelegramChannel extends Channel implements SupportsAcknowledgement, Suppor
         private Nutgram $bot,
     ) {}
 
+    /**
+     * Build a Message from a raw Nutgram message, downloading any
+     * attachments to storage.
+     */
     public static function parseIncomingMessage(NutgramMessage $raw, Nutgram $bot): Message
     {
         $channel = new self(chatId: $raw->chat->id, bot: $bot);
@@ -40,16 +44,30 @@ class TelegramChannel extends Channel implements SupportsAcknowledgement, Suppor
         );
     }
 
+    /**
+     * Conversation identifier keyed by chat ID.
+     */
     public function identifier(): string
     {
         return "telegram:{$this->chatId}";
     }
 
+    /**
+     * User identifier for DM routing; null for group chats.
+     */
     public function userIdentifier(): ?string
     {
         return $this->isDm() ? $this->identifier() : null;
     }
 
+    public function shouldRespond(?string $text = null): bool
+    {
+        return true;
+    }
+
+    /**
+     * Send a typing indicator to show the bot is processing.
+     */
     public function acknowledge(): void
     {
         try {
@@ -59,6 +77,9 @@ class TelegramChannel extends Channel implements SupportsAcknowledgement, Suppor
         }
     }
 
+    /**
+     * Convert Markdown to Telegram HTML and send.
+     */
     public function send(string $message): void
     {
         $html = (new CommonMarkConverter)->convert($message)->getContent();
@@ -69,7 +90,10 @@ class TelegramChannel extends Channel implements SupportsAcknowledgement, Suppor
         $this->bot->sendMessage($html, chat_id: $this->chatId, parse_mode: ParseMode::HTML);
     }
 
-    public function sendAttachments(Collection $attachments): void
+    /**
+     * Send each attachment using the appropriate Telegram method based on type.
+     */
+    public function handleAttachments(Collection $attachments): void
     {
         foreach ($attachments as $attachment) {
             if ($attachment->isAudio()) {
@@ -97,6 +121,9 @@ class TelegramChannel extends Channel implements SupportsAcknowledgement, Suppor
         }
     }
 
+    /**
+     * Download all media from the incoming message to storage.
+     */
     private function collectAttachments(NutgramMessage $raw): Collection
     {
         $disk = config('laraclaw.filesystem.attachments_disk', 'local');
@@ -128,6 +155,9 @@ class TelegramChannel extends Channel implements SupportsAcknowledgement, Suppor
         return collect($files)->filter()->values();
     }
 
+    /**
+     * Download a single Telegram file to storage and return its DTO.
+     */
     private function downloadFile(string $fileId, string $mimeType, ?string $fileName, string $disk, string $basePath): ?Attachment
     {
         $file = $this->bot->getFile($fileId);
@@ -153,15 +183,20 @@ class TelegramChannel extends Channel implements SupportsAcknowledgement, Suppor
         return new Attachment(path: $path, disk: $disk, mimeType: $mimeType, filename: $fileName);
     }
 
+    /**
+     * Positive chat IDs are private chats; negative are groups.
+     */
     private function isDm(): bool
     {
         return $this->chatId > 0;
     }
 
+    /**
+     * Nutgram requires a local file stream, so read from storage into a temp
+     * file, invoke the callback, then clean up regardless of outcome.
+     */
     private function withTempFile(Attachment $attachment, callable $callback): void
     {
-        // Nutgram requires a local file stream — read from disk into a temp file.
-        // This assumes the attachments disk is readable; remote-only disks (e.g. S3) will fail here.
         $tempPath = sys_get_temp_dir() . '/' . basename($attachment->path);
 
         file_put_contents($tempPath, Storage::disk($attachment->disk)->get($attachment->path));
