@@ -9,6 +9,9 @@ use Illuminate\Support\Facades\Http;
 use Laravel\Ai\Tools\Request;
 use Stringable;
 
+/**
+ * Agent tool for making outbound HTTP requests (GET, POST, PUT, PATCH, DELETE, HEAD).
+ */
 class WebRequest extends BaseTool
 {
     private const TIMEOUT = 15;
@@ -57,11 +60,13 @@ class WebRequest extends BaseTool
 
     // Operations ----------------------------------------
 
+    /** Send a GET request and return a formatted response. */
     protected function get(Request $request): string
     {
         return $this->formatResponse($this->send('get', $request));
     }
 
+    /** Send a HEAD request and return status code and headers. */
     protected function head(Request $request): string
     {
         $response = $this->send('head', $request);
@@ -72,21 +77,25 @@ class WebRequest extends BaseTool
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
     }
 
+    /** Send a POST request and return a formatted response. */
     protected function post(Request $request): string
     {
         return $this->formatResponse($this->send('post', $request));
     }
 
+    /** Send a PUT request and return a formatted response. */
     protected function put(Request $request): string
     {
         return $this->formatResponse($this->send('put', $request));
     }
 
+    /** Send a PATCH request and return a formatted response. */
     protected function patch(Request $request): string
     {
         return $this->formatResponse($this->send('patch', $request));
     }
 
+    /** Send a DELETE request and return a formatted response. */
     protected function delete(Request $request): string
     {
         return $this->formatResponse($this->send('delete', $request));
@@ -94,6 +103,9 @@ class WebRequest extends BaseTool
 
     // Helpers ----------------------------------------
 
+    /**
+     * Execute the HTTP request with redirect safety and optional body/headers.
+     */
     private function send(string $method, Request $request): Response
     {
         $url = $request['url'];
@@ -123,6 +135,9 @@ class WebRequest extends BaseTool
         return $pending->$method($url);
     }
 
+    /**
+     * Serialize the response status, headers, and body (truncated if needed) as JSON.
+     */
     private function formatResponse(Response $response): string
     {
         $body = $response->body();
@@ -138,6 +153,9 @@ class WebRequest extends BaseTool
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
     }
 
+    /**
+     * Detect whether a request body is JSON or plain text.
+     */
     private function detectContentType(string $body): string
     {
         json_decode($body);
@@ -145,6 +163,9 @@ class WebRequest extends BaseTool
         return json_last_error() === JSON_ERROR_NONE ? 'application/json' : 'text/plain';
     }
 
+    /**
+     * Filter the response headers down to a useful subset.
+     */
     private function summarizeHeaders(array $headers): array
     {
         $keep = ['content-type', 'content-length', 'location', 'x-request-id'];
@@ -155,6 +176,9 @@ class WebRequest extends BaseTool
             ->all();
     }
 
+    /**
+     * Return true if the URL resolves to a private or reserved IP address.
+     */
     private function isPrivateUrl(string $url): bool
     {
         $host = parse_url($url, PHP_URL_HOST);
