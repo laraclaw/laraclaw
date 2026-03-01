@@ -20,6 +20,7 @@ use LaraClaw\Message;
 use LaraClaw\Models\Conversation;
 use LaraClaw\Models\UserAccount;
 use LaraClaw\SkillRegistry;
+use LaraClaw\Tools\ToolRegistry;
 use Laravel\Ai\Contracts\ConversationStore;
 use Laravel\Ai\Files\Document;
 use Laravel\Ai\Files\Image;
@@ -62,7 +63,7 @@ class ProcessMessage implements ShouldQueue
     /**
      * Resolve the user, conversation, and agent, then prompt the AI and deliver the reply.
      */
-    public function handle(ConversationStore $conversations, SkillRegistry $skillRegistry, ?CalendarDriver $calendarDriver = null): void
+    public function handle(ConversationStore $conversations, CommandRegistry $commandRegistry, SkillRegistry $skillRegistry, ToolRegistry $toolRegistry, ?CalendarDriver $calendarDriver = null): void
     {
         /** @var Collection<int, Attachment> $replyAttachments */
         $replyAttachments = collect();
@@ -156,7 +157,7 @@ class ProcessMessage implements ShouldQueue
         }
 
         // Check for commands before running the agent
-        $command = app(CommandRegistry::class)->match($text);
+        $command = $commandRegistry->match($text);
 
         if ($command) {
             $result = $command->handle($this->message);
@@ -172,6 +173,7 @@ class ProcessMessage implements ShouldQueue
             message: $this->message,
             skillRegistry: $skillRegistry,
             replyAttachments: $replyAttachments,
+            toolRegistry: $toolRegistry,
             conversation: $conversation,
             calendarDriver: $calendarDriver,
         );

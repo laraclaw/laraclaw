@@ -16,6 +16,7 @@ use LaraClaw\Tools\Persona;
 use LaraClaw\Tools\ReminderManager;
 use LaraClaw\Tools\TextToSpeech;
 use LaraClaw\Tools\UseSkill;
+use LaraClaw\Tools\ToolRegistry;
 use LaraClaw\Tools\WebRequest;
 use Laravel\Ai\Ai;
 use Laravel\Ai\Concerns\RemembersConversations;
@@ -37,6 +38,7 @@ class ChatBotAgent implements Agent, Conversational, HasTools
         private Message $message,
         private SkillRegistry $skillRegistry,
         private Collection $replyAttachments,
+        private ToolRegistry $toolRegistry,
         private ?Conversation $conversation = null,
         private ?CalendarDriver $calendarDriver = null,
     ) {}
@@ -83,7 +85,11 @@ class ChatBotAgent implements Agent, Conversational, HasTools
             $tools[] = new CalendarManager($this->message, $this->calendarDriver);
         }
 
-        return $tools;
+        return array_merge($tools, $this->toolRegistry->resolve(
+            $this->message,
+            $this->replyAttachments,
+            $this->conversation,
+        ));
     }
 
     /**

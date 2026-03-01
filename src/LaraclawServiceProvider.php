@@ -11,6 +11,7 @@ use LaraClaw\Calendar\AppleCalendarDriver;
 use LaraClaw\Calendar\Contracts\CalendarDriver;
 use LaraClaw\Calendar\GoogleCalendarDriver;
 use LaraClaw\Commands\CommandRegistry;
+use LaraClaw\Tools\ToolRegistry;
 use LaraClaw\Commands\NewConversation;
 use LaraClaw\Console\Commands\ChannelAddCommand;
 use LaraClaw\Console\Commands\GoogleCalendarAuth;
@@ -55,6 +56,8 @@ class LaraclawServiceProvider extends ServiceProvider
         $this->app->singleton(SkillRegistry::class, function () {
             return new SkillRegistry(config('laraclaw.skills.path', base_path('laraclaw/skills')));
         });
+
+        $this->app->singleton(ToolRegistry::class, fn () => new ToolRegistry);
 
         if (class_exists(\SergiX44\Nutgram\Nutgram::class)) {
             $this->app->booting(function () {
