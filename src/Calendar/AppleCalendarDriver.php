@@ -145,18 +145,33 @@ class AppleCalendarDriver implements CalendarDriver
     private function resolveCalendarUrl(): string
     {
         return Cache::remember("caldav:calendar_url:{$this->username}:{$this->calendar}", 3600, function () {
-            $principal = $this->xpath(
-                $this->propfind($this->server, '<d:current-user-principal/>')->body(),
-                '//d:current-user-principal/d:href',
-            );
+            $principalUrl = $this->server . $this->resolvePrincipal();
+            $homeSetUrl = $this->server . $this->resolveCalendarHomeSet($principalUrl);
 
-            $homeSet = $this->xpath(
-                $this->propfind($this->server . $principal, '<c:calendar-home-set xmlns:c="urn:ietf:params:xml:ns:caldav"/>')->body(),
-                '//c:calendar-home-set/d:href',
-            );
-
-            return rtrim($this->server . $this->calendarHref($this->server . $homeSet), '/');
+            return rtrim($this->server . $this->calendarHref($homeSetUrl), '/');
         });
+    }
+
+    /**
+     * Fetch the current-user-principal href from the CalDAV server.
+     */
+    private function resolvePrincipal(): string
+    {
+        return $this->xpath(
+            $this->propfind($this->server, '<d:current-user-principal/>')->body(),
+            '//d:current-user-principal/d:href',
+        );
+    }
+
+    /**
+     * Fetch the calendar-home-set href for the given principal URL.
+     */
+    private function resolveCalendarHomeSet(string $principalUrl): string
+    {
+        return $this->xpath(
+            $this->propfind($principalUrl, '<c:calendar-home-set xmlns:c="urn:ietf:params:xml:ns:caldav"/>')->body(),
+            '//c:calendar-home-set/d:href',
+        );
     }
 
     /**
@@ -172,7 +187,6 @@ class AppleCalendarDriver implements CalendarDriver
 
     /**
      * Find the href of the named calendar within the calendar home set.
-     *
      *
      * @throws RuntimeException
      */
@@ -243,7 +257,6 @@ class AppleCalendarDriver implements CalendarDriver
 
     /**
      * Evaluate an XPath expression against an XML string and return the first result.
-     *
      *
      * @throws RuntimeException
      */
