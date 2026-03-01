@@ -11,11 +11,11 @@ class CommandRegistry
     private array $commands = [];
 
     /**
-     * Register a command, indexed by its lowercased prefix.
+     * Register a command, indexed by its lowercased trigger.
      */
     public function register(Command $command): void
     {
-        $this->commands[strtolower($command->prefix())] = $command;
+        $this->commands[strtolower($command->trigger())] = $command;
     }
 
     /**
@@ -24,14 +24,6 @@ class CommandRegistry
      */
     public function match(string $text): ?Command
     {
-        $normalized = strtolower(trim($text));
-
-        foreach ($this->commands as $prefix => $command) {
-            if ($normalized === $prefix || str_starts_with($normalized, $prefix . ' ')) {
-                return $command;
-            }
-        }
-
-        return null;
+        return $this->commands[strtolower(trim($text))] ?? null;
     }
 }

@@ -119,7 +119,7 @@ class ProcessMessage implements ShouldQueue
                 'key' => $this->message->conversationKey,
             ]);
 
-            $startFresh = Cache::pull("new_conversation:{$user->getAuthIdentifier()}");
+            $startFresh = Cache::pull("new_conversation:{$channel->name}:{$this->message->conversationKey}");
             $conversationId = $startFresh ? null : $conversations->latestConversationId($user->getAuthIdentifier());
         } else {
             // Group/open channel: use the owner user, keyed conversation per channel
@@ -159,13 +159,13 @@ class ProcessMessage implements ShouldQueue
         $command = app(CommandRegistry::class)->match($text);
 
         if ($command) {
-            $response = $command->handle($channel, $user);
+            $result = $command->handle($this->message);
 
-            if ($response) {
-                $channel->send($response);
+            if ($result === null) {
+                return;
             }
 
-            return;
+            $text = $result->text ?? $text;
         }
 
         $agent = new ChatBotAgent(

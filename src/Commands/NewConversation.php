@@ -2,24 +2,24 @@
 
 namespace LaraClaw\Commands;
 
-use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Cache;
-use LaraClaw\Channels\Channel;
+use LaraClaw\Message;
 
 /**
  * Command that resets the current user's conversation history.
  */
 class NewConversation implements Command
 {
-    public function prefix(): string
+    public function trigger(): string
     {
         return '!new';
     }
 
-    public function handle(Channel $channel, Authenticatable $user): ?string
+    public function handle(Message $message): ?Message
     {
-        Cache::put("new_conversation:{$user->getAuthIdentifier()}", true, 60);
+        Cache::put("new_conversation:{$message->channel->name}:{$message->conversationKey}", true);
+        $message->channel->send('Conversation reset. How can I help you?');
 
-        return 'Conversation reset. How can I help you?';
+        return null;
     }
 }

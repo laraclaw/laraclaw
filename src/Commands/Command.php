@@ -2,19 +2,18 @@
 
 namespace LaraClaw\Commands;
 
-use Illuminate\Contracts\Auth\Authenticatable;
-use LaraClaw\Channels\Channel;
+use LaraClaw\Message;
 
 interface Command
 {
     /**
-     * The command prefix (e.g. "!new").
+     * The trigger text for this command (e.g. "!new").
      */
-    public function prefix(): string;
+    public function trigger(): string;
 
     /**
-     * Handle the command. Return a response string to send to the user,
-     * or null to silently complete.
+     * Handle the command. Return a Message to continue to the agent (optionally with
+     * mutated text), or null to halt execution after the command completes.
      */
-    public function handle(Channel $channel, Authenticatable $user): ?string;
+    public function handle(Message $message): ?Message;
 }

@@ -20,6 +20,20 @@ class Message
     ) {}
 
     /**
+     * Return a copy of this message with the given text.
+     */
+    public function withText(string $text): self
+    {
+        return new self(
+            $this->channel,
+            $this->conversationKey,
+            $this->conversationIsDirectMessage,
+            $text,
+            $this->attachments,
+        );
+    }
+
+    /**
      * Determine whether this DM originated from an unregistered account.
      * Always returns false for group/open channel messages.
      */
