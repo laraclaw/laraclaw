@@ -4,6 +4,7 @@ namespace LaraClaw\Listeners;
 
 use DirectoryTree\ImapEngine\Laravel\Events\MessageReceived;
 use DirectoryTree\ImapEngine\MessageInterface;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use LaraClaw\Channels\EmailChannel;
 use LaraClaw\Jobs\ProcessMessage;
@@ -41,6 +42,11 @@ class EmailListener
 
         // Authentication check — reject unless both DKIM and SPF pass
         if (config('laraclaw.channels.email.verify_sender_dkim_and_spf') && ! $this->passesAuthCheck($raw)) {
+            Log::warning('LaraClaw: email rejected — failed DKIM/SPF authentication', [
+                'from' => $fromEmail,
+                'subject' => $raw->subject() ?? '(no subject)',
+            ]);
+
             return;
         }
 
