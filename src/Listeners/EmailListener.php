@@ -46,7 +46,7 @@ class EmailListener
 
         $message = EmailChannel::parseIncomingMessage($raw);
 
-        if ($message->channel->intercept($message->text)) {
+        if ($message->channel->intercept($message)) {
             return;
         }
 
