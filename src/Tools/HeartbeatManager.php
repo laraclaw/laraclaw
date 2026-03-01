@@ -2,6 +2,7 @@
 
 namespace LaraClaw\Tools;
 
+use Cron\CronExpression;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use LaraClaw\Models\Heartbeat;
 use Laravel\Ai\Tools\Request;
@@ -51,6 +52,10 @@ class HeartbeatManager extends BaseTool
         }
         if (! $cron) {
             return 'The "cron" parameter is required for create.';
+        }
+
+        if (! CronExpression::isValidExpression($cron)) {
+            return "Invalid cron expression \"{$cron}\". Use standard 5-field syntax, e.g. \"0 9 * * 1\".";
         }
 
         [$channel, $key] = $this->resolveChannel($request['channel'] ?? null);
