@@ -128,6 +128,10 @@ class LaraclawServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        if (! $this->app->runningInConsole()) {
+            $this->validateConfiguration();
+        }
+
         $this->loadRoutesFrom(__DIR__ . '/../routes/laraclaw.php');
         $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
 
@@ -174,6 +178,21 @@ class LaraclawServiceProvider extends ServiceProvider
 
                 return $calendar;
             });
+        }
+    }
+
+    /**
+     * Throw if required configuration values are missing for the enabled channels.
+     */
+    private function validateConfiguration(): void
+    {
+        $needsOwner = config('laraclaw.channels.telegram.enabled')
+            || config('laraclaw.channels.slack.enabled');
+
+        if ($needsOwner && ! config('laraclaw.auth.admin_user_id')) {
+            throw new RuntimeException(
+                'LaraClaw: LARACLAW_ADMIN_USER_ID must be set when Telegram or Slack channels are enabled.'
+            );
         }
     }
 }
