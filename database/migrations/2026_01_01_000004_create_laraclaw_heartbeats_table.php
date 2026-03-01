@@ -19,7 +19,7 @@ return new class extends Migration
             // fires. Accepts standard cron syntax, e.g. "0 9 * * 1" for every Monday
             // at 9am. Expressions are evaluated against the application timezone.
             $table->string('cron');
-            $table->boolean('is_active')->default(true);
+            $table->boolean('is_active')->default(true)->index();
             $table->dateTime('last_run_at')->nullable();
             $table->timestamps();
         });
