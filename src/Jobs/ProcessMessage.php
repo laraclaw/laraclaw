@@ -135,11 +135,13 @@ class ProcessMessage implements ShouldQueue
 
             // Group conversations are never reset via !new — that's per-user and doesn't
             // apply to a shared channel conversation.
-            try {
-                $conversation = Conversation::where('channel', $channel->name)
-                    ->where('key', $this->message->conversationKey)
-                    ->first()
-                    ?? Conversation::create([
+            $conversation = Conversation::where('channel', $channel->name)
+                ->where('key', $this->message->conversationKey)
+                ->first();
+
+            if (! $conversation) {
+                try {
+                    $conversation = Conversation::create([
                         'channel' => $channel->name,
                         'key' => $this->message->conversationKey,
                         'conversation_id' => $conversations->storeConversation(
@@ -147,10 +149,11 @@ class ProcessMessage implements ShouldQueue
                             $channel->name . ':' . $this->message->conversationKey,
                         ),
                     ]);
-            } catch (UniqueConstraintViolationException) {
-                $conversation = Conversation::where('channel', $channel->name)
-                    ->where('key', $this->message->conversationKey)
-                    ->first();
+                } catch (UniqueConstraintViolationException) {
+                    $conversation = Conversation::where('channel', $channel->name)
+                        ->where('key', $this->message->conversationKey)
+                        ->firstOrFail();
+                }
             }
 
             $conversationId = $conversation->conversation_id;
