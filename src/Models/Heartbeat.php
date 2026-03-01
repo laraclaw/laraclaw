@@ -7,6 +7,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use LaraClaw\Enums\ChannelType;
 use LaraClaw\Tables;
 
+/**
+ * Eloquent model representing a recurring cron-scheduled message (heartbeat).
+ */
 class Heartbeat extends Model
 {
     protected $table = Tables::HEARTBEATS;
@@ -21,6 +24,9 @@ class Heartbeat extends Model
         'last_run_at',
     ];
 
+    /**
+     * The owner of this heartbeat.
+     */
     public function user(): BelongsTo
     {
         return $this->belongsTo(config('laraclaw.auth.user_model'));

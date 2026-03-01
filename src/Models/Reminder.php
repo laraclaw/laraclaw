@@ -7,6 +7,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use LaraClaw\Enums\ChannelType;
 use LaraClaw\Tables;
 
+/**
+ * Eloquent model representing a one-shot scheduled reminder message.
+ */
 class Reminder extends Model
 {
     protected $table = Tables::REMINDERS;
@@ -20,6 +23,9 @@ class Reminder extends Model
         'sent_at',
     ];
 
+    /**
+     * The owner of this reminder.
+     */
     public function user(): BelongsTo
     {
         return $this->belongsTo(config('laraclaw.auth.user_model'));

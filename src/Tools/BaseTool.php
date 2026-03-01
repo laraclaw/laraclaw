@@ -11,12 +11,18 @@ use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Tools\Request;
 use Stringable;
 
+/**
+ * Base class for operation-dispatching tools, providing confirmation, storage, and channel helpers.
+ */
 abstract class BaseTool implements Tool
 {
     protected array $requiresConfirmation = [];
 
     public function __construct(protected Message $message) {}
 
+    /**
+     * Validate the requested operation, run optional confirmation, then dispatch to the method.
+     */
     public function handle(Request $request): Stringable|string
     {
         $operation = $request['operation'];
@@ -34,8 +40,17 @@ abstract class BaseTool implements Tool
         return $this->{$method}($request);
     }
 
+    /**
+     * Return the list of supported operation names for this tool.
+     *
+     * @return string[]
+     */
     abstract protected function operations(): array;
 
+    /**
+     * If the operation requires confirmation, prompt the user and return 'Cancelled by user.'
+     * on denial, or null to proceed.
+     */
     protected function confirmOperation(string $operation, Request $request): ?string
     {
         if (! isset($this->requiresConfirmation[$operation])) {
@@ -55,11 +70,18 @@ abstract class BaseTool implements Tool
         return null;
     }
 
+    /**
+     * Return the filesystem disk specified in the request.
+     */
     protected function storage(Request $request): Filesystem
     {
         return Storage::disk($request['disk']);
     }
 
+    /**
+     * Validate that the requested disk is allowed and the path contains no traversal sequences.
+     * Returns an error string, or null if access is permitted.
+     */
     protected function validateDiskAccess(string $disk, string $path): ?string
     {
         $allowed = config('laraclaw.filesystem.allowed_disks', []);
@@ -75,6 +97,12 @@ abstract class BaseTool implements Tool
         return null;
     }
 
+    /**
+     * Resolve the target channel and key for scheduling tools.
+     * Falls back to the current message's channel when no override is given.
+     *
+     * @return array{0: ChannelType, 1: string}
+     */
     protected function resolveChannel(?string $channelType): array
     {
         if ($channelType) {
@@ -90,6 +118,9 @@ abstract class BaseTool implements Tool
         return [ChannelType::from($this->message->channel->name), $this->message->conversationKey];
     }
 
+    /**
+     * Return true if the path falls within the protected attachments directory.
+     */
     protected function isProtectedPath(string $path): bool
     {
         $normalized = trim($path, '/');

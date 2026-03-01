@@ -5,8 +5,14 @@ namespace LaraClaw\Listeners;
 use Illuminate\Support\Facades\File;
 use Laravel\Ai\Events\AgentPrompted;
 
+/**
+ * Logs AI agent prompts and responses to disk when agent request logging is enabled.
+ */
 class LogAgentRequest
 {
+    /**
+     * Write the prompt and response payloads to per-invocation JSON files.
+     */
     public function handle(AgentPrompted $event): void
     {
         if (! config('laraclaw.logging.agent_requests')) {

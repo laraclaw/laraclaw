@@ -8,8 +8,14 @@ use Illuminate\Support\Str;
 use LaraClaw\Channels\EmailChannel;
 use LaraClaw\Jobs\ProcessMessage;
 
+/**
+ * Handles incoming IMAP messages and dispatches the ProcessMessage job.
+ */
 class EmailListener
 {
+    /**
+     * Validate and dispatch an inbound email for processing.
+     */
     public function __invoke(MessageReceived $event): void
     {
         if (! config('laraclaw.channels.email.enabled')) {
@@ -51,6 +57,9 @@ class EmailListener
         ProcessMessage::dispatch($message);
     }
 
+    /**
+     * Return true if both DKIM and SPF pass in the Authentication-Results header.
+     */
     private function passesAuthCheck(MessageInterface $message): bool
     {
         $authResults = $message->header('Authentication-Results')?->getRawValue() ?? '';

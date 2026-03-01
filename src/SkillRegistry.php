@@ -5,6 +5,9 @@ namespace LaraClaw;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Yaml\Yaml;
 
+/**
+ * Loads and indexes skill definitions from SKILL.md files on disk.
+ */
 class SkillRegistry
 {
     /** @var array<string, array{name: string, description: string, content: string}>|null */
@@ -15,6 +18,8 @@ class SkillRegistry
     ) {}
 
     /**
+     * Return all registered skills as name/description pairs.
+     *
      * @return array<int, array{name: string, description: string}>
      */
     public function all(): array
@@ -25,6 +30,9 @@ class SkillRegistry
         ));
     }
 
+    /**
+     * Return the full content of a skill by name, or null if not found.
+     */
     public function get(string $name): ?string
     {
         return $this->load()[$name]['content'] ?? null;

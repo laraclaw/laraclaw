@@ -8,8 +8,14 @@ use Illuminate\Routing\Controller;
 use LaraClaw\Channels\SlackChannel;
 use LaraClaw\Jobs\ProcessMessage;
 
+/**
+ * Handles incoming Slack event webhook requests.
+ */
 class SlackController extends Controller
 {
+    /**
+     * Process a Slack event callback and dispatch a ProcessMessage job if applicable.
+     */
     public function __invoke(Request $request): JsonResponse
     {
         if ($request->input('type') === 'url_verification') {
@@ -79,6 +85,9 @@ class SlackController extends Controller
         return response()->json(['success' => true]);
     }
 
+    /**
+     * Return a successful JSON response with a bail code for non-actionable events.
+     */
     private function bail(string $code): JsonResponse
     {
         return response()->json(['success' => true, 'bailed' => true, 'code' => $code]);

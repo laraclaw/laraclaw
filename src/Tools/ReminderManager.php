@@ -9,6 +9,9 @@ use Laravel\Ai\Tools\Request;
 use Stringable;
 use Throwable;
 
+/**
+ * Agent tool for creating, listing, and cancelling one-shot scheduled reminders.
+ */
 class ReminderManager extends BaseTool
 {
     public function description(): Stringable|string
@@ -35,6 +38,9 @@ class ReminderManager extends BaseTool
         return ['create', 'list', 'cancel'];
     }
 
+    /**
+     * Parse the remind_at date, resolve the channel, and persist a new Reminder record.
+     */
     protected function create(Request $request): string
     {
         $message = $request['message'] ?? null;
@@ -66,6 +72,9 @@ class ReminderManager extends BaseTool
         return "Reminder set for {$remindAtDate->toDateTimeString()}: {$message}";
     }
 
+    /**
+     * Return all pending reminders for the configured admin user as JSON.
+     */
     protected function list(Request $request): string
     {
         $reminders = Reminder::where('user_id', config('laraclaw.auth.admin_user_id'))
@@ -80,6 +89,9 @@ class ReminderManager extends BaseTool
         return json_encode($reminders->toArray(), JSON_PRETTY_PRINT);
     }
 
+    /**
+     * Delete an unsent reminder by ID.
+     */
     protected function cancel(Request $request): string
     {
         $id = $request['id'] ?? null;

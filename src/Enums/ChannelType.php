@@ -2,6 +2,9 @@
 
 namespace LaraClaw\Enums;
 
+/**
+ * Supported communication channel types.
+ */
 enum ChannelType: string
 {
     case Telegram = 'telegram';

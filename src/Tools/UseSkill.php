@@ -8,6 +8,9 @@ use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Tools\Request;
 use Stringable;
 
+/**
+ * Agent tool that applies a named skill from the SkillRegistry.
+ */
 class UseSkill implements Tool
 {
     public function __construct(private SkillRegistry $registry) {}

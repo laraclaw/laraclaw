@@ -7,12 +7,18 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use LaraClaw\Enums\ChannelType;
 use LaraClaw\Tables;
 
+/**
+ * Eloquent model linking a user to an external channel account identifier.
+ */
 class UserAccount extends Model
 {
     protected $table = Tables::ACCOUNTS;
 
     protected $fillable = ['user_id', 'channel', 'account'];
 
+    /**
+     * The user who owns this channel account.
+     */
     public function user(): BelongsTo
     {
         return $this->belongsTo(config('laraclaw.auth.user_model'));

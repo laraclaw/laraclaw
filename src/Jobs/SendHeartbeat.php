@@ -12,6 +12,9 @@ use LaraClaw\Models\Heartbeat;
 use LaraClaw\Support\ChannelResolver;
 use Throwable;
 
+/**
+ * Queued job that delivers a single heartbeat message and records the run time.
+ */
 class SendHeartbeat implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
@@ -22,6 +25,9 @@ class SendHeartbeat implements ShouldQueue
         private Heartbeat $heartbeat,
     ) {}
 
+    /**
+     * Resolve the channel, send the heartbeat message, and update last_run_at.
+     */
     public function handle(): void
     {
         $channel = ChannelResolver::fromParts($this->heartbeat->channel, $this->heartbeat->key);
@@ -29,6 +35,9 @@ class SendHeartbeat implements ShouldQueue
         $this->heartbeat->update(['last_run_at' => now()]);
     }
 
+    /**
+     * Log the failure when the job exhausts its retries.
+     */
     public function failed(Throwable $exception): void
     {
         Log::error('SendHeartbeat failed', [

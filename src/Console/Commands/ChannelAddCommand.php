@@ -6,12 +6,18 @@ use Illuminate\Console\Command;
 use Illuminate\Database\UniqueConstraintViolationException;
 use LaraClaw\Models\UserAccount;
 
+/**
+ * Artisan command that links an existing user to a channel account identifier.
+ */
 class ChannelAddCommand extends Command
 {
     protected $signature = 'laraclaw:channel-add {user} {channel} {identifier}';
 
     protected $description = 'Link a user to a channel identifier (telegram, slack, email)';
 
+    /**
+     * Resolve the user by ID or email, create the UserAccount record, and report the result.
+     */
     public function handle(): int
     {
         $userInput = $this->argument('user');

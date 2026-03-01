@@ -6,10 +6,16 @@ use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 
+/**
+ * Mailable that sends an HTML reply from a channel, optionally threading it via In-Reply-To.
+ */
 class ChannelReply extends Mailable
 {
     public function __construct(public string $body, public ?string $inReplyTo = null) {}
 
+    /**
+     * Build the envelope, adding In-Reply-To / References headers when replying to a thread.
+     */
     public function envelope(): Envelope
     {
         if (! $this->inReplyTo) {
@@ -26,6 +32,9 @@ class ChannelReply extends Mailable
         );
     }
 
+    /**
+     * Return the HTML string content for the email body.
+     */
     public function content(): Content
     {
         return new Content(htmlString: $this->body);

@@ -7,12 +7,18 @@ use Illuminate\Console\Command;
 use LaraClaw\Jobs\SendHeartbeat;
 use LaraClaw\Models\Heartbeat;
 
+/**
+ * Artisan command that dispatches SendHeartbeat jobs for active heartbeats whose cron is due.
+ */
 class ProcessHeartbeats extends Command
 {
     protected $signature = 'laraclaw:process-heartbeats';
 
     protected $description = 'Dispatch SendHeartbeat jobs for all active heartbeats whose cron expression is due.';
 
+    /**
+     * Evaluate each active heartbeat's cron schedule and dispatch its job if due.
+     */
     public function handle(): void
     {
         $now = now();

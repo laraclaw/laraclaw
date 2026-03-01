@@ -15,6 +15,9 @@ use Stringable;
 
 use function LaraClaw\Support\stripHtml;
 
+/**
+ * Agent tool for reading, sending, and managing email via IMAP and Laravel Mail.
+ */
 class EmailManager extends BaseTool
 {
     private const MAX_LIST = 20;
@@ -70,6 +73,7 @@ class EmailManager extends BaseTool
         return ['inbox', 'read', 'send', 'reply', 'delete', 'move', 'label', 'mark_read', 'mark_unread', 'folders', 'create_folder', 'delete_folder'];
     }
 
+    /** List recent messages in a folder, with optional text and sender filters. */
     protected function inbox(Request $request): string
     {
         $folder = $this->getFolder($request['folder'] ?? 'INBOX');
@@ -102,6 +106,7 @@ class EmailManager extends BaseTool
         return json_encode($result, JSON_PRETTY_PRINT);
     }
 
+    /** Fetch and return the full content of a single message by UID. */
     protected function read(Request $request): string
     {
         $uid = $request['uid'] ?? null;
@@ -140,6 +145,7 @@ class EmailManager extends BaseTool
         return json_encode($data, JSON_PRETTY_PRINT);
     }
 
+    /** Compose and send a new email. */
     protected function send(Request $request): string
     {
         $to = $request['to'] ?? null;
@@ -180,6 +186,7 @@ class EmailManager extends BaseTool
         return "Email sent to {$recipients} with subject \"{$subject}\".";
     }
 
+    /** Reply to an existing message, threading via In-Reply-To headers. */
     protected function reply(Request $request): string
     {
         $uid = $request['uid'] ?? null;
@@ -238,6 +245,7 @@ class EmailManager extends BaseTool
         return 'Reply sent to ' . implode(', ', (array) $to) . " with subject \"{$subject}\".";
     }
 
+    /** Permanently delete one or more messages after user confirmation. */
     protected function delete(Request $request): string
     {
         $uids = ! empty($request['uids']) ? array_values($request['uids']) : (($request['uid'] ?? null) !== null ? [$request['uid']] : []);
@@ -272,6 +280,7 @@ class EmailManager extends BaseTool
         return implode('; ', $results) . '.';
     }
 
+    /** Move a message from one folder to another. */
     protected function move(Request $request): string
     {
         $uid = $request['uid'] ?? null;
@@ -297,6 +306,7 @@ class EmailManager extends BaseTool
         return "Message {$uid} moved from {$sourceFolder} to {$destination}.";
     }
 
+    /** Copy a message to a label/folder while keeping it in the source folder. */
     protected function label(Request $request): string
     {
         $uid = $request['uid'] ?? null;
@@ -322,6 +332,7 @@ class EmailManager extends BaseTool
         return "Label \"{$destination}\" applied to message {$uid} (message kept in {$sourceFolder}).";
     }
 
+    /** Mark a message as read by UID. */
     protected function markRead(Request $request): string
     {
         $uid = $request['uid'] ?? null;
@@ -341,6 +352,7 @@ class EmailManager extends BaseTool
         return "Message {$uid} marked as read.";
     }
 
+    /** Mark a message as unread by UID. */
     protected function markUnread(Request $request): string
     {
         $uid = $request['uid'] ?? null;
@@ -360,6 +372,7 @@ class EmailManager extends BaseTool
         return "Message {$uid} marked as unread.";
     }
 
+    /** List all folders in the configured mailbox. */
     protected function folders(Request $request): string
     {
         $mailbox = Imap::mailbox($this->mailbox);
@@ -377,6 +390,7 @@ class EmailManager extends BaseTool
         return json_encode($result, JSON_PRETTY_PRINT);
     }
 
+    /** Create a new folder in the mailbox. */
     protected function createFolder(Request $request): string
     {
         $folder = $request['folder'] ?? null;
@@ -389,6 +403,7 @@ class EmailManager extends BaseTool
         return "Folder \"{$folder}\" created.";
     }
 
+    /** Delete one or more folders after user confirmation. */
     protected function deleteFolder(Request $request): string
     {
         $folders = ! empty($request['folders']) ? array_values($request['folders']) : (($request['folder'] ?? null) !== null ? [$request['folder']] : []);
@@ -420,11 +435,19 @@ class EmailManager extends BaseTool
         return implode('; ', $results) . '.';
     }
 
+    /**
+     * Retrieve a mailbox folder by path, throwing if not found.
+     */
     private function getFolder(string $path): FolderInterface
     {
         return Imap::mailbox($this->mailbox)->folders()->findOrFail($path);
     }
 
+    /**
+     * Build a compact summary array for a message suitable for listing.
+     *
+     * @return array<string, mixed>
+     */
     private function summarize(MessageInterface $message): array
     {
         $from = $message->from();

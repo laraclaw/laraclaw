@@ -6,6 +6,9 @@ use Illuminate\Support\Collection;
 use LaraClaw\Channels\Channel;
 use LaraClaw\Models\UserAccount;
 
+/**
+ * Domain object representing an inbound message from any channel.
+ */
 class Message
 {
     public function __construct(
@@ -16,6 +19,10 @@ class Message
         public readonly Collection $attachments = new Collection,
     ) {}
 
+    /**
+     * Determine whether this DM originated from an unregistered account.
+     * Always returns false for group/open channel messages.
+     */
     public function isFromUnrecognizedAccount(): bool
     {
         if (! $this->conversationIsDirectMessage) {

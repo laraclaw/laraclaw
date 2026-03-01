@@ -9,6 +9,9 @@ use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Tools\Request;
 use Stringable;
 
+/**
+ * Agent tool for listing, switching, and clearing the active persona for a conversation.
+ */
 class Persona implements Tool
 {
     public function __construct(private ?Conversation $conversation = null) {}
@@ -44,6 +47,9 @@ class Persona implements Tool
         };
     }
 
+    /**
+     * Return a string listing all available persona names.
+     */
     private function list(): string
     {
         $personas = $this->availablePersonas();
@@ -55,6 +61,9 @@ class Persona implements Tool
         return 'Available personas: ' . implode(', ', $personas);
     }
 
+    /**
+     * Persist the given persona name to the conversation record.
+     */
     private function switch(?string $persona): string
     {
         if (! $persona) {
@@ -70,6 +79,9 @@ class Persona implements Tool
         return "Persona switched to '{$persona}'.";
     }
 
+    /**
+     * Remove the active persona from the conversation record.
+     */
     private function clear(): string
     {
         $this->conversation?->update(['persona' => null]);

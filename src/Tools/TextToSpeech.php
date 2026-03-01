@@ -13,6 +13,9 @@ use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Tools\Request;
 use Stringable;
 
+/**
+ * Agent tool that converts text to speech and appends the audio to the reply.
+ */
 class TextToSpeech implements Tool
 {
     public function __construct(private Collection $attachments) {}

@@ -6,6 +6,9 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Cache;
 use LaraClaw\Channels\Channel;
 
+/**
+ * Command that resets the current user's conversation history.
+ */
 class NewConversation implements Command
 {
     public function prefix(): string

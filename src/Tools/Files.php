@@ -13,6 +13,9 @@ use LaraClaw\Message;
 use Laravel\Ai\Tools\Request;
 use Stringable;
 
+/**
+ * Agent tool for managing files on Laravel storage disks (list, read, write, move, etc.).
+ */
 class Files extends BaseTool
 {
     private const MAX_READ_BYTES = 100 * 1024;
@@ -66,6 +69,7 @@ class Files extends BaseTool
 
     // Operations ----------------------------------------
 
+    /** List files and directories at the given path. */
     protected function list(Request $request): string
     {
         $storage = $this->storage($request);
@@ -84,6 +88,7 @@ class Files extends BaseTool
         return $entries->toJson(JSON_PRETTY_PRINT);
     }
 
+    /** Read and return the contents of a text file (truncated to 100KB). */
     protected function read(Request $request): string
     {
         $storage = $this->storage($request);
@@ -106,6 +111,7 @@ class Files extends BaseTool
         return $contents;
     }
 
+    /** Write content to a file, overwriting if it already exists. */
     protected function write(Request $request): string
     {
         if (($request['content'] ?? null) === null) {
@@ -118,6 +124,7 @@ class Files extends BaseTool
         return "Written to {$request['path']}.";
     }
 
+    /** Append content to an existing file. */
     protected function append(Request $request): string
     {
         if (($request['content'] ?? null) === null) {
@@ -129,6 +136,7 @@ class Files extends BaseTool
         return "Appended to {$request['path']}.";
     }
 
+    /** Delete one or more files after user confirmation. */
     protected function delete(Request $request): string
     {
         $storage = $this->storage($request);
@@ -170,6 +178,7 @@ class Files extends BaseTool
             ->implode('; ') . '.';
     }
 
+    /** Move a file to a destination path (auto-increments on collision). */
     protected function move(Request $request): string
     {
         if (($request['destination'] ?? null) === null) {
@@ -195,6 +204,7 @@ class Files extends BaseTool
             : "Moved {$path} to {$actual}.";
     }
 
+    /** Copy a file to a destination path (auto-increments on collision). */
     protected function copy(Request $request): string
     {
         if (($request['destination'] ?? null) === null) {
@@ -216,6 +226,7 @@ class Files extends BaseTool
             : "Copied {$path} to {$actual}.";
     }
 
+    /** Check whether a file exists at the given path. */
     protected function exists(Request $request): string
     {
         $path = $request['path'];
@@ -225,6 +236,7 @@ class Files extends BaseTool
             : "File does not exist: {$path}";
     }
 
+    /** Create a directory (auto-increments name on collision). */
     protected function mkdir(Request $request): string
     {
         $storage = $this->storage($request);
@@ -236,6 +248,7 @@ class Files extends BaseTool
             : "Directory created: {$actual}.";
     }
 
+    /** Queue a stored file to be attached to the agent's reply. */
     protected function attachToReply(Request $request): string
     {
         $storage = $this->storage($request);
@@ -250,6 +263,7 @@ class Files extends BaseTool
         return "'{$path}' will be attached to your reply.";
     }
 
+    /** Copy an inbound attachment from the attachments disk to a target disk/path. */
     protected function saveAttachment(Request $request): string
     {
         $source = $request['source'] ?? null;
@@ -273,6 +287,7 @@ class Files extends BaseTool
             : "Saved attachment to {$actual}.";
     }
 
+    /** Download a remote URL and save it to the specified disk path. */
     protected function downloadUrl(Request $request): string
     {
         $url = $request['url'] ?? null;
@@ -308,6 +323,10 @@ class Files extends BaseTool
 
     // Helpers ----------------------------------------
 
+    /**
+     * Return the given path if it is free, otherwise append an incrementing integer
+     * until a unique path is found.
+     */
     protected function uniqueFilePath(Filesystem $storage, string $path): string
     {
         if (! $storage->exists($path)) {
@@ -328,6 +347,9 @@ class Files extends BaseTool
         return $candidate;
     }
 
+    /**
+     * Return the given directory path if it is free, otherwise append an incrementing integer.
+     */
     protected function uniqueDirPath(Filesystem $storage, string $path): string
     {
         $normalized = rtrim($path, '/');

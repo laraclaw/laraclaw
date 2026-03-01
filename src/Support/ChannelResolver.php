@@ -9,8 +9,14 @@ use LaraClaw\Enums\ChannelType;
 use RuntimeException;
 use SergiX44\Nutgram\Nutgram;
 
+/**
+ * Resolves a stored channel type and key into a concrete Channel instance.
+ */
 class ChannelResolver
 {
+    /**
+     * Build a Channel instance from a ChannelType enum and its stored key string.
+     */
     public static function fromParts(ChannelType $channel, string $key): Channel
     {
         return match ($channel) {

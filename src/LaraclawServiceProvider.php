@@ -26,8 +26,14 @@ use Laravel\Ai\Events\AgentPrompted;
 use RuntimeException;
 use Spatie\GoogleCalendar\GoogleCalendar;
 
+/**
+ * Registers and boots all LaraClaw services, bindings, routes, and scheduled commands.
+ */
 class LaraclawServiceProvider extends ServiceProvider
 {
+    /**
+     * Bind services, configure channels, and register the calendar driver.
+     */
     public function register(): void
     {
         $this->mergeConfigFrom(__DIR__ . '/../config/laraclaw.php', 'laraclaw');
@@ -114,6 +120,9 @@ class LaraclawServiceProvider extends ServiceProvider
         });
     }
 
+    /**
+     * Register routes, migrations, event listeners, Artisan commands, and the scheduler.
+     */
     public function boot(): void
     {
         $this->loadRoutesFrom(__DIR__ . '/../routes/laraclaw.php');

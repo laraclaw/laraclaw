@@ -26,6 +26,9 @@ use Laravel\Ai\Files\Image;
 use Laravel\Ai\Transcription;
 use Throwable;
 
+/**
+ * Core queued job that processes an inbound message through the AI agent and sends the reply.
+ */
 class ProcessMessage implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
@@ -38,6 +41,9 @@ class ProcessMessage implements ShouldQueue
         private Message $message,
     ) {}
 
+    /**
+     * Log the error and attempt to notify the user via the channel when the job fails.
+     */
     public function failed(Throwable $exception): void
     {
         Log::error('ProcessMessage failed', [
@@ -53,6 +59,9 @@ class ProcessMessage implements ShouldQueue
         }
     }
 
+    /**
+     * Resolve the user, conversation, and agent, then prompt the AI and deliver the reply.
+     */
     public function handle(ConversationStore $conversations, SkillRegistry $skillRegistry, ?CalendarDriver $calendarDriver = null): void
     {
         /** @var Collection<int, Attachment> $replyAttachments */

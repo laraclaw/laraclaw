@@ -13,6 +13,9 @@ use Laravel\Ai\Tools\Request;
 use Stringable;
 use Throwable;
 
+/**
+ * Agent tool for listing, creating, updating, and deleting calendar events.
+ */
 class CalendarManager extends BaseTool
 {
     protected array $requiresConfirmation = [
@@ -57,6 +60,9 @@ class CalendarManager extends BaseTool
         return ['list', 'create', 'update', 'delete'];
     }
 
+    /**
+     * List events within the given date range via the calendar driver.
+     */
     protected function list(Request $request): string
     {
         $start = $request['start'] ?? null;
@@ -91,6 +97,9 @@ class CalendarManager extends BaseTool
         return json_encode($result, JSON_PRETTY_PRINT);
     }
 
+    /**
+     * Create a new calendar event and return its assigned ID.
+     */
     protected function create(Request $request): string
     {
         $title = $request['title'] ?? null;
@@ -129,6 +138,9 @@ class CalendarManager extends BaseTool
         return "Event created with ID: {$id}";
     }
 
+    /**
+     * Apply partial updates to an existing calendar event by ID.
+     */
     protected function update(Request $request): string
     {
         $id = $request['id'] ?? null;
@@ -171,6 +183,9 @@ class CalendarManager extends BaseTool
         return "Event {$id} updated.";
     }
 
+    /**
+     * Delete a calendar event by ID (requires user confirmation).
+     */
     protected function delete(Request $request): string
     {
         $id = $request['id'] ?? null;
@@ -183,6 +198,10 @@ class CalendarManager extends BaseTool
         return "Event {$id} deleted.";
     }
 
+    /**
+     * Parse a natural-language or ISO 8601 date string into a DateTimeImmutable.
+     * Returns null if the string cannot be parsed.
+     */
     private function parseDate(string $value): ?DateTimeImmutable
     {
         try {

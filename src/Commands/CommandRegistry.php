@@ -2,11 +2,17 @@
 
 namespace LaraClaw\Commands;
 
+/**
+ * Holds registered chat commands and matches inbound text against them.
+ */
 class CommandRegistry
 {
     /** @var array<string, Command> */
     private array $commands = [];
 
+    /**
+     * Register a command, indexed by its lowercased prefix.
+     */
     public function register(Command $command): void
     {
         $this->commands[strtolower($command->prefix())] = $command;

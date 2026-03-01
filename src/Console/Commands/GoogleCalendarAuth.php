@@ -6,12 +6,18 @@ use Google_Client;
 use Google_Service_Calendar;
 use Illuminate\Console\Command;
 
+/**
+ * Artisan command that completes the Google Calendar OAuth flow and saves the token.
+ */
 class GoogleCalendarAuth extends Command
 {
     protected $signature = 'laraclaw:google-calendar-auth';
 
     protected $description = 'Authenticate with Google Calendar via OAuth';
 
+    /**
+     * Guide the user through the OAuth authorization URL flow and persist the token.
+     */
     public function handle(): int
     {
         $credentialsJson = config('laraclaw.tools.calendar_manager.google.credentials_json');

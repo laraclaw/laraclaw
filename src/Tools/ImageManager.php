@@ -15,6 +15,9 @@ use Spatie\Image\Enums\Orientation;
 use Spatie\Image\Image;
 use Stringable;
 
+/**
+ * Agent tool for reading image metadata and performing image transformations on disk.
+ */
 class ImageManager extends BaseTool
 {
     private const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'tif'];
@@ -98,11 +101,15 @@ class ImageManager extends BaseTool
         return $result;
     }
 
+    /** @return string[] */
     protected function operations(): array
     {
         return ['info', 'resize', 'crop', 'orient', 'convert', 'optimize'];
     }
 
+    /**
+     * Return width, height, MIME type, and file size for an image.
+     */
     protected function info(Filesystem $storage, string $path): string
     {
         $tempPath = $this->toTempFile($storage, $path);
@@ -121,6 +128,9 @@ class ImageManager extends BaseTool
         }
     }
 
+    /**
+     * Resize an image to the given width and/or height (aspect ratio preserved for single-dimension).
+     */
     protected function resize(Filesystem $storage, string $path, string $targetPath, ?int $width, ?int $height): string
     {
         if ($width === null && $height === null) {
@@ -150,6 +160,9 @@ class ImageManager extends BaseTool
         }
     }
 
+    /**
+     * Crop an image to exact dimensions from the center.
+     */
     protected function crop(Filesystem $storage, string $path, string $targetPath, ?int $width, ?int $height): string
     {
         if ($width === null || $height === null) {
@@ -168,6 +181,9 @@ class ImageManager extends BaseTool
         }
     }
 
+    /**
+     * Rotate or flip an image using one of the supported orientation values.
+     */
     protected function orient(Filesystem $storage, string $path, string $targetPath, ?string $orientation): string
     {
         if ($orientation === null) {
@@ -202,6 +218,9 @@ class ImageManager extends BaseTool
         }
     }
 
+    /**
+     * Convert an image to a different format (jpg, png, or webp).
+     */
     protected function convert(Filesystem $storage, string $path, ?string $format): string
     {
         $allowedFormats = ['jpg', 'png', 'webp'];
@@ -228,6 +247,9 @@ class ImageManager extends BaseTool
         }
     }
 
+    /**
+     * Re-save an image at the specified quality level to reduce file size.
+     */
     protected function optimize(Filesystem $storage, string $path, string $targetPath, ?int $quality): string
     {
         $tempPath = $this->toTempFile($storage, $path);
@@ -246,6 +268,9 @@ class ImageManager extends BaseTool
         }
     }
 
+    /**
+     * Resolve the configured Spatie image driver (imagick or gd).
+     */
     private function driver(): ImageDriver
     {
         $driver = config('laraclaw.tools.image_manager.driver', 'imagick');
@@ -257,6 +282,9 @@ class ImageManager extends BaseTool
         return $imageDriver;
     }
 
+    /**
+     * Insert a suffix before the file extension in a path (e.g. "img.jpg" → "img_resized.jpg").
+     */
     private function suffixedPath(string $path, string $suffix): string
     {
         $dir = dirname($path) === '.' ? '' : dirname($path) . '/';
@@ -266,11 +294,17 @@ class ImageManager extends BaseTool
         return $dir . $name . $suffix . ($ext !== '' ? '.' . $ext : '');
     }
 
+    /**
+     * Add a processed image to the pending reply attachments collection.
+     */
     private function setPending(string $disk, string $path): void
     {
         $this->attachments?->push(new Attachment(path: $path, disk: $disk));
     }
 
+    /**
+     * Copy a storage file to a local temp path so Spatie Image can process it.
+     */
     private function toTempFile(Filesystem $storage, string $path): string
     {
         $ext = pathinfo($path, PATHINFO_EXTENSION);
@@ -284,11 +318,17 @@ class ImageManager extends BaseTool
         return $tempPath;
     }
 
+    /**
+     * Write the processed temp file back to the storage disk.
+     */
     private function fromTempFile(Filesystem $storage, string $path, string $tempPath): void
     {
         $storage->put($path, file_get_contents($tempPath));
     }
 
+    /**
+     * Delete a local temp file if it exists.
+     */
     private function cleanupTempFile(string $path): void
     {
         if (file_exists($path)) {

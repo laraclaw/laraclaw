@@ -14,12 +14,18 @@ use function Laravel\Prompts\select;
 use function Laravel\Prompts\spin;
 use function Laravel\Prompts\text;
 
+/**
+ * Interactive Artisan wizard that provisions the owner account and configures channels.
+ */
 class SetupWizard extends Command
 {
     protected $signature = 'laraclaw:setup';
 
     protected $description = 'Interactive setup wizard for LaraClaw';
 
+    /**
+     * Run the step-by-step setup: migrate, create owner, configure channels and tools.
+     */
     public function handle(): int
     {
         // 1. Bail if already set up
@@ -243,6 +249,9 @@ class SetupWizard extends Command
         return self::SUCCESS;
     }
 
+    /**
+     * Install a Composer package via shell command, showing a spinner.
+     */
     private function requirePackage(string $package): void
     {
         spin(function () use ($package) {
@@ -252,6 +261,9 @@ class SetupWizard extends Command
         }, "Installing {$package}…");
     }
 
+    /**
+     * Set or update a key-value pair in the .env file.
+     */
     private function writeEnv(string $key, string|int $value): void
     {
         $path = base_path('.env');

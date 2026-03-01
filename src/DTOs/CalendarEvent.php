@@ -4,6 +4,9 @@ namespace LaraClaw\DTOs;
 
 use DateTimeImmutable;
 
+/**
+ * DTO representing a calendar event, used for creating, updating, and listing events.
+ */
 readonly class CalendarEvent
 {
     /**

@@ -7,6 +7,9 @@ use LaraClaw\Models\Heartbeat;
 use Laravel\Ai\Tools\Request;
 use Stringable;
 
+/**
+ * Agent tool for creating, listing, and cancelling recurring cron-scheduled heartbeats.
+ */
 class HeartbeatManager extends BaseTool
 {
     public function description(): Stringable|string
@@ -35,6 +38,9 @@ class HeartbeatManager extends BaseTool
         return ['create', 'list', 'cancel'];
     }
 
+    /**
+     * Validate the cron expression and message, then persist a new active Heartbeat record.
+     */
     protected function create(Request $request): string
     {
         $message = $request['message'] ?? null;
@@ -61,6 +67,9 @@ class HeartbeatManager extends BaseTool
         return "Heartbeat created with cron \"{$cron}\": {$message}";
     }
 
+    /**
+     * Return all active heartbeats for the configured admin user as JSON.
+     */
     protected function list(Request $request): string
     {
         $heartbeats = Heartbeat::where('user_id', config('laraclaw.auth.admin_user_id'))
@@ -75,6 +84,9 @@ class HeartbeatManager extends BaseTool
         return json_encode($heartbeats->toArray(), JSON_PRETTY_PRINT);
     }
 
+    /**
+     * Deactivate a heartbeat by ID (sets is_active to false).
+     */
     protected function cancel(Request $request): string
     {
         $id = $request['id'] ?? null;

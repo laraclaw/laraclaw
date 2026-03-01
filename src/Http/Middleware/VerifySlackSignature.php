@@ -6,8 +6,14 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
+/**
+ * Middleware that verifies Slack's HMAC-SHA256 request signature.
+ */
 class VerifySlackSignature
 {
+    /**
+     * Verify the Slack signature and reject stale or tampered requests.
+     */
     public function handle(Request $request, Closure $next): Response
     {
         $timestamp = $request->header('X-Slack-Request-Timestamp');
