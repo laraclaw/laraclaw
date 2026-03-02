@@ -16,6 +16,7 @@ use LaraClaw\Calendar\GoogleCalendarDriver;
 use LaraClaw\Commands\CommandRegistry;
 use LaraClaw\Commands\NewConversation;
 use LaraClaw\Console\Commands\ChannelAddCommand;
+use LaraClaw\Console\Commands\Chat;
 use LaraClaw\Console\Commands\GoogleCalendarAuth;
 use LaraClaw\Console\Commands\ProcessHeartbeats;
 use LaraClaw\Console\Commands\SendReminders;
@@ -155,7 +156,7 @@ class LaraclawServiceProvider extends ServiceProvider
 
         Event::listen(AgentPrompted::class, LogAgentRequest::class);
 
-        $this->commands([GoogleCalendarAuth::class, ChannelAddCommand::class, SendReminders::class, ProcessHeartbeats::class, SetupWizard::class]);
+        $this->commands([GoogleCalendarAuth::class, ChannelAddCommand::class, SendReminders::class, ProcessHeartbeats::class, SetupWizard::class, Chat::class]);
 
         $this->callAfterResolving(Schedule::class, function (Schedule $schedule) {
             $schedule->command(SendReminders::class)->everyMinute();

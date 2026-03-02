@@ -5,7 +5,6 @@ namespace LaraClaw\Console\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Hash;
 use LaraClaw\Models\UserAccount;
-use Symfony\Component\Process\Process;
 
 use function Laravel\Prompts\multiselect;
 use function Laravel\Prompts\outro;
@@ -97,8 +96,6 @@ class SetupWizard extends Command
 
         // 5. Per-channel config
         if (in_array('telegram', $channels)) {
-            $this->requirePackage('nutgram/laravel');
-
             $this->newLine();
             $this->info('Telegram configuration:');
 
@@ -134,8 +131,6 @@ class SetupWizard extends Command
         }
 
         if (in_array('email', $channels)) {
-            $this->requirePackage('directorytree/imapengine-laravel');
-
             $this->newLine();
             $this->info('Email — SMTP configuration:');
 
@@ -190,10 +185,6 @@ class SetupWizard extends Command
             required: false,
         );
 
-        if (in_array('image', $tools)) {
-            $this->requirePackage('spatie/image');
-        }
-
         if (in_array('calendar', $tools)) {
             $driver = select(
                 label: 'Calendar driver',
@@ -201,8 +192,6 @@ class SetupWizard extends Command
             );
 
             if ($driver === 'google') {
-                $this->requirePackage('spatie/laravel-google-calendar');
-
                 $calendarId = text(label: 'Google Calendar ID (found in Google Calendar settings)', required: true);
                 $credentialsPath = text(label: 'Path to OAuth credentials JSON', default: base_path('oauth-credentials.json'), required: true);
                 $tokenPath = text(label: 'Path to OAuth token JSON', default: base_path('oauth-token.json'), required: true);
@@ -214,8 +203,6 @@ class SetupWizard extends Command
 
                 $this->info('Run `php artisan laraclaw:google-calendar-auth` to complete the OAuth flow.');
             } else {
-                $this->requirePackage('sabre/vobject');
-
                 $server = text(label: 'CalDAV server URL', default: 'https://caldav.icloud.com', required: true);
                 $calUsername = text(label: 'Username', required: true);
                 $calPassword = password(label: 'Password', required: true);
@@ -247,18 +234,6 @@ class SetupWizard extends Command
         outro(implode("\n", $outroLines));
 
         return self::SUCCESS;
-    }
-
-    /**
-     * Install a Composer package via shell command, showing a spinner.
-     */
-    private function requirePackage(string $package): void
-    {
-        spin(function () use ($package) {
-            Process::fromShellCommandline("composer require {$package}")
-                ->setWorkingDirectory(base_path())
-                ->mustRun();
-        }, "Installing {$package}…");
     }
 
     /**
