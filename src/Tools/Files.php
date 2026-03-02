@@ -31,6 +31,9 @@ class Files extends BaseTool
         };
     }
 
+    /**
+     * Return the tool description shown to the agent.
+     */
     public function description(): Stringable|string
     {
         $disks = implode(', ', config('laraclaw.filesystem.allowed_disks', []));
@@ -38,6 +41,9 @@ class Files extends BaseTool
         return "Manage files on disk. Allowed disks: {$disks}. Operations: " . implode(', ', $this->operations()) . '.';
     }
 
+    /**
+     * Define the input schema for this tool.
+     */
     public function schema(JsonSchema $schema): array
     {
         return [
@@ -52,6 +58,9 @@ class Files extends BaseTool
         ];
     }
 
+    /**
+     * Validate disk and path access, then delegate to the requested operation.
+     */
     public function handle(Request $request): Stringable|string
     {
         if ($error = $this->validateDiskAccess($request['disk'], $request['path'])) {
@@ -67,6 +76,9 @@ class Files extends BaseTool
         return parent::handle($request);
     }
 
+    /**
+     * Return the list of supported operation names.
+     */
     protected function operations(): array
     {
         return ['list', 'read', 'write', 'append', 'delete', 'move', 'copy', 'exists', 'mkdir', 'save_attachment', 'attach_to_reply', 'download_url'];
@@ -74,7 +86,9 @@ class Files extends BaseTool
 
     // Operations
 
-    /** List files and directories at the given path. */
+    /**
+     * List files and directories at the given path.
+     */
     protected function list(Request $request): string
     {
         $storage = $this->storage($request);
@@ -93,7 +107,9 @@ class Files extends BaseTool
         return $entries->toJson(JSON_PRETTY_PRINT);
     }
 
-    /** Read and return the contents of a text file (truncated to 100KB). */
+    /**
+     * Read and return the contents of a text file, truncated to 100KB.
+     */
     protected function read(Request $request): string
     {
         $storage = $this->storage($request);
@@ -116,7 +132,9 @@ class Files extends BaseTool
         return $contents;
     }
 
-    /** Write content to a file, overwriting if it already exists. */
+    /**
+     * Write content to a file, overwriting if it already exists.
+     */
     protected function write(Request $request): string
     {
         if (($request['content'] ?? null) === null) {
@@ -129,7 +147,9 @@ class Files extends BaseTool
         return "Written to {$request['path']}.";
     }
 
-    /** Append content to an existing file. */
+    /**
+     * Append content to an existing file.
+     */
     protected function append(Request $request): string
     {
         if (($request['content'] ?? null) === null) {
@@ -141,7 +161,9 @@ class Files extends BaseTool
         return "Appended to {$request['path']}.";
     }
 
-    /** Delete one or more files after user confirmation. */
+    /**
+     * Delete one or more files after user confirmation.
+     */
     protected function delete(Request $request): string
     {
         $storage = $this->storage($request);
@@ -183,7 +205,9 @@ class Files extends BaseTool
             ->implode('; ') . '.';
     }
 
-    /** Move a file to a destination path, renaming it if something already exists there. */
+    /**
+     * Move a file to a destination path, renaming it if something already exists there.
+     */
     protected function move(Request $request): string
     {
         if (($request['destination'] ?? null) === null) {
@@ -209,7 +233,9 @@ class Files extends BaseTool
             : "Moved {$path} to {$actual}.";
     }
 
-    /** Copy a file to a destination path, renaming it if something already exists there. */
+    /**
+     * Copy a file to a destination path, renaming it if something already exists there.
+     */
     protected function copy(Request $request): string
     {
         if (($request['destination'] ?? null) === null) {
@@ -231,7 +257,9 @@ class Files extends BaseTool
             : "Copied {$path} to {$actual}.";
     }
 
-    /** Check whether a file exists at the given path. */
+    /**
+     * Check whether a file exists at the given path.
+     */
     protected function exists(Request $request): string
     {
         $path = $request['path'];
@@ -241,7 +269,9 @@ class Files extends BaseTool
             : "File does not exist: {$path}";
     }
 
-    /** Create a directory, renaming it if the name is already taken. */
+    /**
+     * Create a directory, renaming it if the name is already taken.
+     */
     protected function mkdir(Request $request): string
     {
         $storage = $this->storage($request);
@@ -253,7 +283,9 @@ class Files extends BaseTool
             : "Directory created: {$actual}.";
     }
 
-    /** Queue a stored file to be attached to the agent's reply. */
+    /**
+     * Queue a stored file to be attached to the agent's reply.
+     */
     protected function attachToReply(Request $request): string
     {
         $storage = $this->storage($request);
@@ -268,7 +300,9 @@ class Files extends BaseTool
         return "'{$path}' will be attached to your reply.";
     }
 
-    /** Copy an inbound attachment from the attachments disk to a target disk/path. */
+    /**
+     * Copy an inbound attachment from the attachments disk to a target disk and path.
+     */
     protected function saveAttachment(Request $request): string
     {
         $source = $request['source'] ?? null;
@@ -292,7 +326,9 @@ class Files extends BaseTool
             : "Saved attachment to {$actual}.";
     }
 
-    /** Download a remote URL and save it to the specified disk path. */
+    /**
+     * Download a remote URL and save it to the specified disk path.
+     */
     protected function downloadUrl(Request $request): string
     {
         $url = $request['url'] ?? null;

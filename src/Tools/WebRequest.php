@@ -19,12 +19,18 @@ class WebRequest extends BaseTool
 
     private const MAX_RESPONSE_BYTES = 100 * 1024;
 
+    /**
+     * Return the tool description shown to the agent.
+     */
     public function description(): Stringable|string
     {
         return 'Make HTTP requests. Operations: ' . implode(', ', $this->operations())
             . '. Returns status code, headers, and body (truncated to 100KB). To browse a website, prefer fetching https://markdown.new/{url} to get clean markdown instead of raw HTML.';
     }
 
+    /**
+     * Define the input schema for this tool.
+     */
     public function schema(JsonSchema $schema): array
     {
         return [
@@ -35,6 +41,9 @@ class WebRequest extends BaseTool
         ];
     }
 
+    /**
+     * Validate the URL and block private network addresses, then dispatch to the operation.
+     */
     public function handle(Request $request): Stringable|string
     {
         $url = $request['url'] ?? '';
@@ -54,6 +63,9 @@ class WebRequest extends BaseTool
         }
     }
 
+    /**
+     * Return the list of supported operation names.
+     */
     protected function operations(): array
     {
         return ['get', 'head', 'post', 'put', 'patch', 'delete'];
@@ -61,13 +73,17 @@ class WebRequest extends BaseTool
 
     // Operations
 
-    /** Send a GET request and return a formatted response. */
+    /**
+     * Send a GET request and return a formatted response.
+     */
     protected function get(Request $request): string
     {
         return $this->formatResponse($this->send('get', $request));
     }
 
-    /** Send a HEAD request and return status code and headers. */
+    /**
+     * Send a HEAD request and return the status code and headers.
+     */
     protected function head(Request $request): string
     {
         $response = $this->send('head', $request);
@@ -78,25 +94,33 @@ class WebRequest extends BaseTool
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
     }
 
-    /** Send a POST request and return a formatted response. */
+    /**
+     * Send a POST request and return a formatted response.
+     */
     protected function post(Request $request): string
     {
         return $this->formatResponse($this->send('post', $request));
     }
 
-    /** Send a PUT request and return a formatted response. */
+    /**
+     * Send a PUT request and return a formatted response.
+     */
     protected function put(Request $request): string
     {
         return $this->formatResponse($this->send('put', $request));
     }
 
-    /** Send a PATCH request and return a formatted response. */
+    /**
+     * Send a PATCH request and return a formatted response.
+     */
     protected function patch(Request $request): string
     {
         return $this->formatResponse($this->send('patch', $request));
     }
 
-    /** Send a DELETE request and return a formatted response. */
+    /**
+     * Send a DELETE request and return a formatted response.
+     */
     protected function delete(Request $request): string
     {
         return $this->formatResponse($this->send('delete', $request));

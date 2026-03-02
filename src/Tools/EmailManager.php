@@ -45,12 +45,18 @@ class EmailManager extends BaseTool
         };
     }
 
+    /**
+     * Return the tool description shown to the agent.
+     */
     public function description(): Stringable|string
     {
         return 'Manage email. Operations: ' . implode(', ', $this->operations())
             . '. Use inbox to list messages, read to view one, send/reply to compose, delete/move to organize, label to tag without removing from source folder, create_folder/delete_folder to manage folders. For move/label: set source_folder when the message is not in INBOX. Use the folders operation to list available folders.';
     }
 
+    /**
+     * Define the input schema for this tool.
+     */
     public function schema(JsonSchema $schema): array
     {
         return [
@@ -79,6 +85,9 @@ class EmailManager extends BaseTool
         ];
     }
 
+    /**
+     * Run the requested operation and catch any email exceptions as a string error.
+     */
     public function handle(Request $request): Stringable|string
     {
         try {
@@ -90,12 +99,17 @@ class EmailManager extends BaseTool
         }
     }
 
+    /**
+     * Return the list of supported operation names.
+     */
     protected function operations(): array
     {
         return ['inbox', 'read', 'send', 'reply', 'delete', 'move', 'label', 'mark_read', 'mark_unread', 'folders', 'create_folder', 'delete_folder'];
     }
 
-    /** List recent messages in a folder, with optional text and sender filters. */
+    /**
+     * List recent messages in a folder, with optional text and sender filters.
+     */
     protected function inbox(Request $request): string
     {
         $folder = $this->getFolder($request['folder'] ?? 'INBOX');
@@ -124,7 +138,9 @@ class EmailManager extends BaseTool
         return $result->toJson(JSON_PRETTY_PRINT);
     }
 
-    /** Fetch and return the full content of a single message by UID. */
+    /**
+     * Fetch and return the full content of a single message by UID.
+     */
     protected function read(Request $request): string
     {
         $uid = $request['uid'] ?? null;
@@ -163,7 +179,9 @@ class EmailManager extends BaseTool
         return json_encode($data, JSON_PRETTY_PRINT);
     }
 
-    /** Compose and send a new email. */
+    /**
+     * Compose and send a new email.
+     */
     protected function send(Request $request): string
     {
         $to = $request['to'] ?? null;
@@ -185,7 +203,9 @@ class EmailManager extends BaseTool
         return 'Email sent to ' . implode(', ', (array) $to) . " with subject \"{$subject}\".";
     }
 
-    /** Reply to an existing message and set the thread headers so it appears as a reply. */
+    /**
+     * Reply to an existing message and set the thread headers so it appears as a reply.
+     */
     protected function reply(Request $request): string
     {
         $uid = $request['uid'] ?? null;
@@ -230,7 +250,9 @@ class EmailManager extends BaseTool
         return 'Reply sent to ' . implode(', ', (array) $to) . " with subject \"{$subject}\".";
     }
 
-    /** Permanently delete one or more messages after user confirmation. */
+    /**
+     * Permanently delete one or more messages after user confirmation.
+     */
     protected function delete(Request $request): string
     {
         $uids = collect($request['uids'] ?: [$request['uid'] ?? null])->filter()->values()->all();
@@ -254,7 +276,9 @@ class EmailManager extends BaseTool
             ->implode('; ') . '.';
     }
 
-    /** Move a message from one folder to another. */
+    /**
+     * Move a message from one folder to another.
+     */
     protected function move(Request $request): string
     {
         $uid = $request['uid'] ?? null;
@@ -280,7 +304,9 @@ class EmailManager extends BaseTool
         return "Message {$uid} moved from {$sourceFolder} to {$destination}.";
     }
 
-    /** Copy a message to a label/folder while keeping it in the source folder. */
+    /**
+     * Copy a message to a label or folder while keeping it in the source folder.
+     */
     protected function label(Request $request): string
     {
         $uid = $request['uid'] ?? null;
@@ -306,7 +332,9 @@ class EmailManager extends BaseTool
         return "Label \"{$destination}\" applied to message {$uid} (message kept in {$sourceFolder}).";
     }
 
-    /** Mark a message as read by UID. */
+    /**
+     * Mark a message as read by UID.
+     */
     protected function markRead(Request $request): string
     {
         $uid = $request['uid'] ?? null;
@@ -326,7 +354,9 @@ class EmailManager extends BaseTool
         return "Message {$uid} marked as read.";
     }
 
-    /** Mark a message as unread by UID. */
+    /**
+     * Mark a message as unread by UID.
+     */
     protected function markUnread(Request $request): string
     {
         $uid = $request['uid'] ?? null;
@@ -346,7 +376,9 @@ class EmailManager extends BaseTool
         return "Message {$uid} marked as unread.";
     }
 
-    /** List all folders in the configured mailbox. */
+    /**
+     * List all folders in the configured mailbox.
+     */
     protected function folders(Request $request): string
     {
         $mailbox = Imap::mailbox($this->mailbox);
@@ -357,7 +389,9 @@ class EmailManager extends BaseTool
             ->toJson(JSON_PRETTY_PRINT);
     }
 
-    /** Create a new folder in the mailbox. */
+    /**
+     * Create a new folder in the mailbox.
+     */
     protected function createFolder(Request $request): string
     {
         $folder = $request['folder'] ?? null;
@@ -370,7 +404,9 @@ class EmailManager extends BaseTool
         return "Folder \"{$folder}\" created.";
     }
 
-    /** Delete one or more folders after user confirmation. */
+    /**
+     * Delete one or more folders after user confirmation.
+     */
     protected function deleteFolder(Request $request): string
     {
         $folders = collect($request['folders'] ?: [$request['folder'] ?? null])->filter()->values()->all();

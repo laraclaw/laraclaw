@@ -14,6 +14,9 @@ use Throwable;
  */
 class ReminderManager extends BaseTool
 {
+    /**
+     * Return the tool description shown to the agent.
+     */
     public function description(): Stringable|string
     {
         return 'Manage one-shot scheduled reminders. Operations: create, list, cancel. '
@@ -22,6 +25,9 @@ class ReminderManager extends BaseTool
             . 'Use cancel to delete a reminder by ID.';
     }
 
+    /**
+     * Define the input schema for this tool.
+     */
     public function schema(JsonSchema $schema): array
     {
         return [
@@ -33,6 +39,9 @@ class ReminderManager extends BaseTool
         ];
     }
 
+    /**
+     * Return the list of supported operation names.
+     */
     protected function operations(): array
     {
         return ['create', 'list', 'cancel'];

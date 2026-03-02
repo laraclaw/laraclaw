@@ -15,6 +15,9 @@ class UseSkill implements Tool
 {
     public function __construct(private SkillRegistry $registry) {}
 
+    /**
+     * Return the tool description shown to the agent, listing all available skills.
+     */
     public function description(): Stringable|string
     {
         $skills = $this->registry->all();
@@ -30,6 +33,9 @@ class UseSkill implements Tool
         return "Apply a specialized skill. Follow the returned instructions carefully. Available skills: {$list}";
     }
 
+    /**
+     * Define the input schema for this tool.
+     */
     public function schema(JsonSchema $schema): array
     {
         return [
@@ -37,6 +43,9 @@ class UseSkill implements Tool
         ];
     }
 
+    /**
+     * Look up the requested skill and return its prompt content.
+     */
     public function handle(Request $request): Stringable|string
     {
         $name = $request['skill'];

@@ -20,11 +20,17 @@ class TextToSpeech implements Tool
 {
     public function __construct(private Collection $attachments) {}
 
+    /**
+     * Return the tool description shown to the agent.
+     */
     public function description(): Stringable|string
     {
         return 'Convert text to speech. Use when the user asks you to reply with audio, send a voice message, or speak your response. The audio will be attached to your text reply automatically.';
     }
 
+    /**
+     * Define the input schema for this tool.
+     */
     public function schema(JsonSchema $schema): array
     {
         return [
@@ -34,6 +40,9 @@ class TextToSpeech implements Tool
         ];
     }
 
+    /**
+     * Generate speech audio from the given text and attach it to the reply.
+     */
     public function handle(Request $request): Stringable|string
     {
         $text = $request['text'] ?? null;

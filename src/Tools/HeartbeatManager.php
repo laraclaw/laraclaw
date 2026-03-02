@@ -13,6 +13,9 @@ use Stringable;
  */
 class HeartbeatManager extends BaseTool
 {
+    /**
+     * Return the tool description shown to the agent.
+     */
     public function description(): Stringable|string
     {
         return 'Manage recurring scheduled messages (heartbeats). Operations: create, list, cancel. '
@@ -23,6 +26,9 @@ class HeartbeatManager extends BaseTool
             . 'Use cancel to deactivate a heartbeat by ID.';
     }
 
+    /**
+     * Define the input schema for this tool.
+     */
     public function schema(JsonSchema $schema): array
     {
         return [
@@ -34,6 +40,9 @@ class HeartbeatManager extends BaseTool
         ];
     }
 
+    /**
+     * Return the list of supported operation names.
+     */
     protected function operations(): array
     {
         return ['create', 'list', 'cancel'];

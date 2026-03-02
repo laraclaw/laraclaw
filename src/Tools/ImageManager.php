@@ -22,6 +22,9 @@ class ImageManager extends BaseTool
 {
     public function __construct(protected Message $message, private ?Collection $attachments = null) {}
 
+    /**
+     * Return the tool description shown to the agent.
+     */
     public function description(): Stringable|string
     {
         $disks = implode(', ', config('laraclaw.filesystem.allowed_disks', []));
@@ -29,6 +32,9 @@ class ImageManager extends BaseTool
         return "Work with images: get info, resize, crop, orient, convert, optimize. Allowed disks: {$disks}. Operations: " . implode(', ', $this->operations()) . '. After any write operation (resize, crop, orient, convert, optimize) the resulting image is automatically sent to the user — do NOT say you cannot send files.';
     }
 
+    /**
+     * Define the input schema for this tool.
+     */
     public function schema(JsonSchema $schema): array
     {
         return [
@@ -43,6 +49,9 @@ class ImageManager extends BaseTool
         ];
     }
 
+    /**
+     * Validate disk access, load the image, dispatch to the operation, and queue the result for the reply.
+     */
     public function handle(Request $request): Stringable|string
     {
         if ($error = $this->validateDiskAccess($request['disk'], $request['path'])) {
@@ -98,7 +107,11 @@ class ImageManager extends BaseTool
         return $result;
     }
 
-    /** @return string[] */
+    /**
+     * Return the list of supported operation names.
+     *
+     * @return string[]
+     */
     protected function operations(): array
     {
         return ['info', 'resize', 'crop', 'orient', 'convert', 'optimize'];

@@ -16,6 +16,9 @@ class Persona implements Tool
 {
     public function __construct(private ?Conversation $conversation = null) {}
 
+    /**
+     * Return the tool description shown to the agent, listing all available personas.
+     */
     public function description(): Stringable|string
     {
         $available = collect($this->availablePersonas());
@@ -27,6 +30,9 @@ class Persona implements Tool
         return "Manage the bot persona for this conversation. {$list}. Operations: list, switch, clear.";
     }
 
+    /**
+     * Define the input schema for this tool.
+     */
     public function schema(JsonSchema $schema): array
     {
         return [
@@ -35,6 +41,9 @@ class Persona implements Tool
         ];
     }
 
+    /**
+     * Route the operation to list, switch, or clear.
+     */
     public function handle(Request $request): Stringable|string
     {
         $operation = $request['operation'];
@@ -92,7 +101,11 @@ class Persona implements Tool
         return "Persona cleared.{$fallback} Revert to your default behaviour for the rest of this conversation.";
     }
 
-    /** @return string[] */
+    /**
+     * Return the names of all persona files found in the configured personas directory.
+     *
+     * @return string[]
+     */
     private function availablePersonas(): array
     {
         $path = config('laraclaw.personas.path');

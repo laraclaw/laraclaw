@@ -46,6 +46,9 @@ class CalendarManager extends BaseTool
         ];
     }
 
+    /**
+     * Run the requested operation and catch any calendar driver exceptions as a string error.
+     */
     public function handle(Request $request): Stringable|string
     {
         try {
@@ -55,6 +58,9 @@ class CalendarManager extends BaseTool
         }
     }
 
+    /**
+     * Return the list of supported operation names.
+     */
     protected function operations(): array
     {
         return ['list', 'create', 'update', 'delete'];
