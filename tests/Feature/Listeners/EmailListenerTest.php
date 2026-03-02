@@ -1,15 +1,15 @@
 <?php
 
-if (! class_exists(\DirectoryTree\ImapEngine\Laravel\Events\MessageReceived::class)) {
-    return; // Skip entire file when the optional package is not installed
-}
-
 use DirectoryTree\ImapEngine\Laravel\Events\MessageReceived;
 use DirectoryTree\ImapEngine\MessageInterface;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
 use LaraClaw\Jobs\ProcessMessage;
 use LaraClaw\Listeners\EmailListener;
+
+if (! class_exists(MessageReceived::class)) {
+    return; // Skip entire file when the optional package is not installed
+}
 
 function makeRawEmail(string $from, string $subject = 'Hello', string $authResults = 'dkim=pass spf=pass'): MessageInterface
 {
