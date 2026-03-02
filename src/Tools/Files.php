@@ -167,16 +167,20 @@ class Files extends BaseTool
 
         return collect($paths)
             ->map(function ($p) use ($storage) {
-                if ($storage->exists($p)) {
+                if ($storage->fileExists($p)) {
                     $storage->delete($p);
 
-                    return "{$p}: deleted";
+                    return $storage->fileExists($p)
+                        ? "{$p}: failed to delete file"
+                        : "{$p}: deleted";
                 }
 
                 if ($storage->directoryExists($p)) {
                     $storage->deleteDirectory($p);
 
-                    return "{$p}: deleted";
+                    return $storage->directoryExists($p)
+                        ? "{$p}: failed to delete directory"
+                        : "{$p}: deleted";
                 }
 
                 return "{$p}: not found";
