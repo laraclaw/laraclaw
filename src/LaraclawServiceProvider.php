@@ -44,85 +44,11 @@ class LaraclawServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(__DIR__ . '/../config/laraclaw.php', 'laraclaw');
 
-        // Register a dedicated blocking Redis connection for ChecksRedisForConfirmations::confirm() blpop calls.
-        // read_write_timeout = -1 prevents Predis from timing out before blpop returns.
-        $this->app->booting(function () {
-            $default = config('database.redis.default', []);
-            config(['database.redis.laraclaw-blocking' => array_merge($default, ['read_write_timeout' => -1])]);
-        });
-
-        $this->app->singleton(CommandRegistry::class, function () {
-            $registry = new CommandRegistry;
-            $registry->register(new NewConversation);
-
-            return $registry;
-        });
-
-        $this->app->singleton(SkillRegistry::class, function () {
-            return new SkillRegistry(config('laraclaw.skills.path', base_path('laraclaw/skills')));
-        });
-
-        $this->app->singleton(ToolRegistry::class, fn () => new ToolRegistry);
-
-        $this->app->booting(function () {
-            config()->set('nutgram.token', config('laraclaw.channels.telegram.token'));
-            config()->set('nutgram.config.timeout', 120);
-        });
-
-        $this->app->resolving(Nutgram::class, function (Nutgram $bot) {
-            $bot->onMessage(fn (Nutgram $bot) => event(new TelegramMessageReceived($bot->message(), $bot)));
-        });
-
-        if (config('laraclaw.channels.email.enabled')) {
-            $smtp = config('laraclaw.channels.email.smtp');
-            if ($smtp['host']) {
-                config([
-                    'mail.default' => 'smtp',
-                    'mail.mailers.smtp.host' => $smtp['host'],
-                    'mail.mailers.smtp.port' => $smtp['port'],
-                    'mail.mailers.smtp.encryption' => $smtp['encryption'],
-                    'mail.mailers.smtp.username' => $smtp['username'],
-                    'mail.mailers.smtp.password' => $smtp['password'],
-                    'mail.from.address' => $smtp['from_address'],
-                    'mail.from.name' => $smtp['from_name'],
-                ]);
-            }
-
-            $imap = config('laraclaw.channels.email.imap');
-            $mailbox = config('laraclaw.channels.email.imap.mailbox', 'default');
-            if ($imap['host']) {
-                config([
-                    "imap.mailboxes.{$mailbox}.host" => $imap['host'],
-                    "imap.mailboxes.{$mailbox}.port" => $imap['port'],
-                    "imap.mailboxes.{$mailbox}.encryption" => $imap['encryption'],
-                    "imap.mailboxes.{$mailbox}.username" => $imap['username'],
-                    "imap.mailboxes.{$mailbox}.password" => $imap['password'],
-                ]);
-            }
-        }
-
-        if (config('laraclaw.tools.calendar_manager.driver') === 'google') {
-            config([
-                'google-calendar.default_auth_profile' => 'oauth',
-                'google-calendar.auth_profiles.oauth.credentials_json' => config('laraclaw.tools.calendar_manager.google.credentials_json'),
-                'google-calendar.auth_profiles.oauth.token_json' => config('laraclaw.tools.calendar_manager.google.token_json'),
-                'google-calendar.calendar_id' => config('laraclaw.tools.calendar_manager.google.calendar_id'),
-            ]);
-        }
-
-        $this->app->singleton(CalendarDriver::class, function () {
-            return match (config('laraclaw.tools.calendar_manager.driver')) {
-                'google' => new GoogleCalendarDriver,
-                'apple' => new AppleCalendarDriver(
-                    server: config('laraclaw.tools.calendar_manager.apple.server'),
-                    username: config('laraclaw.tools.calendar_manager.apple.username'),
-                    password: config('laraclaw.tools.calendar_manager.apple.password'),
-                    calendar: config('laraclaw.tools.calendar_manager.apple.calendar'),
-                ),
-                null => null,
-                default => throw new RuntimeException('Unknown calendar driver: ' . config('laraclaw.tools.calendar_manager.driver')),
-            };
-        });
+        $this->registerBlockingRedisConnection();
+        $this->registerCoreSingletons();
+        $this->configureTelegramChannel();
+        $this->configureEmailChannel();
+        $this->registerCalendarDriver();
     }
 
     /**
@@ -147,49 +73,10 @@ class LaraclawServiceProvider extends ServiceProvider
             __DIR__ . '/../resources' => resource_path('laraclaw'),
         ], 'laraclaw');
 
-        if (config('laraclaw.channels.email.enabled')) {
-            Event::listen(MessageReceived::class, EmailListener::class);
-        }
-
-        if (config('laraclaw.channels.telegram.enabled')) {
-            Event::listen(TelegramMessageReceived::class, TelegramListener::class);
-        }
-
-        Event::listen(AgentPrompted::class, LogAgentRequest::class);
-
-        $this->commands([
-            GoogleCalendarAuth::class,
-            ChannelAddCommand::class,
-            SendReminders::class,
-            ProcessHeartbeats::class,
-            SetupWizard::class,
-            Chat::class,
-        ]);
-
-        $this->callAfterResolving(Schedule::class, function (Schedule $schedule) {
-            $schedule->command(SendReminders::class)->everyMinute();
-            $schedule->command(ProcessHeartbeats::class)->everyMinute();
-        });
-
-        if (config('laraclaw.tools.calendar_manager.driver') === 'google') {
-            $this->app->extend(GoogleCalendar::class, function (GoogleCalendar $calendar) {
-                $client = $calendar->getService()->getClient();
-                $tokenPath = config('laraclaw.tools.calendar_manager.google.token_json');
-
-                if ($client->isAccessTokenExpired() && $client->getRefreshToken()) {
-                    $client->fetchAccessTokenWithRefreshToken($client->getRefreshToken());
-                    $encoded = json_encode($client->getAccessToken());
-                    if ($encoded !== false) {
-                        $written = file_put_contents($tokenPath, $encoded);
-                        if ($written === false) {
-                            Log::warning('Failed to write Google OAuth token', ['path' => $tokenPath]);
-                        }
-                    }
-                }
-
-                return $calendar;
-            });
-        }
+        $this->registerEventListeners();
+        $this->registerCommands();
+        $this->registerScheduler();
+        $this->extendGoogleCalendarToken();
     }
 
     /**
@@ -238,5 +125,187 @@ class LaraclawServiceProvider extends ServiceProvider
                 'LaraClaw: LARACLAW_SLACK_SIGNING_SECRET must be set when the Slack channel is enabled.'
             );
         }
+    }
+
+    /**
+     * Register a dedicated blocking Redis connection used by blpop in the confirmation flow.
+     *
+     * Setting read_write_timeout to -1 prevents Predis from timing out before blpop returns.
+     */
+    private function registerBlockingRedisConnection(): void
+    {
+        $this->app->booting(function () {
+            $default = config('database.redis.default', []);
+            config(['database.redis.laraclaw-blocking' => array_merge($default, ['read_write_timeout' => -1])]);
+        });
+    }
+
+    /**
+     * Bind the CommandRegistry, SkillRegistry, and ToolRegistry singletons.
+     */
+    private function registerCoreSingletons(): void
+    {
+        $this->app->singleton(CommandRegistry::class, function () {
+            $registry = new CommandRegistry;
+            $registry->register(new NewConversation);
+
+            return $registry;
+        });
+
+        $this->app->singleton(SkillRegistry::class, function () {
+            return new SkillRegistry(config('laraclaw.skills.path', base_path('laraclaw/skills')));
+        });
+
+        $this->app->singleton(ToolRegistry::class, fn () => new ToolRegistry);
+    }
+
+    /**
+     * Push the Telegram token into the Nutgram config and wire up the message event.
+     */
+    private function configureTelegramChannel(): void
+    {
+        $this->app->booting(function () {
+            config()->set('nutgram.token', config('laraclaw.channels.telegram.token'));
+            config()->set('nutgram.config.timeout', 120);
+        });
+
+        $this->app->resolving(Nutgram::class, function (Nutgram $bot) {
+            $bot->onMessage(fn (Nutgram $bot) => event(new TelegramMessageReceived($bot->message(), $bot)));
+        });
+    }
+
+    /**
+     * Copy email SMTP and IMAP credentials from the LaraClaw config into Laravel's mail and IMAP configs.
+     */
+    private function configureEmailChannel(): void
+    {
+        if (! config('laraclaw.channels.email.enabled')) {
+            return;
+        }
+
+        $smtp = config('laraclaw.channels.email.smtp');
+        if ($smtp['host']) {
+            config([
+                'mail.default' => 'smtp',
+                'mail.mailers.smtp.host' => $smtp['host'],
+                'mail.mailers.smtp.port' => $smtp['port'],
+                'mail.mailers.smtp.encryption' => $smtp['encryption'],
+                'mail.mailers.smtp.username' => $smtp['username'],
+                'mail.mailers.smtp.password' => $smtp['password'],
+                'mail.from.address' => $smtp['from_address'],
+                'mail.from.name' => $smtp['from_name'],
+            ]);
+        }
+
+        $imap = config('laraclaw.channels.email.imap');
+        $mailbox = config('laraclaw.channels.email.imap.mailbox', 'default');
+        if ($imap['host']) {
+            config([
+                "imap.mailboxes.{$mailbox}.host" => $imap['host'],
+                "imap.mailboxes.{$mailbox}.port" => $imap['port'],
+                "imap.mailboxes.{$mailbox}.encryption" => $imap['encryption'],
+                "imap.mailboxes.{$mailbox}.username" => $imap['username'],
+                "imap.mailboxes.{$mailbox}.password" => $imap['password'],
+            ]);
+        }
+    }
+
+    /**
+     * Configure the Google Calendar package when the Google driver is selected, then bind the CalendarDriver singleton.
+     */
+    private function registerCalendarDriver(): void
+    {
+        if (config('laraclaw.tools.calendar_manager.driver') === 'google') {
+            config([
+                'google-calendar.default_auth_profile' => 'oauth',
+                'google-calendar.auth_profiles.oauth.credentials_json' => config('laraclaw.tools.calendar_manager.google.credentials_json'),
+                'google-calendar.auth_profiles.oauth.token_json' => config('laraclaw.tools.calendar_manager.google.token_json'),
+                'google-calendar.calendar_id' => config('laraclaw.tools.calendar_manager.google.calendar_id'),
+            ]);
+        }
+
+        $this->app->singleton(CalendarDriver::class, function () {
+            return match (config('laraclaw.tools.calendar_manager.driver')) {
+                'google' => new GoogleCalendarDriver,
+                'apple' => new AppleCalendarDriver(
+                    server: config('laraclaw.tools.calendar_manager.apple.server'),
+                    username: config('laraclaw.tools.calendar_manager.apple.username'),
+                    password: config('laraclaw.tools.calendar_manager.apple.password'),
+                    calendar: config('laraclaw.tools.calendar_manager.apple.calendar'),
+                ),
+                null => null,
+                default => throw new RuntimeException('Unknown calendar driver: ' . config('laraclaw.tools.calendar_manager.driver')),
+            };
+        });
+    }
+
+    /**
+     * Register event listeners for each enabled channel and for agent request logging.
+     */
+    private function registerEventListeners(): void
+    {
+        if (config('laraclaw.channels.email.enabled')) {
+            Event::listen(MessageReceived::class, EmailListener::class);
+        }
+
+        if (config('laraclaw.channels.telegram.enabled')) {
+            Event::listen(TelegramMessageReceived::class, TelegramListener::class);
+        }
+
+        Event::listen(AgentPrompted::class, LogAgentRequest::class);
+    }
+
+    /**
+     * Register all Artisan commands provided by this package.
+     */
+    private function registerCommands(): void
+    {
+        $this->commands([
+            GoogleCalendarAuth::class,
+            ChannelAddCommand::class,
+            SendReminders::class,
+            ProcessHeartbeats::class,
+            SetupWizard::class,
+            Chat::class,
+        ]);
+    }
+
+    /**
+     * Schedule the reminder and heartbeat commands to run every minute.
+     */
+    private function registerScheduler(): void
+    {
+        $this->callAfterResolving(Schedule::class, function (Schedule $schedule) {
+            $schedule->command(SendReminders::class)->everyMinute();
+            $schedule->command(ProcessHeartbeats::class)->everyMinute();
+        });
+    }
+
+    /**
+     * Extend the GoogleCalendar binding to refresh an expired OAuth token and persist it to disk.
+     */
+    private function extendGoogleCalendarToken(): void
+    {
+        if (config('laraclaw.tools.calendar_manager.driver') !== 'google') {
+            return;
+        }
+
+        $this->app->extend(GoogleCalendar::class, function (GoogleCalendar $calendar) {
+            $client = $calendar->getService()->getClient();
+            $tokenPath = config('laraclaw.tools.calendar_manager.google.token_json');
+
+            if ($client->isAccessTokenExpired() && $client->getRefreshToken()) {
+                $client->fetchAccessTokenWithRefreshToken($client->getRefreshToken());
+                $encoded = json_encode($client->getAccessToken());
+                if ($encoded !== false) {
+                    $written = file_put_contents($tokenPath, $encoded);
+                    if ($written === false) {
+                        Log::warning('Failed to write Google OAuth token', ['path' => $tokenPath]);
+                    }
+                }
+            }
+
+            return $calendar;
+        });
     }
 }
