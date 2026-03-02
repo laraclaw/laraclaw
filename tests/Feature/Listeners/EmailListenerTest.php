@@ -1,5 +1,9 @@
 <?php
 
+if (! class_exists(\DirectoryTree\ImapEngine\Laravel\Events\MessageReceived::class)) {
+    return; // Skip entire file when the optional package is not installed
+}
+
 use DirectoryTree\ImapEngine\Laravel\Events\MessageReceived;
 use DirectoryTree\ImapEngine\MessageInterface;
 use Illuminate\Support\Facades\Log;

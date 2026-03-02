@@ -37,8 +37,9 @@
         "sort-packages": true
     },
     "require-dev": {
+        "directorytree/imapengine-laravel": "^1.0",
         "mockery/mockery": "^1.6",
-        "orchestra/testbench": "^9.0",
+        "orchestra/testbench": "^10.0",
         "pestphp/pest": "^3.0",
         "pestphp/pest-plugin-laravel": "^3.0",
         "tightenco/duster": "^3.3"

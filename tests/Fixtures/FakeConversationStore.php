@@ -6,8 +6,8 @@ use Illuminate\Support\Str;
 use Laravel\Ai\Contracts\ConversationStore;
 
 /**
- * In-memory ConversationStore stub. Always returns null for lookups so tests
- * start with a fresh context, and hands back a UUID on store calls.
+ * In-memory ConversationStore stub. Stores conversation IDs per user and returns
+ * the last stored ID on lookup, or null if none has been stored yet.
  */
 class FakeConversationStore implements ConversationStore
 {

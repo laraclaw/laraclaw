@@ -1,5 +1,6 @@
 <?php
 
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Queue;
 use LaraClaw\Console\Commands\ProcessHeartbeats;
 use LaraClaw\Jobs\SendHeartbeat;
@@ -28,6 +29,9 @@ it('dispatches SendHeartbeat immediately when last_run_at is null', function () 
 });
 
 it('dispatches SendHeartbeat when the next scheduled time has passed', function () {
+    // Freeze to Monday 2024-01-08 at 10:00 — next run after last Monday's 9am has elapsed
+    $this->travelTo(Carbon::create(2024, 1, 8, 10, 0, 0));
+
     Heartbeat::create([
         'user_id' => $this->user->id,
         'channel' => 'telegram',
@@ -35,7 +39,7 @@ it('dispatches SendHeartbeat when the next scheduled time has passed', function 
         'message' => 'Weekly check-in',
         'cron' => '0 9 * * 1',  // Every Monday at 9am
         'is_active' => true,
-        'last_run_at' => now()->subWeek()->subHour(),  // Last ran over a week ago
+        'last_run_at' => Carbon::create(2024, 1, 1, 9, 0, 0),  // Previous Monday at 9am
     ]);
 
     $this->artisan(ProcessHeartbeats::class);
@@ -44,6 +48,9 @@ it('dispatches SendHeartbeat when the next scheduled time has passed', function 
 });
 
 it('does not dispatch when the next scheduled time has not yet passed', function () {
+    // Freeze to 2024-01-08 at 08:00 — next 9am run is still one hour away
+    $this->travelTo(Carbon::create(2024, 1, 8, 8, 0, 0));
+
     Heartbeat::create([
         'user_id' => $this->user->id,
         'channel' => 'telegram',
@@ -51,7 +58,7 @@ it('does not dispatch when the next scheduled time has not yet passed', function
         'message' => 'Daily digest',
         'cron' => '0 9 * * *',  // Every day at 9am
         'is_active' => true,
-        'last_run_at' => now()->subMinutes(30),  // Ran 30 min ago — not due yet today
+        'last_run_at' => Carbon::create(2024, 1, 7, 9, 0, 0),  // Yesterday at 9am; next run is today at 9am
     ]);
 
     $this->artisan(ProcessHeartbeats::class);
