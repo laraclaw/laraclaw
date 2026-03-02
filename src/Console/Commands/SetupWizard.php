@@ -250,7 +250,17 @@ class SetupWizard extends Command
             'LARACLAW_GOOGLE_TOKEN_JSON' => $tokenPath,
         ]);
 
-        $this->info('Run `php artisan laraclaw:google-calendar-auth` to complete the OAuth flow.');
+        $choice = select(
+            label: 'Complete Google OAuth setup?',
+            options: [
+                'now' => 'Run the OAuth flow now',
+                'later' => 'Later — run php artisan laraclaw:google-calendar-auth',
+            ],
+        );
+
+        if ($choice === 'now') {
+            $this->call('laraclaw:google-calendar-auth');
+        }
     }
 
     private function setupAppleCalendar(): void
