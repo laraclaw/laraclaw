@@ -23,6 +23,9 @@ return [
         'agent_requests' => env('LARACLAW_LOG_AGENT_REQUESTS', false),
     ],
 
+    // Max webhook requests per conversation per minute (0 = disabled)
+    'webhook_rate_limit' => env('LARACLAW_WEBHOOK_RATE_LIMIT', 20),
+
     'tools' => [
         'tts' => [
             'enabled' => env('LARACLAW_TTS_ENABLED', false),

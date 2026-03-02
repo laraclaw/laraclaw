@@ -5,9 +5,11 @@ use LaraClaw\Http\Controllers\SlackController;
 use SergiX44\Nutgram\Nutgram;
 
 if (config('laraclaw.channels.telegram.enabled')) {
-    Route::post('telegram/webhook', fn (Nutgram $bot) => $bot->run());
+    Route::post('telegram/webhook', fn (Nutgram $bot) => $bot->run())
+        ->middleware('throttle:laraclaw-telegram');
 }
 
 if (config('laraclaw.channels.slack.enabled')) {
-    Route::post('slack/webhook', SlackController::class)->middleware('slack.signature');
+    Route::post('slack/webhook', SlackController::class)
+        ->middleware(['slack.signature', 'throttle:laraclaw-slack']);
 }

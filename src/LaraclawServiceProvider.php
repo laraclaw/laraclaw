@@ -3,9 +3,12 @@
 namespace LaraClaw;
 
 use DirectoryTree\ImapEngine\Laravel\Events\MessageReceived;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use LaraClaw\Calendar\AppleCalendarDriver;
 use LaraClaw\Calendar\Contracts\CalendarDriver;
@@ -129,6 +132,8 @@ class LaraclawServiceProvider extends ServiceProvider
             $this->validateConfiguration();
         }
 
+        $this->configureRateLimiting();
+
         $this->loadRoutesFrom(__DIR__ . '/../routes/laraclaw.php');
         $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
 
@@ -176,6 +181,33 @@ class LaraclawServiceProvider extends ServiceProvider
                 return $calendar;
             });
         }
+    }
+
+    /**
+     * Register named rate limiters for each webhook route, keyed by conversation.
+     */
+    private function configureRateLimiting(): void
+    {
+        $perMinute = (int) config('laraclaw.webhook_rate_limit', 20);
+
+        if ($perMinute <= 0) {
+            return;
+        }
+
+        RateLimiter::for('laraclaw-slack', function (Request $request) use ($perMinute) {
+            $event = $request->input('event', []);
+            $key = ($event['channel'] ?? 'unknown') . ':' . ($event['user'] ?? 'bot');
+
+            return Limit::perMinute($perMinute)->by('slack:' . $key);
+        });
+
+        RateLimiter::for('laraclaw-telegram', function (Request $request) use ($perMinute) {
+            $chatId = $request->input('message.chat.id')
+                ?? $request->input('channel_post.chat.id')
+                ?? 'unknown';
+
+            return Limit::perMinute($perMinute)->by('telegram:' . $chatId);
+        });
     }
 
     /**
