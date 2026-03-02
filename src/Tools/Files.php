@@ -55,7 +55,7 @@ class Files extends BaseTool
 
         $destination = $request['destination'] ?? null;
 
-        if ($destination !== null && str_contains($destination, '..')) {
+        if ($destination !== null && $this->pathEscapesDisk($request['disk'], $destination)) {
             return 'Path traversal is not allowed.';
         }
 
@@ -148,7 +148,7 @@ class Files extends BaseTool
         }
 
         foreach ($paths as $p) {
-            if (str_contains($p, '..')) {
+            if ($this->pathEscapesDisk($request['disk'], $p)) {
                 return 'Path traversal is not allowed.';
             }
             if ($this->isProtectedPath($p)) {

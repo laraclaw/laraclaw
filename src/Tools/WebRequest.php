@@ -177,22 +177,87 @@ class WebRequest extends BaseTool
     }
 
     /**
-     * Return true if the URL resolves to a private or reserved IP address.
+     * Return true if the URL resolves to any private or reserved IP address.
+     *
+     * Resolves ALL DNS records so a single public-IP answer cannot hide a private
+     * one (DNS rebinding defence). Blocks on every redirect URL too — see send().
      */
     private function isPrivateUrl(string $url): bool
     {
         $host = parse_url($url, PHP_URL_HOST);
 
-        if ($host === null) {
+        if ($host === null || $host === '') {
             return true;
         }
 
-        if (in_array($host, ['localhost', '127.0.0.1', '0.0.0.0', '[::1]'], true)) {
-            return true;
+        $host = trim($host, '[]'); // strip IPv6 brackets
+
+        $ips = [];
+
+        foreach (dns_get_record($host, DNS_A) ?: [] as $r) {
+            if (isset($r['ip'])) {
+                $ips[] = $r['ip'];
+            }
         }
 
-        $ip = gethostbyname($host);
+        foreach (dns_get_record($host, DNS_AAAA) ?: [] as $r) {
+            if (isset($r['ipv6'])) {
+                $ips[] = $r['ipv6'];
+            }
+        }
 
-        return $ip !== $host && ! filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE);
+        // No DNS records — may be a raw IP literal; fall back to gethostbyname()
+        if (empty($ips)) {
+            $resolved = gethostbyname($host);
+            $ips[] = $resolved !== $host ? $resolved : $host;
+        }
+
+        foreach ($ips as $ip) {
+            if ($this->isPrivateIp($ip)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Return true if $ip falls within any loopback, private, or link-local range.
+     * Uses binary prefix comparisons via inet_pton() so it handles both IPv4 and IPv6.
+     */
+    private function isPrivateIp(string $ip): bool
+    {
+        $packed = inet_pton($ip);
+
+        if ($packed === false) {
+            return true; // unparseable — block
+        }
+
+        if (strlen($packed) === 4) {
+            $n = unpack('N', $packed)[1];
+
+            return
+                ($n & 0xFF000000) === 0x7F000000 || // 127.0.0.0/8  loopback
+                ($n & 0xFF000000) === 0x0A000000 || // 10.0.0.0/8
+                ($n & 0xFFF00000) === 0xAC100000 || // 172.16.0.0/12
+                ($n & 0xFFFF0000) === 0xC0A80000 || // 192.168.0.0/16
+                ($n & 0xFFFF0000) === 0xA9FE0000 || // 169.254.0.0/16 link-local
+                $n === 0x00000000;                   // 0.0.0.0
+        }
+
+        // IPv6
+        if ($packed === "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01") {
+            return true; // ::1 loopback
+        }
+
+        if ((ord($packed[0]) & 0xFE) === 0xFC) {
+            return true; // fc00::/7 unique local
+        }
+
+        if (ord($packed[0]) === 0xFE && (ord($packed[1]) & 0xC0) === 0x80) {
+            return true; // fe80::/10 link-local
+        }
+
+        return false;
     }
 }

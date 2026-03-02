@@ -11,7 +11,6 @@ use LaraClaw\Calendar\AppleCalendarDriver;
 use LaraClaw\Calendar\Contracts\CalendarDriver;
 use LaraClaw\Calendar\GoogleCalendarDriver;
 use LaraClaw\Commands\CommandRegistry;
-use LaraClaw\Tools\ToolRegistry;
 use LaraClaw\Commands\NewConversation;
 use LaraClaw\Console\Commands\ChannelAddCommand;
 use LaraClaw\Console\Commands\GoogleCalendarAuth;
@@ -23,6 +22,7 @@ use LaraClaw\Http\Middleware\VerifySlackSignature;
 use LaraClaw\Listeners\EmailListener;
 use LaraClaw\Listeners\LogAgentRequest;
 use LaraClaw\Listeners\TelegramListener;
+use LaraClaw\Tools\ToolRegistry;
 use Laravel\Ai\Events\AgentPrompted;
 use RuntimeException;
 use Spatie\GoogleCalendar\GoogleCalendar;
@@ -189,6 +189,12 @@ class LaraclawServiceProvider extends ServiceProvider
         if ($needsOwner && ! config('laraclaw.auth.admin_user_id')) {
             throw new RuntimeException(
                 'LaraClaw: LARACLAW_ADMIN_USER_ID must be set when Telegram or Slack channels are enabled.'
+            );
+        }
+
+        if (config('laraclaw.channels.slack.enabled') && empty(config('laraclaw.channels.slack.signing_secret'))) {
+            throw new RuntimeException(
+                'LaraClaw: LARACLAW_SLACK_SIGNING_SECRET must be set when the Slack channel is enabled.'
             );
         }
     }

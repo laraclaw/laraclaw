@@ -2,6 +2,7 @@
 
 namespace LaraClaw\Tests;
 
+use DB;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Facades\Schema;
@@ -13,6 +14,14 @@ use Orchestra\Testbench\TestCase as BaseTestCase;
 
 abstract class TestCase extends BaseTestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Override ConversationStore so no real AI conversation DB is needed
+        $this->app->instance(ConversationStore::class, new FakeConversationStore);
+    }
+
     protected function getPackageProviders($app): array
     {
         return [AiServiceProvider::class, LaraclawServiceProvider::class];
@@ -48,17 +57,9 @@ abstract class TestCase extends BaseTestCase
         $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
     }
 
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        // Override ConversationStore so no real AI conversation DB is needed
-        $this->app->instance(ConversationStore::class, new FakeConversationStore);
-    }
-
     protected function createUser(array $attributes = []): User
     {
-        $id = \DB::table('users')->insertGetId(array_merge([
+        $id = DB::table('users')->insertGetId(array_merge([
             'name' => 'Test User',
             'email' => 'test-' . uniqid() . '@example.com',
             'created_at' => now(),

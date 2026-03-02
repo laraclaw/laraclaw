@@ -15,8 +15,8 @@ use LaraClaw\Tools\ImageManager;
 use LaraClaw\Tools\Persona;
 use LaraClaw\Tools\ReminderManager;
 use LaraClaw\Tools\TextToSpeech;
-use LaraClaw\Tools\UseSkill;
 use LaraClaw\Tools\ToolRegistry;
+use LaraClaw\Tools\UseSkill;
 use LaraClaw\Tools\WebRequest;
 use Laravel\Ai\Ai;
 use Laravel\Ai\Concerns\RemembersConversations;
@@ -104,9 +104,19 @@ class ChatBotAgent implements Agent, Conversational, HasTools
             return '';
         }
 
-        $path = config('laraclaw.personas.path') . '/' . basename($persona) . '.md';
+        $personasPath = config('laraclaw.personas.path');
+        $allowed = array_map(
+            fn ($f) => pathinfo($f, PATHINFO_FILENAME),
+            glob($personasPath . '/*.md') ?: [],
+        );
 
-        return file_exists($path) ? file_get_contents($path) : '';
+        $stem = basename($persona);
+
+        if (! in_array($stem, $allowed, true)) {
+            return '';
+        }
+
+        return file_get_contents($personasPath . '/' . $stem . '.md');
     }
 
     /**

@@ -79,7 +79,7 @@ abstract class BaseTool implements Tool
     }
 
     /**
-     * Validate that the requested disk is allowed and the path contains no traversal sequences.
+     * Validate that the requested disk is allowed and the path stays within the disk root.
      * Returns an error string, or null if access is permitted.
      */
     protected function validateDiskAccess(string $disk, string $path): ?string
@@ -90,11 +90,38 @@ abstract class BaseTool implements Tool
             return "Disk '{$disk}' is not allowed. Allowed disks: " . implode(', ', $allowed);
         }
 
-        if (str_contains($path, '..')) {
+        if ($this->pathEscapesDisk($disk, $path)) {
             return 'Path traversal is not allowed.';
         }
 
         return null;
+    }
+
+    /**
+     * Return true if $path resolves outside the disk root.
+     *
+     * For existing paths uses realpath() so symlinks cannot escape the root.
+     * For paths not yet on disk, manually normalises the candidate so that
+     * write/mkdir operations are also protected.
+     */
+    protected function pathEscapesDisk(string $disk, string $path): bool
+    {
+        $root = config("filesystems.disks.{$disk}.root");
+
+        if (! $root) {
+            return str_contains($path, '..');
+        }
+
+        $root = rtrim($root, '/');
+        $candidate = $root . '/' . ltrim($path, '/');
+
+        $real = realpath($candidate);
+
+        if ($real !== false) {
+            return ! str_starts_with($real, $root . '/') && $real !== $root;
+        }
+
+        return ! str_starts_with($this->normalizePath($candidate), $root . '/');
     }
 
     /**
@@ -128,5 +155,27 @@ abstract class BaseTool implements Tool
         $attachmentsPath = config('laraclaw.filesystem.attachments_path', 'attachments');
 
         return $normalized === $attachmentsPath || str_starts_with($normalized, $attachmentsPath . '/');
+    }
+
+    /**
+     * Collapse . and .. segments without touching the filesystem.
+     */
+    private function normalizePath(string $path): string
+    {
+        $parts = explode('/', str_replace('\\', '/', $path));
+        $result = [];
+
+        foreach ($parts as $part) {
+            if ($part === '' || $part === '.') {
+                continue;
+            }
+            if ($part === '..') {
+                array_pop($result);
+            } else {
+                $result[] = $part;
+            }
+        }
+
+        return '/' . implode('/', $result);
     }
 }

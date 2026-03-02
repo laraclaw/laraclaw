@@ -71,7 +71,9 @@ class SlackController extends Controller
         if (! $message->conversationIsDirectMessage) {
             $botUserId = config('laraclaw.channels.slack.bot_user_id');
 
-            if (! $botUserId || ! str_contains($message->text ?? '', "<@{$botUserId}>")) {
+            if (! $botUserId) {
+                $bail = 'BOT_USER_NOT_CONFIGURED';
+            } elseif (! str_contains($message->text ?? '', "<@{$botUserId}>")) {
                 $bail = 'NOT_MENTIONED';
             }
         }
