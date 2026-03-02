@@ -126,7 +126,7 @@ class ImageManager extends BaseTool
     }
 
     /**
-     * Resize an image to the given width and/or height (aspect ratio preserved for single-dimension).
+     * Resize an image to the given width and/or height. Aspect ratio is preserved when only one dimension is provided.
      */
     protected function resize(Filesystem $storage, string $path, string $targetPath, ?int $width, ?int $height): string
     {
@@ -245,7 +245,7 @@ class ImageManager extends BaseTool
     }
 
     /**
-     * Re-save an image at the specified quality level to reduce file size.
+     * Save the image again at a lower quality level to reduce file size.
      */
     protected function optimize(Filesystem $storage, string $path, string $targetPath, ?int $quality): string
     {
@@ -280,7 +280,7 @@ class ImageManager extends BaseTool
     }
 
     /**
-     * Insert a suffix before the file extension in a path (e.g. "img.jpg" → "img_resized.jpg").
+     * Insert a suffix before the file extension in a path, for example turning img.jpg into img_resized.jpg.
      */
     private function suffixedPath(string $path, string $suffix): string
     {

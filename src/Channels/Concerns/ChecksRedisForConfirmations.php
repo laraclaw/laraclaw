@@ -27,9 +27,9 @@ trait ChecksRedisForConfirmations
             return false;
         }
 
-        // A confirmation is pending, so we push the message text into the queue for
-        // `confirm` blpop to pick it up. A `null` text (e.g. a file-only message) is
-        // silently ignored; we still return true to suppress normal handling.
+        // A confirmation is pending, so push the message text into the queue for
+        // the confirm blpop call to pick up. If the text is null (a file with no caption)
+        // we skip the push but still return true to suppress normal handling.
         if ($message->text !== null) {
             Redis::rpush(self::CONFIRM_KEY . $key, $message->text);
         }
@@ -67,7 +67,7 @@ trait ChecksRedisForConfirmations
             return $reply && strtolower($reply[1]) === 'yes';
         } finally {
             // Always clean up both keys so they never leak, even if the job is
-            // killed, the connection drops, or an exception is thrown mid-wait.
+            // killed, the connection drops, or an exception is thrown while we wait.
             Redis::del($awaitingKey, $confirmKey);
         }
     }

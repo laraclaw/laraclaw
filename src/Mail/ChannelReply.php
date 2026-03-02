@@ -5,6 +5,7 @@ namespace LaraClaw\Mail;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
+use Symfony\Component\Mime\Email;
 
 /**
  * Mailable that sends an HTML reply from a channel, optionally threading it via In-Reply-To.
@@ -25,7 +26,7 @@ class ChannelReply extends Mailable
         $inReplyTo = $this->inReplyTo;
 
         return new Envelope(
-            using: [function (\Symfony\Component\Mime\Email $email) use ($inReplyTo) {
+            using: [function (Email $email) use ($inReplyTo) {
                 $email->getHeaders()->addTextHeader('In-Reply-To', $inReplyTo);
                 $email->getHeaders()->addTextHeader('References', $inReplyTo);
             }]

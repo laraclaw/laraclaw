@@ -8,7 +8,7 @@ use LaraClaw\Enums\ChannelType;
 use LaraClaw\Tables;
 
 /**
- * Eloquent model representing a one-shot scheduled reminder message.
+ * Eloquent model representing a single scheduled reminder message.
  */
 class Reminder extends Model
 {

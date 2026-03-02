@@ -31,7 +31,7 @@ class AppleCalendarDriver implements CalendarDriver
     /**
      * List all events within the given date range via a CalDAV REPORT request.
      *
-     * @return \LaraClaw\DTOs\CalendarEvent[]
+     * @return CalendarEvent[]
      */
     public function list(DateTimeInterface $start, DateTimeInterface $end): array
     {
@@ -153,7 +153,7 @@ class AppleCalendarDriver implements CalendarDriver
     }
 
     /**
-     * Fetch the current-user-principal href from the CalDAV server.
+     * Ask the CalDAV server for the principal href of the authenticated user.
      */
     private function resolvePrincipal(): string
     {
@@ -164,7 +164,7 @@ class AppleCalendarDriver implements CalendarDriver
     }
 
     /**
-     * Fetch the calendar-home-set href for the given principal URL.
+     * Fetch the calendar home set href for the given principal URL.
      */
     private function resolveCalendarHomeSet(string $principalUrl): string
     {
@@ -204,9 +204,9 @@ class AppleCalendarDriver implements CalendarDriver
     }
 
     /**
-     * Parse a CalDAV multi-status response body into an array of CalendarEvent DTOs.
+     * Parse a CalDAV multistatus response body into an array of CalendarEvent DTOs.
      *
-     * @return \LaraClaw\DTOs\CalendarEvent[]
+     * @return CalendarEvent[]
      */
     private function parseMultiStatus(string $body): array
     {
@@ -272,7 +272,7 @@ class AppleCalendarDriver implements CalendarDriver
     }
 
     /**
-     * Build an HTTP client pre-configured with Basic Auth credentials.
+     * Build an HTTP client already configured with Basic Auth credentials.
      */
     private function http(): PendingRequest
     {

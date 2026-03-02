@@ -59,7 +59,7 @@ class WebRequest extends BaseTool
         return ['get', 'head', 'post', 'put', 'patch', 'delete'];
     }
 
-    // Operations ----------------------------------------
+    // Operations
 
     /** Send a GET request and return a formatted response. */
     protected function get(Request $request): string
@@ -102,7 +102,7 @@ class WebRequest extends BaseTool
         return $this->formatResponse($this->send('delete', $request));
     }
 
-    // Helpers ----------------------------------------
+    // Helpers
 
     /**
      * Execute the HTTP request with redirect safety and optional body/headers.
@@ -144,7 +144,7 @@ class WebRequest extends BaseTool
         $body = $response->body();
 
         if (strlen($body) > self::MAX_RESPONSE_BYTES) {
-            $body = substr($body, 0, self::MAX_RESPONSE_BYTES) . "\n\n[Truncated — response exceeds 100KB]";
+            $body = substr($body, 0, self::MAX_RESPONSE_BYTES) . "\n\n[Truncated: response exceeds 100KB]";
         }
 
         return json_encode([
@@ -180,8 +180,8 @@ class WebRequest extends BaseTool
     /**
      * Return true if the URL resolves to any private or reserved IP address.
      *
-     * Resolves ALL DNS records so a single public-IP answer cannot hide a private
-     * one (DNS rebinding defence). Blocks on every redirect URL too — see send().
+     * Resolves ALL DNS records so a single public IP answer cannot hide a private
+     * one behind it (DNS rebinding defence). Every redirect URL is also checked, see send().
      */
     private function isPrivateUrl(string $url): bool
     {
@@ -201,7 +201,7 @@ class WebRequest extends BaseTool
             ->values()
             ->all();
 
-        // No DNS records — may be a raw IP literal; fall back to gethostbyname()
+        // No DNS records found, which may mean this is a raw IP literal. Fall back to gethostbyname().
         if (empty($ips)) {
             $resolved = gethostbyname($host);
             $ips[] = $resolved !== $host ? $resolved : $host;
@@ -217,7 +217,7 @@ class WebRequest extends BaseTool
     }
 
     /**
-     * Return true if $ip falls within any loopback, private, or link-local range.
+     * Return true if $ip falls within any loopback, private, or reserved range.
      */
     private function isPrivateIp(string $ip): bool
     {

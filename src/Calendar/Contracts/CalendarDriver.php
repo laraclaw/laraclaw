@@ -10,7 +10,7 @@ interface CalendarDriver
     /**
      * List all events within the given date range.
      *
-     * @return \LaraClaw\DTOs\CalendarEvent[]
+     * @return CalendarEvent[]
      */
     public function list(DateTimeInterface $start, DateTimeInterface $end): array;
 

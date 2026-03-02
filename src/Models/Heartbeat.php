@@ -8,7 +8,7 @@ use LaraClaw\Enums\ChannelType;
 use LaraClaw\Tables;
 
 /**
- * Eloquent model representing a recurring cron-scheduled message (heartbeat).
+ * Eloquent model representing a recurring message that fires on a cron schedule.
  */
 class Heartbeat extends Model
 {

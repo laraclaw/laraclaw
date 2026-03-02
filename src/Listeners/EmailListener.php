@@ -25,7 +25,7 @@ class EmailListener
 
         $raw = $event->message;
 
-        // Prevent loops — ignore emails from ourselves
+        // Skip emails sent from our own address to prevent reply loops.
         $botEmail = config('imap.mailboxes.' . config('laraclaw.channels.email.imap.mailbox', 'default') . '.username');
         $fromEmail = $raw->from()?->email() ?? 'unknown';
 
@@ -33,16 +33,16 @@ class EmailListener
             return;
         }
 
-        // Allow list — empty means block all
+        // If the allow list is empty, block everything.
         $allowList = config('laraclaw.channels.email.sender_allow_list', []);
 
         if (empty($allowList) || ! in_array($fromEmail, $allowList)) {
             return;
         }
 
-        // Authentication check — reject unless both DKIM and SPF pass
+        // Reject the email if DKIM or SPF did not pass.
         if (config('laraclaw.channels.email.verify_sender_dkim_and_spf') && ! $this->passesAuthCheck($raw)) {
-            Log::warning('LaraClaw: email rejected — failed DKIM/SPF authentication', [
+            Log::warning('LaraClaw: email rejected due to failed DKIM or SPF authentication', [
                 'from' => $fromEmail,
                 'subject' => $raw->subject() ?? '(no subject)',
             ]);

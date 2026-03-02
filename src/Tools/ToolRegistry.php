@@ -9,7 +9,7 @@ use LaraClaw\Models\Conversation;
 use Laravel\Ai\Contracts\Tool;
 
 /**
- * Holds consumer-registered tool factories and resolves them at agent runtime.
+ * Holds tool factories registered by the consumer and resolves them when the agent runs.
  */
 class ToolRegistry
 {

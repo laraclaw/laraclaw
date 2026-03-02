@@ -15,7 +15,7 @@ class GoogleCalendarDriver implements CalendarDriver
     /**
      * List all events within the given date range via the Google Calendar API.
      *
-     * @return \LaraClaw\DTOs\CalendarEvent[]
+     * @return CalendarEvent[]
      */
     public function list(DateTimeInterface $start, DateTimeInterface $end): array
     {

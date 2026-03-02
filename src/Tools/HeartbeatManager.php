@@ -9,7 +9,7 @@ use Laravel\Ai\Tools\Request;
 use Stringable;
 
 /**
- * Agent tool for creating, listing, and cancelling recurring cron-scheduled heartbeats.
+ * Agent tool for creating, listing, and cancelling recurring heartbeats scheduled by cron.
  */
 class HeartbeatManager extends BaseTool
 {

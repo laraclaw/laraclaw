@@ -28,7 +28,7 @@ use Laravel\Ai\Transcription;
 use Throwable;
 
 /**
- * Core queued job that processes an inbound message through the AI agent and sends the reply.
+ * Takes a message off the queue, passes it through the AI agent and sends the response.
  */
 class ProcessMessage implements ShouldQueue
 {
@@ -45,7 +45,7 @@ class ProcessMessage implements ShouldQueue
     ) {}
 
     /**
-     * Resolve the user, conversation, and agent, then prompt the AI and deliver the reply.
+     * Load the sender and their conversation, prompt the agent and deliver its response.
      */
     public function handle(
         ConversationStore $conversations,
@@ -63,102 +63,21 @@ class ProcessMessage implements ShouldQueue
             $channel->acknowledge();
         }
 
-        $text = $this->message->text ?? '';
+        $text = $this->resolveText();
+        $agentAttachments = $this->resolveAgentAttachments();
 
-        // Transcribe audio if no text provided
-        if (blank($text)) {
-            $audio = $this->message->attachments->first(fn ($a) => $a->isAudio());
-            if ($audio) {
-                $text = Transcription::fromStorage($audio->path, $audio->disk)->generate()->text;
-            }
+        $context = $this->resolveContext($conversations);
+
+        if ($context === null) {
+            return;
         }
 
-        // Build attachment objects for the agent
-        $agentAttachments = $this->message->attachments
-            ->map(fn (Attachment $a) => match (true) {
-                $a->isImage() => Image::fromStorage($a->path, $a->disk),
-                $a->isDocument() => Document::fromStorage($a->path, $a->disk),
-                default => null,
-            })
-            ->filter()
-            ->values()
-            ->all();
+        ['user' => $user, 'conversation' => $conversation, 'conversationId' => $conversationId] = $context;
 
-        // Append attachment metadata so the agent knows the disk/path for tool use
-        $attachmentMeta = $this->message->attachments
-            ->filter(fn ($a) => $a->isImage() || $a->isDocument())
-            ->map(fn ($a) => ['type' => $a->mimeType, 'disk' => $a->disk, 'path' => $a->path])
-            ->values()
-            ->all();
+        $text = $this->processCommand($text, $commandRegistry);
 
-        if (! empty($attachmentMeta)) {
-            $text .= "\n\n[Attached files: " . json_encode($attachmentMeta) . ']';
-        }
-
-        // Resolve user and conversation
-        if ($this->message->conversationIsDirectMessage) {
-            $userAccount = UserAccount::where('channel', $channel->name)
-                ->where('account', $this->message->conversationKey)
-                ->with('user')
-                ->firstOrFail();
-
-            $user = $userAccount->user;
-
-            $conversation = Conversation::firstOrCreate([
-                'channel' => $channel->name,
-                'key' => $this->message->conversationKey,
-            ]);
-
-            $startFresh = Cache::pull("new_conversation:{$channel->name}:{$this->message->conversationKey}");
-            $conversationId = $startFresh ? null : $conversations->latestConversationId($user->getAuthIdentifier());
-        } else {
-            // Group/open channel: use the owner user, keyed conversation per channel
-            $userModel = config('laraclaw.auth.user_model');
-            $user = $userModel::find(config('laraclaw.auth.admin_user_id'));
-
-            if (! $user) {
-                Log::warning('LaraClaw: no owner user configured (LARACLAW_OWNER_ID)');
-
-                return;
-            }
-
-            // Group conversations are never reset via !new — that's per-user and doesn't
-            // apply to a shared channel conversation.
-            $conversation = Conversation::where('channel', $channel->name)
-                ->where('key', $this->message->conversationKey)
-                ->first();
-
-            if (! $conversation) {
-                try {
-                    $conversation = Conversation::create([
-                        'channel' => $channel->name,
-                        'key' => $this->message->conversationKey,
-                        'conversation_id' => $conversations->storeConversation(
-                            $user->getAuthIdentifier(),
-                            $channel->name . ':' . $this->message->conversationKey,
-                        ),
-                    ]);
-                } catch (UniqueConstraintViolationException) {
-                    $conversation = Conversation::where('channel', $channel->name)
-                        ->where('key', $this->message->conversationKey)
-                        ->firstOrFail();
-                }
-            }
-
-            $conversationId = $conversation->conversation_id;
-        }
-
-        // Check for commands before running the agent
-        $command = $commandRegistry->match($text);
-
-        if ($command) {
-            $result = $command->handle($this->message);
-
-            if ($result === null) {
-                return;
-            }
-
-            $text = $result->text ?? $text;
+        if ($text === null) {
+            return;
         }
 
         $agent = new ChatBotAgent(
@@ -183,7 +102,7 @@ class ProcessMessage implements ShouldQueue
     }
 
     /**
-     * Log the error and attempt to notify the user via the channel when the job fails.
+     * Log what went wrong and let the user know something failed via their channel.
      */
     public function failed(Throwable $exception): void
     {
@@ -193,10 +112,143 @@ class ProcessMessage implements ShouldQueue
             'error' => $exception->getMessage(),
         ]);
 
-        try {
-            $this->message->channel->send('Sorry, something went wrong processing your message. Please try again.');
-        } catch (Throwable) {
-            // Nothing more we can do if the channel itself is unavailable.
+        $this->message->channel->send('Sorry, something went wrong processing your message. Please try again.');
+    }
+
+    /**
+     * Get the message text, transcribing any audio attachment if no text was provided.
+     * Then append file metadata at the end so the agent knows where to find the attachments.
+     */
+    private function resolveText(): string
+    {
+        $text = $this->message->text ?? '';
+
+        if (blank($text)) {
+            $audio = $this->message->attachments->first(fn ($a) => $a->isAudio());
+            if ($audio) {
+                $text = Transcription::fromStorage($audio->path, $audio->disk)->generate()->text;
+            }
         }
+
+        $attachmentMeta = $this->message->attachments
+            ->filter(fn ($a) => $a->isImage() || $a->isDocument())
+            ->map(fn ($a) => ['type' => $a->mimeType, 'disk' => $a->disk, 'path' => $a->path])
+            ->values()
+            ->all();
+
+        if (! empty($attachmentMeta)) {
+            $text .= PHP_EOL . PHP_EOL . '[Attached files: ' . json_encode($attachmentMeta) . ']';
+        }
+
+        return $text;
+    }
+
+    /**
+     * Build the list of images and documents the agent will receive alongside the message text.
+     *
+     * @return array<int, Image|Document>
+     */
+    private function resolveAgentAttachments(): array
+    {
+        return $this->message->attachments
+            ->map(fn (Attachment $a) => match (true) {
+                $a->isImage() => Image::fromStorage($a->path, $a->disk),
+                $a->isDocument() => Document::fromStorage($a->path, $a->disk),
+                default => null,
+            })
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Look up the sender and find or create their conversation record.
+     *
+     * Returns null if this is a group message and no owner user is configured,
+     * in which case the job exits quietly.
+     *
+     * @return array{user: mixed, conversation: Conversation, conversationId: string|null}|null
+     */
+    private function resolveContext(ConversationStore $conversations): ?array
+    {
+        $channel = $this->message->channel;
+
+        if ($this->message->conversationIsDirectMessage) {
+            $userAccount = UserAccount::where('channel', $channel->name)
+                ->where('account', $this->message->conversationKey)
+                ->with('user')
+                ->firstOrFail();
+
+            $user = $userAccount->user;
+
+            $conversation = Conversation::firstOrCreate([
+                'channel' => $channel->name,
+                'key' => $this->message->conversationKey,
+            ]);
+
+            $startFresh = Cache::pull("new_conversation:{$channel->name}:{$this->message->conversationKey}");
+            $conversationId = $startFresh ? null : $conversations->latestConversationId($user->getAuthIdentifier());
+
+            return compact('user', 'conversation', 'conversationId');
+        }
+
+        // Group channels always run as the owner user with one conversation per channel.
+        $userModel = config('laraclaw.auth.user_model');
+        $user = $userModel::find(config('laraclaw.auth.admin_user_id'));
+
+        if (! $user) {
+            Log::warning('LaraClaw: no owner user configured (LARACLAW_OWNER_ID)');
+
+            return null;
+        }
+
+        // The !new command is scoped to individual users so it cannot reset a shared group conversation.
+        $conversation = Conversation::where('channel', $channel->name)
+            ->where('key', $this->message->conversationKey)
+            ->first();
+
+        if (! $conversation) {
+            try {
+                $conversation = Conversation::create([
+                    'channel' => $channel->name,
+                    'key' => $this->message->conversationKey,
+                    'conversation_id' => $conversations->storeConversation(
+                        $user->getAuthIdentifier(),
+                        $channel->name . ':' . $this->message->conversationKey,
+                    ),
+                ]);
+            } catch (UniqueConstraintViolationException) {
+                $conversation = Conversation::where('channel', $channel->name)
+                    ->where('key', $this->message->conversationKey)
+                    ->firstOrFail();
+            }
+        }
+
+        $conversationId = $conversation->conversation_id;
+
+        return compact('user', 'conversation', 'conversationId');
+    }
+
+    /**
+     * Check if the message matches a registered command and run it.
+     *
+     * Returns null if the command took full ownership of the message and nothing more should happen.
+     * Otherwise returns the text to continue with, which the command may have rewritten.
+     */
+    private function processCommand(string $text, CommandRegistry $commandRegistry): ?string
+    {
+        $command = $commandRegistry->match($text);
+
+        if (! $command) {
+            return $text;
+        }
+
+        $result = $command->handle($this->message);
+
+        if ($result === null) {
+            return null;
+        }
+
+        return $result->text ?? $text;
     }
 }

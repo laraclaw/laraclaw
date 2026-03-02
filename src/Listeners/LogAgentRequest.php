@@ -11,7 +11,7 @@ use Laravel\Ai\Events\AgentPrompted;
 class LogAgentRequest
 {
     /**
-     * Write the prompt and response payloads to per-invocation JSON files.
+     * Write the prompt and response payloads to JSON files, one pair per agent invocation.
      */
     public function handle(AgentPrompted $event): void
     {

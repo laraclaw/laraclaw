@@ -72,7 +72,7 @@ class Files extends BaseTool
         return ['list', 'read', 'write', 'append', 'delete', 'move', 'copy', 'exists', 'mkdir', 'save_attachment', 'attach_to_reply', 'download_url'];
     }
 
-    // Operations ----------------------------------------
+    // Operations
 
     /** List files and directories at the given path. */
     protected function list(Request $request): string
@@ -110,7 +110,7 @@ class Files extends BaseTool
         }
 
         if (strlen($contents) > self::MAX_READ_BYTES) {
-            return substr($contents, 0, self::MAX_READ_BYTES) . "\n\n[Truncated — file exceeds 100KB]";
+            return substr($contents, 0, self::MAX_READ_BYTES) . "\n\n[Truncated: file exceeds 100KB]";
         }
 
         return $contents;
@@ -183,7 +183,7 @@ class Files extends BaseTool
             ->implode('; ') . '.';
     }
 
-    /** Move a file to a destination path (auto-increments on collision). */
+    /** Move a file to a destination path, renaming it if something already exists there. */
     protected function move(Request $request): string
     {
         if (($request['destination'] ?? null) === null) {
@@ -209,7 +209,7 @@ class Files extends BaseTool
             : "Moved {$path} to {$actual}.";
     }
 
-    /** Copy a file to a destination path (auto-increments on collision). */
+    /** Copy a file to a destination path, renaming it if something already exists there. */
     protected function copy(Request $request): string
     {
         if (($request['destination'] ?? null) === null) {
@@ -241,7 +241,7 @@ class Files extends BaseTool
             : "File does not exist: {$path}";
     }
 
-    /** Create a directory (auto-increments name on collision). */
+    /** Create a directory, renaming it if the name is already taken. */
     protected function mkdir(Request $request): string
     {
         $storage = $this->storage($request);
@@ -326,7 +326,7 @@ class Files extends BaseTool
         return "Downloaded to {$actual}.";
     }
 
-    // Helpers ----------------------------------------
+    // Helpers
 
     /**
      * Return the given path if it is free, otherwise append an incrementing integer

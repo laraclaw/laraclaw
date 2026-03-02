@@ -223,8 +223,8 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsC
     }
 
     /**
-     * Upload a file to Slack using the two-step external upload API:
-     * first get a signed upload URL, then complete the upload to post it.
+     * Upload a file to Slack via the external upload API.
+     * First fetch a signed upload URL, then complete the upload to post it.
      */
     private function uploadFile(string $filePath, string $fileName): bool
     {

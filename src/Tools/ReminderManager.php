@@ -10,7 +10,7 @@ use Stringable;
 use Throwable;
 
 /**
- * Agent tool for creating, listing, and cancelling one-shot scheduled reminders.
+ * Agent tool for creating, listing, and cancelling single scheduled reminders.
  */
 class ReminderManager extends BaseTool
 {

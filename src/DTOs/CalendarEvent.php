@@ -15,8 +15,8 @@ readonly class CalendarEvent
      * @param  DateTimeImmutable|null  $end  End date and time.
      * @param  string|null  $description  Body / notes for the event.
      * @param  string|null  $location  Physical or virtual location.
-     * @param  string|null  $id  Provider-assigned event ID (null on create).
-     * @param  string[]|null  $attendees  Guest email addresses (null = unchanged on update, [] = remove all).
+     * @param  string|null  $id  Event ID assigned by the calendar provider. Null when creating a new event.
+     * @param  string[]|null  $attendees  Guest email addresses. Null means leave unchanged on update; an empty array removes all guests.
      */
     public function __construct(
         public ?string $title = null,

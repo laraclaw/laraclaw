@@ -12,7 +12,7 @@ use Laravel\Ai\Tools\Request;
 use Stringable;
 
 /**
- * Base class for operation-dispatching tools, providing confirmation, storage, and channel helpers.
+ * Base class for tools that dispatch named operations, with built-in confirmation, storage, and channel helpers.
  */
 abstract class BaseTool implements Tool
 {

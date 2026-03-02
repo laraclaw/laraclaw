@@ -142,7 +142,7 @@ class EmailManager extends BaseTool
         $body = $message->text() ?? stripHtml($message->html()) ?? '(no body)';
 
         if (strlen($body) > self::MAX_BODY) {
-            $body = substr($body, 0, self::MAX_BODY) . "\n\n[Truncated — body exceeds 50KB]";
+            $body = substr($body, 0, self::MAX_BODY) . "\n\n[Truncated: body exceeds 50KB]";
         }
 
         $from = $message->from();
@@ -185,7 +185,7 @@ class EmailManager extends BaseTool
         return 'Email sent to ' . implode(', ', (array) $to) . " with subject \"{$subject}\".";
     }
 
-    /** Reply to an existing message, threading via In-Reply-To headers. */
+    /** Reply to an existing message and set the thread headers so it appears as a reply. */
     protected function reply(Request $request): string
     {
         $uid = $request['uid'] ?? null;

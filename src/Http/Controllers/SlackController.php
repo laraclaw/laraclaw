@@ -88,7 +88,7 @@ class SlackController extends Controller
     }
 
     /**
-     * Return a successful JSON response with a bail code for non-actionable events.
+     * Return a successful JSON response with a bail code for events we choose not to process.
      */
     private function bail(string $code): JsonResponse
     {

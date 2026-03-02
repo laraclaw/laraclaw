@@ -199,8 +199,8 @@ class CalendarManager extends BaseTool
     }
 
     /**
-     * Parse a natural-language or ISO 8601 date string into a DateTimeImmutable.
-     * Returns null if the string cannot be parsed.
+     * Parse a plain English or ISO 8601 date string into a DateTimeImmutable.
+     * Returns null if the value cannot be understood as a date.
      */
     private function parseDate(string $value): ?DateTimeImmutable
     {
