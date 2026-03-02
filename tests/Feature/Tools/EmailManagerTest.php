@@ -1,5 +1,12 @@
 <?php
 
+use DirectoryTree\ImapEngine\Address;
+use DirectoryTree\ImapEngine\FolderInterface;
+use DirectoryTree\ImapEngine\FolderRepositoryInterface;
+use DirectoryTree\ImapEngine\Laravel\ImapManager;
+use DirectoryTree\ImapEngine\MailboxInterface;
+use DirectoryTree\ImapEngine\MessageInterface;
+use DirectoryTree\ImapEngine\MessageQueryInterface;
 use Illuminate\Mail\Events\MessageSending;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Storage;
@@ -199,32 +206,32 @@ it('attaches message attachments when replying', function () {
         attachments: collect([$attachment]),
     );
 
-    $from = new \DirectoryTree\ImapEngine\Address('sender@example.com', 'Sender');
+    $from = new Address('sender@example.com', 'Sender');
 
-    $original = Mockery::mock(\DirectoryTree\ImapEngine\MessageInterface::class);
+    $original = Mockery::mock(MessageInterface::class);
     $original->allows('replyTo')->andReturn(null);
     $original->allows('from')->andReturn($from);
     $original->allows('subject')->andReturn('Original subject');
     $original->allows('messageId')->andReturn('<original-id@example.com>');
     $original->allows('markAnswered');
 
-    $query = Mockery::mock(\DirectoryTree\ImapEngine\MessageQueryInterface::class);
+    $query = Mockery::mock(MessageQueryInterface::class);
     $query->allows('withHeaders')->andReturnSelf();
     $query->allows('withBody')->andReturnSelf();
     $query->allows('find')->andReturn($original);
 
-    $folder = Mockery::mock(\DirectoryTree\ImapEngine\FolderInterface::class);
+    $folder = Mockery::mock(FolderInterface::class);
     $folder->allows('messages')->andReturn($query);
 
-    $folderRepo = Mockery::mock(\DirectoryTree\ImapEngine\FolderRepositoryInterface::class);
+    $folderRepo = Mockery::mock(FolderRepositoryInterface::class);
     $folderRepo->allows('findOrFail')->andReturn($folder);
 
-    $mailbox = Mockery::mock(\DirectoryTree\ImapEngine\MailboxInterface::class);
+    $mailbox = Mockery::mock(MailboxInterface::class);
     $mailbox->allows('folders')->andReturn($folderRepo);
 
-    $imapManager = Mockery::mock(\DirectoryTree\ImapEngine\Laravel\ImapManager::class);
+    $imapManager = Mockery::mock(ImapManager::class);
     $imapManager->allows('mailbox')->andReturn($mailbox);
-    app()->instance(\DirectoryTree\ImapEngine\Laravel\ImapManager::class, $imapManager);
+    app()->instance(ImapManager::class, $imapManager);
 
     $captured = null;
     Event::listen(MessageSending::class, function (MessageSending $e) use (&$captured) {

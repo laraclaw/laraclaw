@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Cache;
 use LaraClaw\Agents\ChatBotAgent;
+use LaraClaw\DTOs\Attachment;
 use LaraClaw\Jobs\ProcessMessage;
 use LaraClaw\Message;
 use LaraClaw\Models\Conversation;
@@ -176,7 +177,7 @@ it('appends attachment metadata to the prompt text', function () {
         'account' => 'user-att',
     ]);
 
-    $attachment = new \LaraClaw\DTOs\Attachment(
+    $attachment = new Attachment(
         path: 'attachments/photo.jpg',
         disk: 'local',
         mimeType: 'image/jpeg',

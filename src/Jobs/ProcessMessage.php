@@ -45,24 +45,6 @@ class ProcessMessage implements ShouldQueue
     ) {}
 
     /**
-     * Log the error and attempt to notify the user via the channel when the job fails.
-     */
-    public function failed(Throwable $exception): void
-    {
-        Log::error('ProcessMessage failed', [
-            'channel' => $this->message->channel->name,
-            'key' => $this->message->conversationKey,
-            'error' => $exception->getMessage(),
-        ]);
-
-        try {
-            $this->message->channel->send('Sorry, something went wrong processing your message. Please try again.');
-        } catch (Throwable) {
-            // Nothing more we can do if the channel itself is unavailable.
-        }
-    }
-
-    /**
      * Resolve the user, conversation, and agent, then prompt the AI and deliver the reply.
      */
     public function handle(
@@ -198,5 +180,23 @@ class ProcessMessage implements ShouldQueue
 
         $channel->handleAttachments($replyAttachments);
         $channel->send($response);
+    }
+
+    /**
+     * Log the error and attempt to notify the user via the channel when the job fails.
+     */
+    public function failed(Throwable $exception): void
+    {
+        Log::error('ProcessMessage failed', [
+            'channel' => $this->message->channel->name,
+            'key' => $this->message->conversationKey,
+            'error' => $exception->getMessage(),
+        ]);
+
+        try {
+            $this->message->channel->send('Sorry, something went wrong processing your message. Please try again.');
+        } catch (Throwable) {
+            // Nothing more we can do if the channel itself is unavailable.
+        }
     }
 }
