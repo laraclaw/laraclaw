@@ -59,13 +59,16 @@ trait ChecksRedisForConfirmations
         // read_write_timeout = -1, overriding the default Redis socket timeout.
         $connection = Redis::connection('laraclaw-blocking');
 
-        // blpop stands for "blocking left pop", blocks until a value is pushed
-        // into the key or $timeout seconds pass, whichever comes first.
-        $reply = $connection->blpop($confirmKey, $timeout);
+        try {
+            // blpop stands for "blocking left pop", blocks until a value is pushed
+            // into the key or $timeout seconds pass, whichever comes first.
+            $reply = $connection->blpop($confirmKey, $timeout);
 
-        // Clean up the awaiting flag
-        Redis::del($awaitingKey);
-
-        return $reply && strtolower($reply[1]) === 'yes';
+            return $reply && strtolower($reply[1]) === 'yes';
+        } finally {
+            // Always clean up both keys so they never leak, even if the job is
+            // killed, the connection drops, or an exception is thrown mid-wait.
+            Redis::del($awaitingKey, $confirmKey);
+        }
     }
 }

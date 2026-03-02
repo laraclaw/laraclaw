@@ -2,9 +2,9 @@
 
 namespace LaraClaw\Tests;
 
-use DB;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Auth\User;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use LaraClaw\LaraclawServiceProvider;
 use LaraClaw\Tests\Fixtures\FakeConversationStore;

@@ -36,7 +36,9 @@ class ProcessMessage implements ShouldQueue
 
     public int $timeout = 600;
 
-    public int $tries = 1;
+    public int $tries = 3;
+
+    public int $backoff = 10;
 
     public function __construct(
         private Message $message,
