@@ -2,6 +2,7 @@
 
 namespace LaraClaw\Console\Commands;
 
+use Closure;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Hash;
 use LaraClaw\Models\UserAccount;
@@ -23,65 +24,58 @@ class SetupWizard extends Command
     protected $description = 'Interactive setup wizard for LaraClaw';
 
     /**
-     * Run the step-by-step setup: migrate, create owner, configure channels and tools.
+     * Run the step-by-step setup: migrate, create/select owner, configure channels and tools.
      */
     public function handle(): int
     {
-        // 1. Bail if already set up
-        $env = file_get_contents(base_path('.env'));
-        if (preg_match('/^LARACLAW_ADMIN_USER_ID=.+/m', $env)) {
-            $this->error('LaraClaw is already set up (LARACLAW_ADMIN_USER_ID is set). Aborting.');
-
-            return self::FAILURE;
-        }
-
         $this->info('Welcome to the LaraClaw setup wizard.');
 
-        // 2. Run migrations
+        // 1. Run migrations
         spin(fn () => $this->call('migrate', ['--force' => true]), 'Running migrations…');
 
-        // 3. Create owner account
+        // 2. Owner account
         $this->newLine();
-        $this->info('Create your owner account:');
+        $this->info('Owner account:');
 
         $userModel = config('laraclaw.auth.user_model');
+        $existingUserId = $this->currentEnvValue('LARACLAW_ADMIN_USER_ID');
 
-        $name = text(
-            label: 'Name',
-            required: true,
-        );
+        if ($existingUserId) {
+            $choice = select(
+                label: 'Admin user',
+                options: [
+                    'existing' => "Use existing (ID: {$existingUserId})",
+                    'new' => 'Create new user',
+                ],
+            );
 
-        $email = text(
-            label: 'Email',
-            required: true,
-            validate: function (string $value) use ($userModel) {
-                if (! filter_var($value, FILTER_VALIDATE_EMAIL)) {
-                    return 'Please enter a valid email address.';
+            if ($choice === 'existing') {
+                $user = $userModel::find($existingUserId);
+
+                if (! $user) {
+                    $this->error("User ID {$existingUserId} not found in the database.");
+
+                    return self::FAILURE;
                 }
-                if ($userModel::where('email', $value)->exists()) {
-                    return 'That email is already taken.';
-                }
+            } else {
+                $user = $this->createUser($userModel);
+                $this->writeEnv('LARACLAW_ADMIN_USER_ID', $user->id);
+            }
+        } else {
+            $user = $this->createUser($userModel);
+            $this->writeEnv('LARACLAW_ADMIN_USER_ID', $user->id);
+        }
 
-                return null;
-            },
-        );
+        $this->info("Owner: {$user->name} (ID: {$user->id}).");
 
-        $pwd = password(
-            label: 'Password',
-            required: true,
-        );
-
-        $user = $userModel::create([
-            'name' => $name,
-            'email' => $email,
-            'password' => Hash::make($pwd),
-        ]);
-
-        $this->writeEnv('LARACLAW_ADMIN_USER_ID', $user->id);
-        $this->info("Owner account created (ID: {$user->id}).");
-
-        // 4. Channel selection
+        // 3. Channel selection — pre-select channels that already have config
         $this->newLine();
+        $channelDefaults = array_values(array_filter([
+            $this->currentEnvValue('LARACLAW_TELEGRAM_TOKEN') ? 'telegram' : null,
+            $this->currentEnvValue('LARACLAW_SLACK_BOT_TOKEN') ? 'slack' : null,
+            $this->currentEnvValue('LARACLAW_SMTP_HOST') ? 'email' : null,
+        ]));
+
         $channels = multiselect(
             label: 'Which channels do you want to configure?',
             options: [
@@ -89,24 +83,30 @@ class SetupWizard extends Command
                 'slack' => 'Slack',
                 'email' => 'Email',
             ],
+            default: $channelDefaults,
             required: false,
         );
 
         $configured = [];
 
-        // 5. Per-channel config
+        // 4. Per-channel config
         if (in_array('telegram', $channels)) {
             $this->newLine();
             $this->info('Telegram configuration:');
 
-            $token = text(label: 'Bot token (from BotFather)', required: true);
-            $chatId = text(label: 'Your Telegram chat ID (send /start to @userinfobot to get it)', required: true);
+            $token = $this->askEnv('Bot token (from BotFather)', 'LARACLAW_TELEGRAM_TOKEN', secret: true);
+            $chatId = $this->askAccount(
+                label: 'Your Telegram chat ID (send /start to @userinfobot to get it)',
+                userId: $user->getAuthIdentifier(),
+                channel: 'telegram',
+            );
+
             $this->writeEnv('LARACLAW_TELEGRAM_TOKEN', $token);
-            UserAccount::create([
-                'user_id' => $user->getAuthIdentifier(),
-                'channel' => 'telegram',
-                'account' => $chatId,
-            ]);
+            $this->writeEnv('LARACLAW_TELEGRAM_ENABLED', 'true');
+            UserAccount::updateOrCreate(
+                ['user_id' => $user->getAuthIdentifier(), 'channel' => 'telegram'],
+                ['account' => $chatId],
+            );
             $configured[] = 'Telegram';
         }
 
@@ -114,19 +114,23 @@ class SetupWizard extends Command
             $this->newLine();
             $this->info('Slack configuration:');
 
-            $botToken = text(label: 'Bot token (xoxb-…)', required: true);
-            $signingSecret = text(label: 'Signing secret', required: true);
-            $botUserId = text(label: 'Bot user ID (U…)', required: true);
-            $ownerSlackId = text(label: 'Your Slack user ID (U… — find it in your Slack profile)', required: true);
+            $botToken = $this->askEnv('Bot token (xoxb-…)', 'LARACLAW_SLACK_BOT_TOKEN', secret: true);
+            $signingSecret = $this->askEnv('Signing secret', 'LARACLAW_SLACK_SIGNING_SECRET', secret: true);
+            $botUserId = $this->askEnv('Bot user ID (U…)', 'LARACLAW_SLACK_BOT_USER_ID');
+            $ownerSlackId = $this->askAccount(
+                label: 'Your Slack user ID (U… — find it in your Slack profile)',
+                userId: $user->getAuthIdentifier(),
+                channel: 'slack',
+            );
 
             $this->writeEnv('LARACLAW_SLACK_BOT_TOKEN', $botToken);
             $this->writeEnv('LARACLAW_SLACK_SIGNING_SECRET', $signingSecret);
             $this->writeEnv('LARACLAW_SLACK_BOT_USER_ID', $botUserId);
-            UserAccount::create([
-                'user_id' => $user->getAuthIdentifier(),
-                'channel' => 'slack',
-                'account' => $ownerSlackId,
-            ]);
+            $this->writeEnv('LARACLAW_SLACK_ENABLED', 'true');
+            UserAccount::updateOrCreate(
+                ['user_id' => $user->getAuthIdentifier(), 'channel' => 'slack'],
+                ['account' => $ownerSlackId],
+            );
             $configured[] = 'Slack';
         }
 
@@ -134,22 +138,22 @@ class SetupWizard extends Command
             $this->newLine();
             $this->info('Email — SMTP configuration:');
 
-            $smtpHost = text(label: 'SMTP host', required: true);
-            $smtpPort = text(label: 'SMTP port', default: '587', required: true);
-            $smtpEncryption = text(label: 'SMTP encryption', default: 'tls', required: true);
-            $smtpUsername = text(label: 'SMTP username', required: true);
-            $smtpPassword = password(label: 'SMTP password', required: true);
-            $fromAddress = text(label: 'From address', default: $smtpUsername, required: true);
-            $fromName = text(label: 'From name', default: $name, required: true);
+            $smtpHost = $this->askEnv('SMTP host', 'LARACLAW_SMTP_HOST');
+            $smtpPort = $this->askEnv('SMTP port', 'LARACLAW_SMTP_PORT', input: fn () => text(label: 'SMTP port', default: '587', required: true));
+            $smtpEncryption = $this->askEnv('SMTP encryption', 'LARACLAW_SMTP_ENCRYPTION', input: fn () => text(label: 'SMTP encryption', default: 'tls', required: true));
+            $smtpUsername = $this->askEnv('SMTP username', 'LARACLAW_SMTP_USERNAME');
+            $smtpPassword = $this->askEnv('SMTP password', 'LARACLAW_SMTP_PASSWORD', secret: true);
+            $fromAddress = $this->askEnv('From address', 'LARACLAW_SMTP_FROM_ADDRESS', input: fn () => text(label: 'From address', default: $smtpUsername, required: true));
+            $fromName = $this->askEnv('From name', 'LARACLAW_SMTP_FROM_NAME', input: fn () => text(label: 'From name', default: $user->name, required: true));
 
             $this->newLine();
             $this->info('Email — IMAP configuration:');
 
-            $imapHost = text(label: 'IMAP host', required: true);
-            $imapPort = text(label: 'IMAP port', default: '993', required: true);
-            $imapEncryption = text(label: 'IMAP encryption', default: 'ssl', required: true);
-            $imapUsername = text(label: 'IMAP username', default: $smtpUsername, required: true);
-            $imapPassword = password(label: 'IMAP password', required: true);
+            $imapHost = $this->askEnv('IMAP host', 'LARACLAW_IMAP_HOST');
+            $imapPort = $this->askEnv('IMAP port', 'LARACLAW_IMAP_PORT', input: fn () => text(label: 'IMAP port', default: '993', required: true));
+            $imapEncryption = $this->askEnv('IMAP encryption', 'LARACLAW_IMAP_ENCRYPTION', input: fn () => text(label: 'IMAP encryption', default: 'ssl', required: true));
+            $imapUsername = $this->askEnv('IMAP username', 'LARACLAW_IMAP_USERNAME', input: fn () => text(label: 'IMAP username', default: $smtpUsername, required: true));
+            $imapPassword = $this->askEnv('IMAP password', 'LARACLAW_IMAP_PASSWORD', secret: true);
 
             $this->writeEnv('LARACLAW_EMAIL_ENABLED', 'true');
             $this->writeEnv('LARACLAW_SMTP_HOST', $smtpHost);
@@ -165,36 +169,39 @@ class SetupWizard extends Command
             $this->writeEnv('LARACLAW_IMAP_USERNAME', $imapUsername);
             $this->writeEnv('LARACLAW_IMAP_PASSWORD', $imapPassword);
 
-            UserAccount::create([
-                'user_id' => $user->getAuthIdentifier(),
-                'channel' => 'email',
-                'account' => $smtpUsername,
-            ]);
+            UserAccount::updateOrCreate(
+                ['user_id' => $user->getAuthIdentifier(), 'channel' => 'email'],
+                ['account' => $smtpUsername],
+            );
 
             $configured[] = 'Email';
         }
 
-        // 6. Optional tools
+        // 5. Optional tools — pre-select calendar if already configured
         $this->newLine();
+        $toolDefaults = array_values(array_filter([
+            $this->currentEnvValue('LARACLAW_CALENDAR_DRIVER') ? 'calendar' : null,
+        ]));
+
         $tools = multiselect(
             label: 'Which optional tools do you want to enable?',
-            options: [
-                'image' => 'Image Manager (spatie/image)',
-                'calendar' => 'Calendar Manager',
-            ],
+            options: ['calendar' => 'Calendar Manager'],
+            default: $toolDefaults,
             required: false,
         );
 
         if (in_array('calendar', $tools)) {
+            $driverDefault = $this->currentEnvValue('LARACLAW_CALENDAR_DRIVER') ?? 'google';
             $driver = select(
                 label: 'Calendar driver',
                 options: ['google' => 'Google Calendar', 'apple' => 'Apple CalDAV'],
+                default: $driverDefault,
             );
 
             if ($driver === 'google') {
-                $calendarId = text(label: 'Google Calendar ID (found in Google Calendar settings)', required: true);
-                $credentialsPath = text(label: 'Path to OAuth credentials JSON', default: base_path('oauth-credentials.json'), required: true);
-                $tokenPath = text(label: 'Path to OAuth token JSON', default: base_path('oauth-token.json'), required: true);
+                $calendarId = $this->askEnv('Google Calendar ID (found in Google Calendar settings)', 'LARACLAW_GOOGLE_CALENDAR_ID');
+                $credentialsPath = $this->askEnv('Path to OAuth credentials JSON', 'LARACLAW_GOOGLE_CREDENTIALS_JSON', input: fn () => text(label: 'Path to OAuth credentials JSON', default: base_path('oauth-credentials.json'), required: true));
+                $tokenPath = $this->askEnv('Path to OAuth token JSON', 'LARACLAW_GOOGLE_TOKEN_JSON', input: fn () => text(label: 'Path to OAuth token JSON', default: base_path('oauth-token.json'), required: true));
 
                 $this->writeEnv('LARACLAW_CALENDAR_DRIVER', 'google');
                 $this->writeEnv('LARACLAW_GOOGLE_CALENDAR_ID', $calendarId);
@@ -203,10 +210,10 @@ class SetupWizard extends Command
 
                 $this->info('Run `php artisan laraclaw:google-calendar-auth` to complete the OAuth flow.');
             } else {
-                $server = text(label: 'CalDAV server URL', default: 'https://caldav.icloud.com', required: true);
-                $calUsername = text(label: 'Username', required: true);
-                $calPassword = password(label: 'Password', required: true);
-                $calendar = text(label: 'Calendar name', required: true);
+                $server = $this->askEnv('CalDAV server URL', 'LARACLAW_APPLE_CALDAV_SERVER', input: fn () => text(label: 'CalDAV server URL', default: 'https://caldav.icloud.com', required: true));
+                $calUsername = $this->askEnv('CalDAV username', 'LARACLAW_APPLE_CALDAV_USERNAME');
+                $calPassword = $this->askEnv('CalDAV password', 'LARACLAW_APPLE_CALDAV_PASSWORD', secret: true);
+                $calendar = $this->askEnv('Calendar name', 'LARACLAW_APPLE_CALDAV_CALENDAR');
 
                 $this->writeEnv('LARACLAW_CALENDAR_DRIVER', 'apple');
                 $this->writeEnv('LARACLAW_APPLE_CALDAV_SERVER', $server);
@@ -216,7 +223,7 @@ class SetupWizard extends Command
             }
         }
 
-        // 7. Outro
+        // 6. Outro
         $this->newLine();
         $summary = implode(', ', $configured) ?: 'none';
         $appUrl = config('app.url', 'https://your-app.com');
@@ -234,6 +241,112 @@ class SetupWizard extends Command
         outro(implode("\n", $outroLines));
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Collect name, email, and password then create and return a new user.
+     */
+    private function createUser(string $userModel): mixed
+    {
+        $name = text(label: 'Name', required: true);
+
+        $email = text(
+            label: 'Email',
+            required: true,
+            validate: function (string $value) use ($userModel) {
+                if (! filter_var($value, FILTER_VALIDATE_EMAIL)) {
+                    return 'Please enter a valid email address.';
+                }
+                if ($userModel::where('email', $value)->exists()) {
+                    return 'That email is already taken.';
+                }
+
+                return null;
+            },
+        );
+
+        $pwd = password(label: 'Password', required: true);
+
+        return $userModel::create([
+            'name' => $name,
+            'email' => $email,
+            'password' => Hash::make($pwd),
+        ]);
+    }
+
+    /**
+     * If the env key already has a value, prompt to use it or set a new one.
+     * Secrets are masked in the display. Falls back to a text or password prompt.
+     */
+    private function askEnv(string $label, string $key, bool $secret = false, ?Closure $input = null): string
+    {
+        $existing = $this->currentEnvValue($key);
+
+        if ($existing !== null) {
+            $display = $secret ? '(hidden)' : $existing;
+            $choice = select(
+                label: $label,
+                options: [
+                    'existing' => "Use existing: {$display}",
+                    'new' => 'Set new value',
+                ],
+            );
+
+            if ($choice === 'existing') {
+                return $existing;
+            }
+        }
+
+        if ($input) {
+            return $input();
+        }
+
+        return $secret
+            ? password(label: $label, required: true)
+            : text(label: $label, required: true);
+    }
+
+    /**
+     * If a UserAccount already exists for this user/channel, prompt to use it or set a new one.
+     */
+    private function askAccount(string $label, int|string $userId, string $channel, ?Closure $input = null): string
+    {
+        $existing = UserAccount::where('user_id', $userId)
+            ->where('channel', $channel)
+            ->value('account');
+
+        if ($existing !== null) {
+            $choice = select(
+                label: $label,
+                options: [
+                    'existing' => "Use existing: {$existing}",
+                    'new' => 'Set new value',
+                ],
+            );
+
+            if ($choice === 'existing') {
+                return $existing;
+            }
+        }
+
+        return $input ? $input() : text(label: $label, required: true);
+    }
+
+    /**
+     * Read the current value of a key from the .env file, or null if unset or empty.
+     */
+    private function currentEnvValue(string $key): ?string
+    {
+        $env = file_get_contents(base_path('.env'));
+        $escaped = preg_quote($key, '/');
+
+        if (preg_match('/^' . $escaped . '="?([^"\n]*)"?/m', $env, $matches)) {
+            $value = trim($matches[1]);
+
+            return $value !== '' ? $value : null;
+        }
+
+        return null;
     }
 
     /**
