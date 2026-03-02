@@ -98,7 +98,7 @@ it('rejects and logs a warning when DKIM/SPF authentication fails', function () 
 
     Log::shouldHaveReceived('warning')
         ->once()
-        ->withArgs(fn ($msg) => str_contains($msg, 'DKIM/SPF'));
+        ->withArgs(fn ($msg) => str_contains($msg, 'DKIM or SPF'));
 });
 
 it('accepts emails that fail DKIM/SPF when verification is disabled', function () {
