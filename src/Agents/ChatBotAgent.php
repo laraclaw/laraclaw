@@ -129,12 +129,8 @@ class ChatBotAgent implements Agent, Conversational, HasTools
         $tz = config('app.timezone', 'UTC');
         $now = now()->setTimezone($tz)->toDateTimeString();
 
-        $prompt = file_get_contents(
+        return file_get_contents(
             file_exists($published) ? $published : __DIR__ . "/../../resources/prompts/{$name}.md"
         ) . PHP_EOL . PHP_EOL . "Current date and time: {$now} ({$tz})";
-
-        logger($prompt);
-
-        return $prompt;
     }
 }

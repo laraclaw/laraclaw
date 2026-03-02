@@ -39,7 +39,7 @@ class Files extends BaseTool
             'operation' => $schema->string()->required()->description('The operation to perform: ' . implode(', ', $this->operations())),
             'disk' => $schema->string()->required()->description('The storage disk to use'),
             'path' => $schema->string()->required()->description('The file or directory path'),
-            'paths' => $schema->array()->items($schema->string())->description('Multiple file paths for batch delete'),
+            'paths' => $schema->array()->items($schema->string())->description('Multiple file or directory paths for batch delete'),
             'destination' => $schema->string()->description('Destination path for move/copy operations'),
             'content' => $schema->string()->description('Content for write/append operations'),
             'source' => $schema->string()->description('Source path on the attachments disk (for save_attachment)'),
@@ -167,13 +167,19 @@ class Files extends BaseTool
 
         return collect($paths)
             ->map(function ($p) use ($storage) {
-                if (! $storage->exists($p)) {
-                    return "{$p}: not found";
+                if ($storage->exists($p)) {
+                    $storage->delete($p);
+
+                    return "{$p}: deleted";
                 }
 
-                $storage->delete($p);
+                if ($storage->directoryExists($p)) {
+                    $storage->deleteDirectory($p);
 
-                return "{$p}: deleted";
+                    return "{$p}: deleted";
+                }
+
+                return "{$p}: not found";
             })
             ->implode('; ') . '.';
     }
