@@ -23,7 +23,7 @@ class EmailChannel extends Channel implements SupportsConfirmation
 {
     use ChecksRedisForConfirmations;
 
-    public readonly string $name = 'email';
+    public string $name { get { return 'email'; } }
 
     /** @var Attachment[] */
     private array $attachments = [];

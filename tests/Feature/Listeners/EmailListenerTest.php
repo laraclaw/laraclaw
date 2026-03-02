@@ -1,26 +1,21 @@
 <?php
 
+use DirectoryTree\ImapEngine\Address;
 use DirectoryTree\ImapEngine\Laravel\Events\MessageReceived;
 use DirectoryTree\ImapEngine\MessageInterface;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Redis;
 use LaraClaw\Jobs\ProcessMessage;
 use LaraClaw\Listeners\EmailListener;
 
-if (! class_exists(MessageReceived::class)) {
-    return; // Skip entire file when the optional package is not installed
-}
-
 function makeRawEmail(string $from, string $subject = 'Hello', string $authResults = 'dkim=pass spf=pass'): MessageInterface
 {
-    $header = Mockery::mock(\DirectoryTree\ImapEngine\Header\HeaderInterface::class);
+    $header = Mockery::mock(\ZBateson\MailMimeParser\Header\IHeader::class);
     $header->allows('getRawValue')->andReturn($authResults);
 
-    $address = Mockery::mock(\DirectoryTree\ImapEngine\Address\AddressInterface::class);
-    $address->allows('email')->andReturn($from);
-
     $raw = Mockery::mock(MessageInterface::class);
-    $raw->allows('from')->andReturn($address);
+    $raw->allows('from')->andReturn(new Address($from, ''));
     $raw->allows('subject')->andReturn($subject);
     $raw->allows('header')->with('Authentication-Results')->andReturn($header);
     $raw->allows('header')->withAnyArgs()->andReturn(null);
@@ -32,7 +27,7 @@ function makeRawEmail(string $from, string $subject = 'Hello', string $authResul
     $raw->allows('html')->andReturn(null);
     $raw->allows('references')->andReturn(null);
     $raw->allows('inReplyTo')->andReturn(null);
-    $raw->allows('attachments')->andReturn(collect());
+    $raw->allows('attachments')->andReturn([]);
 
     return $raw;
 }
@@ -44,6 +39,7 @@ function makeEvent(MessageInterface $raw): MessageReceived
 
 beforeEach(function () {
     Queue::fake();
+    Redis::spy();
     config(['laraclaw.channels.email.enabled' => true]);
     config(['laraclaw.channels.email.sender_allow_list' => ['allowed@example.com']]);
     config(['laraclaw.channels.email.verify_sender_dkim_and_spf' => true]);

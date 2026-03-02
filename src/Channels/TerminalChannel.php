@@ -10,7 +10,7 @@ use LaraClaw\Message;
 
 class TerminalChannel extends Channel implements SupportsConfirmation
 {
-    public readonly string $name = 'terminal';
+    public string $name { get { return 'terminal'; } }
 
     /**
      * Create a new TerminalChannel instance.

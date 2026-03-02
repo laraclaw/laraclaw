@@ -24,7 +24,7 @@ class TelegramChannel extends Channel implements SupportsAcknowledgement, Suppor
 {
     use ChecksRedisForConfirmations;
 
-    public readonly string $name = 'telegram';
+    public string $name { get { return 'telegram'; } }
 
     /**
      * Create a new TelegramChannel instance.

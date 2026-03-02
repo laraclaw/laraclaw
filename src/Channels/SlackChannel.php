@@ -19,7 +19,7 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsC
 {
     use ChecksRedisForConfirmations;
 
-    public readonly string $name = 'slack';
+    public string $name { get { return 'slack'; } }
 
     /**
      * Create a new SlackChannel instance.

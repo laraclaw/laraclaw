@@ -13,7 +13,7 @@ abstract class Channel
     /**
      * Unique identifier string for this channel (e.g. "telegram", "slack").
      */
-    abstract public readonly string $name;
+    abstract public string $name { get; }
 
     /**
      * Send a text message to the channel.

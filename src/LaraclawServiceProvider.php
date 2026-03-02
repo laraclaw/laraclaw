@@ -59,17 +59,14 @@ class LaraclawServiceProvider extends ServiceProvider
 
         $this->app->singleton(ToolRegistry::class, fn () => new ToolRegistry);
 
-        if (class_exists(\SergiX44\Nutgram\Nutgram::class)) {
-            $this->app->booting(function () {
-                config()->set('nutgram.token', config('laraclaw.channels.telegram.token'));
-                config()->set('nutgram.config.timeout', 120);
-            });
+        $this->app->booting(function () {
+            config()->set('nutgram.token', config('laraclaw.channels.telegram.token'));
+            config()->set('nutgram.config.timeout', 120);
+        });
 
-            $this->app->resolving(\SergiX44\Nutgram\Nutgram::class, function (\SergiX44\Nutgram\Nutgram $bot) {
-                $bot->onMessage(fn (\SergiX44\Nutgram\Nutgram $bot) => event(new TelegramMessageReceived($bot->message(), $bot)));
-            });
-
-        }
+        $this->app->resolving(\SergiX44\Nutgram\Nutgram::class, function (\SergiX44\Nutgram\Nutgram $bot) {
+            $bot->onMessage(fn (\SergiX44\Nutgram\Nutgram $bot) => event(new TelegramMessageReceived($bot->message(), $bot)));
+        });
 
         if (config('laraclaw.channels.email.enabled')) {
             $smtp = config('laraclaw.channels.email.smtp');

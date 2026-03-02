@@ -7,6 +7,7 @@ use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Facades\Schema;
 use LaraClaw\LaraclawServiceProvider;
 use LaraClaw\Tests\Fixtures\FakeConversationStore;
+use Laravel\Ai\AiServiceProvider;
 use Laravel\Ai\Contracts\ConversationStore;
 use Orchestra\Testbench\TestCase as BaseTestCase;
 
@@ -14,7 +15,7 @@ abstract class TestCase extends BaseTestCase
 {
     protected function getPackageProviders($app): array
     {
-        return [LaraclawServiceProvider::class];
+        return [AiServiceProvider::class, LaraclawServiceProvider::class];
     }
 
     protected function defineEnvironment($app): void

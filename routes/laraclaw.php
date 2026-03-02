@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Route;
 use LaraClaw\Http\Controllers\SlackController;
 use SergiX44\Nutgram\Nutgram;
 
-if (config('laraclaw.channels.telegram.enabled') && class_exists(Nutgram::class)) {
+if (config('laraclaw.channels.telegram.enabled')) {
     Route::post('telegram/webhook', fn (Nutgram $bot) => $bot->run());
 }
 

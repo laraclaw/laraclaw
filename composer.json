@@ -6,16 +6,14 @@
     "license": "MIT",
     "require": {
         "php": "^8.4",
+        "directorytree/imapengine-laravel": "^1.0",
         "laravel/ai": "^0.2",
         "laravel/framework": "^12.0",
+        "nutgram/laravel": "^1.6",
+        "sabre/vobject": "^4.0",
+        "spatie/image": "^3.0",
+        "spatie/laravel-google-calendar": "^3.0",
         "symfony/yaml": "^7.0"
-    },
-    "suggest": {
-        "nutgram/laravel": "Required for Telegram channel support",
-        "directorytree/imapengine-laravel": "Required for email channel support",
-        "sabre/vobject": "Required for Apple CalDAV calendar support",
-        "spatie/image": "Required for image management tool",
-        "spatie/laravel-google-calendar": "Required for Google Calendar support"
     },
     "autoload": {
         "files": [
@@ -34,10 +32,12 @@
     },
     "config": {
         "optimize-autoloader": true,
-        "sort-packages": true
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
     },
     "require-dev": {
-        "directorytree/imapengine-laravel": "*",
         "mockery/mockery": "^1.6",
         "orchestra/testbench": "^10.0",
         "pestphp/pest": "^3.0",
