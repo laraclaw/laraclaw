@@ -9,6 +9,7 @@
         "directorytree/imapengine-laravel": "^1.0",
         "laravel/ai": "^0.2",
         "laravel/framework": "^12.0",
+        "league/commonmark": "^2.8",
         "nutgram/laravel": "^1.6",
         "sabre/vobject": "^4.0",
         "spatie/image": "^3.0",

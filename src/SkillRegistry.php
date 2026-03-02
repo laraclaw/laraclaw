@@ -3,7 +3,8 @@
 namespace LaraClaw;
 
 use Illuminate\Support\Facades\File;
-use Symfony\Component\Yaml\Yaml;
+use League\CommonMark\Extension\FrontMatter\Data\SymfonyYamlFrontMatterParser;
+use League\CommonMark\Extension\FrontMatter\FrontMatterParser;
 
 /**
  * Loads and indexes skill definitions from SKILL.md files on disk.
@@ -74,11 +75,8 @@ class SkillRegistry
      */
     private function parseFrontmatter(string $raw): ?array
     {
-        if (! preg_match('/\A---\s*\n(.+?)\n---\s*\n(.*)\z/s', $raw, $matches)) {
-            return null;
-        }
-
-        $meta = Yaml::parse($matches[1]);
+        $result = (new FrontMatterParser(new SymfonyYamlFrontMatterParser))->parse($raw);
+        $meta = $result->getFrontMatter();
 
         if (empty($meta['name']) || empty($meta['description'])) {
             return null;
@@ -87,7 +85,7 @@ class SkillRegistry
         return [
             'name' => $meta['name'],
             'description' => $meta['description'],
-            'content' => trim($matches[2]),
+            'content' => trim($result->getContent()),
         ];
     }
 }
