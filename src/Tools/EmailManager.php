@@ -53,7 +53,7 @@ class EmailManager extends BaseTool
             'subject' => $schema->string()->description('Email subject (required for send)'),
             'body' => $schema->string()->description('Email body text (required for send and reply)'),
             'attachments' => $schema->array()->items(
-                $schema->object()->properties([
+                $schema->object([
                     'disk' => $schema->string()->description('Storage disk (e.g. "local")'),
                     'path' => $schema->string()->description('File path on the disk'),
                     'filename' => $schema->string()->description('Optional display filename'),
