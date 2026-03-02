@@ -52,6 +52,14 @@ class EmailManager extends BaseTool
             'bcc' => $schema->array()->items($schema->string())->description('BCC email addresses'),
             'subject' => $schema->string()->description('Email subject (required for send)'),
             'body' => $schema->string()->description('Email body text (required for send and reply)'),
+            'attachments' => $schema->array()->items(
+                $schema->object()->properties([
+                    'disk' => $schema->string()->description('Storage disk (e.g. "local")'),
+                    'path' => $schema->string()->description('File path on the disk'),
+                    'filename' => $schema->string()->description('Optional display filename'),
+                    'mime_type' => $schema->string()->description('Optional MIME type'),
+                ])
+            )->description('Files to attach (use disk/path from [Attached files] metadata in the conversation)'),
             'search' => $schema->string()->description('Plain text search for inbox — matches anywhere in the message (subject, sender, body). Do NOT use Gmail query syntax like "from:" or "subject:" — just use plain words. To filter by sender, use from_filter instead.'),
             'from_filter' => $schema->string()->description('Filter inbox by sender email or name (partial match, e.g. "netflix" matches "info@members.netflix.com")'),
             'limit' => $schema->integer()->description('Max messages to return for inbox (default 10, max 20)'),
@@ -431,6 +439,21 @@ class EmailManager extends BaseTool
                     Storage::disk($attachment->disk)->get($attachment->path),
                     $attachment->filename ?? basename($attachment->path),
                     ['mime' => $attachment->mimeType ?? 'application/octet-stream'],
+                );
+            }
+
+            foreach ((array) ($request['attachments'] ?? []) as $item) {
+                $disk = $item['disk'] ?? 'local';
+                $path = $item['path'] ?? null;
+
+                if (! $path) {
+                    continue;
+                }
+
+                $msg->attachData(
+                    Storage::disk($disk)->get($path),
+                    $item['filename'] ?? basename($path),
+                    ['mime' => $item['mime_type'] ?? 'application/octet-stream'],
                 );
             }
 

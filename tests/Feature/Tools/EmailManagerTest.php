@@ -131,6 +131,34 @@ it('attaches message attachments when sending an email', function () {
     expect($parts[0]->getBody())->toBe('fake-image-data');
 });
 
+it('attaches files passed explicitly via the attachments parameter', function () {
+    Storage::fake('local');
+    Storage::disk('local')->put('attachments/telegram/uuid/logo.png', 'logo-data');
+
+    $captured = null;
+    Event::listen(MessageSending::class, function (MessageSending $e) use (&$captured) {
+        $captured = $e->message;
+    });
+
+    // No attachments on the Message itself — the agent passes disk/path from conversation history
+    emailTool()->handle(emailRequest([
+        'operation' => 'send',
+        'to' => ['to@example.com'],
+        'subject' => 'Here are the logos',
+        'body' => 'See attached.',
+        'attachments' => [
+            ['disk' => 'local', 'path' => 'attachments/telegram/uuid/logo.png', 'filename' => 'logo.png', 'mime_type' => 'image/png'],
+        ],
+    ]));
+
+    expect($captured)->toBeInstanceOf(Email::class);
+    $parts = $captured->getAttachments();
+    expect($parts)->toHaveCount(1);
+    expect($parts[0]->getFilename())->toBe('logo.png');
+    expect($parts[0]->getMediaType() . '/' . $parts[0]->getMediaSubtype())->toBe('image/png');
+    expect($parts[0]->getBody())->toBe('logo-data');
+});
+
 it('sends without attachments when the message has none', function () {
     $captured = null;
     Event::listen(MessageSending::class, function (MessageSending $e) use (&$captured) {
