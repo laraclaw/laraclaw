@@ -9,6 +9,7 @@ use Exception;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use LaraClaw\Message;
 use Laravel\Ai\Tools\Request;
 use Stringable;
@@ -162,28 +163,9 @@ class EmailManager extends BaseTool
             return 'The "body" parameter is required for the send operation.';
         }
 
-        $fromAddress = config("imap.mailboxes.{$this->mailbox}.username");
+        $this->compose($body, $to, $subject, $request);
 
-        Mail::raw($body, function ($message) use ($to, $subject, $fromAddress, $request) {
-            $message->to($to);
-            $message->subject($subject);
-
-            if ($fromAddress) {
-                $message->from($fromAddress);
-            }
-
-            if (! empty($request['cc'])) {
-                $message->cc($request['cc']);
-            }
-
-            if (! empty($request['bcc'])) {
-                $message->bcc($request['bcc']);
-            }
-        });
-
-        $recipients = implode(', ', (array) $to);
-
-        return "Email sent to {$recipients} with subject \"{$subject}\".";
+        return 'Email sent to ' . implode(', ', (array) $to) . " with subject \"{$subject}\".";
     }
 
     /** Reply to an existing message, threading via In-Reply-To headers. */
@@ -200,47 +182,33 @@ class EmailManager extends BaseTool
         }
 
         $folder = $this->getFolder($request['folder'] ?? 'INBOX');
-        $message = $folder->messages()->withHeaders()->withBody()->find((int) $uid);
+        $original = $folder->messages()->withHeaders()->withBody()->find((int) $uid);
 
-        if ($message === null) {
+        if ($original === null) {
             return "Message with UID {$uid} not found.";
         }
 
-        $replyTo = $message->replyTo() ?? $message->from();
+        $replyTo = $original->replyTo() ?? $original->from();
         if ($replyTo === null) {
             return 'Cannot determine reply address for this message.';
         }
 
-        $replyAddress = $replyTo->email();
-        $messageId = $message->messageId();
-        $subject = $message->subject() ?? 'No Subject';
-
+        $subject = $original->subject() ?? 'No Subject';
         if (! str_starts_with(strtolower($subject), 're:')) {
             $subject = 'Re: ' . $subject;
         }
 
-        $fromAddress = config("imap.mailboxes.{$this->mailbox}.username");
-        $to = ! empty($request['to']) ? $request['to'] : [$replyAddress];
+        $to = ! empty($request['to']) ? $request['to'] : [$replyTo->email()];
+        $messageId = $original->messageId();
 
-        Mail::raw($body, function ($msg) use ($to, $subject, $messageId, $fromAddress, $request) {
-            $msg->to($to);
-            $msg->subject($subject);
-
-            if ($fromAddress) {
-                $msg->from($fromAddress);
-            }
-
-            if (! empty($request['cc'])) {
-                $msg->cc($request['cc']);
-            }
-
+        $this->compose($body, $to, $subject, $request, function ($msg) use ($messageId) {
             if ($messageId) {
                 $msg->getHeaders()->addTextHeader('In-Reply-To', $messageId);
                 $msg->getHeaders()->addTextHeader('References', $messageId);
             }
         });
 
-        $message->markAnswered();
+        $original->markAnswered();
 
         return 'Reply sent to ' . implode(', ', (array) $to) . " with subject \"{$subject}\".";
     }
@@ -433,6 +401,43 @@ class EmailManager extends BaseTool
         }
 
         return implode('; ', $results) . '.';
+    }
+
+    /**
+     * Build and send a mail message, applying recipients, headers, and attachments.
+     */
+    private function compose(string $body, array $to, string $subject, Request $request, ?callable $extra = null): void
+    {
+        $fromAddress = config("imap.mailboxes.{$this->mailbox}.username");
+
+        Mail::raw($body, function ($msg) use ($to, $subject, $fromAddress, $request, $extra) {
+            $msg->to($to);
+            $msg->subject($subject);
+
+            if ($fromAddress) {
+                $msg->from($fromAddress);
+            }
+
+            if (! empty($request['cc'])) {
+                $msg->cc($request['cc']);
+            }
+
+            if (! empty($request['bcc'])) {
+                $msg->bcc($request['bcc']);
+            }
+
+            foreach ($this->message->attachments as $attachment) {
+                $msg->attachData(
+                    Storage::disk($attachment->disk)->get($attachment->path),
+                    $attachment->filename ?? basename($attachment->path),
+                    ['mime' => $attachment->mimeType ?? 'application/octet-stream'],
+                );
+            }
+
+            if ($extra) {
+                $extra($msg);
+            }
+        });
     }
 
     /**
