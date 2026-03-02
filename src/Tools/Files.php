@@ -20,11 +20,16 @@ class Files extends BaseTool
 {
     private const MAX_READ_BYTES = 100 * 1024;
 
-    protected array $requiresConfirmation = [
-        'move' => 'Move "{path}" to "{destination}"?',
-    ];
+    protected array $requiresConfirmation = [];
 
-    public function __construct(protected Message $message, private Collection $attachments) {}
+    public function __construct(protected Message $message, private Collection $attachments)
+    {
+        $this->requiresConfirmation['delete'] = function (Request $request): string {
+            $paths = collect($request['paths'] ?: [$request['path']])->filter();
+
+            return "Delete {$paths->implode(', ')} from disk \"{$request['disk']}\"?";
+        };
+    }
 
     public function description(): Stringable|string
     {
@@ -140,8 +145,7 @@ class Files extends BaseTool
     protected function delete(Request $request): string
     {
         $storage = $this->storage($request);
-        $paths = ! empty($request['paths']) ? array_values($request['paths']) : [$request['path']];
-        $paths = array_filter($paths, fn ($p) => $p !== '' && $p !== null);
+        $paths = collect($request['paths'] ?: [$request['path']])->filter()->values()->all();
 
         if (empty($paths)) {
             return 'No paths provided for delete.';
@@ -154,15 +158,6 @@ class Files extends BaseTool
             if ($this->isProtectedPath($p)) {
                 return "Cannot delete system directory '{$p}'.";
             }
-        }
-
-        $count = count($paths);
-        $prompt = $count === 1
-            ? "Delete \"{$paths[0]}\" from disk \"{$request['disk']}\"?"
-            : "Delete {$count} files from disk \"{$request['disk']}\": " . implode(', ', $paths) . '?';
-
-        if (! $this->message->channel->confirm($this->message, $prompt)) {
-            return 'Cancelled by user.';
         }
 
         return collect($paths)

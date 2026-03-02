@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use LaraClaw\Channels\Concerns\ChecksRedisForConfirmations;
+
+use function LaraClaw\Support\markdownToMrkdwn;
 use LaraClaw\Channels\Contracts\SupportsAcknowledgement;
 use LaraClaw\Channels\Contracts\SupportsConfirmation;
 use LaraClaw\DTOs\Attachment;
@@ -217,24 +219,7 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsC
      */
     private function toMrkdwn(string $text): string
     {
-        // Bold: **text** or __text__ → *text*
-        $text = preg_replace('/\*\*(.+?)\*\*/s', '*$1*', $text);
-        $text = preg_replace('/__(.+?)__/s', '*$1*', $text);
-
-        // Italic: _text_ → _text_ (already correct), but *text* (single) → _text_
-        // Only convert single * that aren't already bold (bold was already processed)
-        $text = preg_replace('/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/s', '_$1_', $text);
-
-        // Strikethrough: ~~text~~ → ~text~
-        $text = preg_replace('/~~(.+?)~~/s', '~$1~', $text);
-
-        // Links: [text](url) → <url|text>
-        $text = preg_replace('/\[([^\]]+)\]\(([^)]+)\)/', '<$2|$1>', $text);
-
-        // Headings: ## Heading → *Heading*
-        $text = preg_replace('/^#{1,6}\s+(.+)$/m', '*$1*', $text);
-
-        return $text;
+        return markdownToMrkdwn($text);
     }
 
     /**

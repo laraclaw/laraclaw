@@ -34,12 +34,8 @@ class ToolRegistry
      */
     public function resolve(Message $message, Collection $attachments, ?Conversation $conversation): array
     {
-        $tools = [];
-
-        foreach ($this->factories as $factory) {
-            $tools[] = $factory($message, $attachments, $conversation);
-        }
-
-        return $tools;
+        return collect($this->factories)
+            ->map(fn (Closure $factory) => $factory($message, $attachments, $conversation))
+            ->all();
     }
 }

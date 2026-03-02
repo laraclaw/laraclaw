@@ -29,6 +29,7 @@ use LaraClaw\Listeners\TelegramListener;
 use LaraClaw\Tools\ToolRegistry;
 use Laravel\Ai\Events\AgentPrompted;
 use RuntimeException;
+use SergiX44\Nutgram\Nutgram;
 use Spatie\GoogleCalendar\GoogleCalendar;
 
 /**
@@ -68,8 +69,8 @@ class LaraclawServiceProvider extends ServiceProvider
             config()->set('nutgram.config.timeout', 120);
         });
 
-        $this->app->resolving(\SergiX44\Nutgram\Nutgram::class, function (\SergiX44\Nutgram\Nutgram $bot) {
-            $bot->onMessage(fn (\SergiX44\Nutgram\Nutgram $bot) => event(new TelegramMessageReceived($bot->message(), $bot)));
+        $this->app->resolving(Nutgram::class, function (Nutgram $bot) {
+            $bot->onMessage(fn (Nutgram $bot) => event(new TelegramMessageReceived($bot->message(), $bot)));
         });
 
         if (config('laraclaw.channels.email.enabled')) {
@@ -156,7 +157,14 @@ class LaraclawServiceProvider extends ServiceProvider
 
         Event::listen(AgentPrompted::class, LogAgentRequest::class);
 
-        $this->commands([GoogleCalendarAuth::class, ChannelAddCommand::class, SendReminders::class, ProcessHeartbeats::class, SetupWizard::class, Chat::class]);
+        $this->commands([
+            GoogleCalendarAuth::class,
+            ChannelAddCommand::class,
+            SendReminders::class,
+            ProcessHeartbeats::class,
+            SetupWizard::class,
+            Chat::class,
+        ]);
 
         $this->callAfterResolving(Schedule::class, function (Schedule $schedule) {
             $schedule->command(SendReminders::class)->everyMinute();

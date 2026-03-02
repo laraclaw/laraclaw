@@ -31,7 +31,7 @@ abstract class BaseTool implements Tool
             return "Unknown operation '{$operation}'. Available: " . implode(', ', $this->operations());
         }
 
-        if ($denied = $this->confirmOperation($operation, $request)) {
+        if ($denied = $this->confirmOperation($request, $operation)) {
             return $denied;
         }
 
@@ -51,17 +51,21 @@ abstract class BaseTool implements Tool
      * If the operation requires confirmation, prompt the user and return 'Cancelled by user.'
      * on denial, or null to proceed.
      */
-    protected function confirmOperation(string $operation, Request $request): ?string
+    protected function confirmOperation(Request $request, string $operation): ?string
     {
         if (! isset($this->requiresConfirmation[$operation])) {
             return null;
         }
 
-        $prompt = preg_replace_callback('/\{(\w+)\}/', function ($m) use ($request) {
-            $value = $request[$m[1]] ?? $m[0];
+        $template = $this->requiresConfirmation[$operation];
 
-            return is_array($value) ? implode(', ', $value) : $value;
-        }, $this->requiresConfirmation[$operation]);
+        $prompt = is_callable($template)
+            ? $template($request)
+            : preg_replace_callback('/\{(\w+)\}/', function ($m) use ($request) {
+                $value = $request[$m[1]] ?? $m[0];
+
+                return is_array($value) ? implode(', ', $value) : $value;
+            }, $template);
 
         if (! $this->message->channel->confirm($this->message, $prompt)) {
             return 'Cancelled by user.';

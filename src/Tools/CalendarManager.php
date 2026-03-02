@@ -84,17 +84,17 @@ class CalendarManager extends BaseTool
 
         $events = $this->driver->list($startDate, $endDate);
 
-        $result = array_map(fn (CalendarEvent $e) => [
-            'id' => $e->id,
-            'title' => $e->title,
-            'start' => $e->start->format('c'),
-            'end' => $e->end->format('c'),
-            'description' => $e->description,
-            'location' => $e->location,
-            'attendees' => $e->attendees,
-        ], $events);
-
-        return json_encode($result, JSON_PRETTY_PRINT);
+        return collect($events)
+            ->map(fn (CalendarEvent $e) => [
+                'id' => $e->id,
+                'title' => $e->title,
+                'start' => $e->start->format('c'),
+                'end' => $e->end->format('c'),
+                'description' => $e->description,
+                'location' => $e->location,
+                'attendees' => $e->attendees,
+            ])
+            ->toJson(JSON_PRETTY_PRINT);
     }
 
     /**

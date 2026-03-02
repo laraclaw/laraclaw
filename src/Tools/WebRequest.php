@@ -8,6 +8,7 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Laravel\Ai\Tools\Request;
 use Stringable;
+use Symfony\Component\HttpFoundation\IpUtils;
 
 /**
  * Agent tool for making outbound HTTP requests (GET, POST, PUT, PATCH, DELETE, HEAD).
@@ -190,21 +191,15 @@ class WebRequest extends BaseTool
             return true;
         }
 
-        $host = trim($host, '[]'); // strip IPv6 brackets
+        // Strip IPv6 brackets before DNS lookups
+        $host = trim($host, '[]');
 
-        $ips = [];
-
-        foreach (dns_get_record($host, DNS_A) ?: [] as $r) {
-            if (isset($r['ip'])) {
-                $ips[] = $r['ip'];
-            }
-        }
-
-        foreach (dns_get_record($host, DNS_AAAA) ?: [] as $r) {
-            if (isset($r['ipv6'])) {
-                $ips[] = $r['ipv6'];
-            }
-        }
+        $ips = collect(dns_get_record($host, DNS_A) ?: [])
+            ->pluck('ip')
+            ->merge(collect(dns_get_record($host, DNS_AAAA) ?: [])->pluck('ipv6'))
+            ->filter()
+            ->values()
+            ->all();
 
         // No DNS records — may be a raw IP literal; fall back to gethostbyname()
         if (empty($ips)) {
@@ -223,41 +218,19 @@ class WebRequest extends BaseTool
 
     /**
      * Return true if $ip falls within any loopback, private, or link-local range.
-     * Uses binary prefix comparisons via inet_pton() so it handles both IPv4 and IPv6.
      */
     private function isPrivateIp(string $ip): bool
     {
-        $packed = inet_pton($ip);
-
-        if ($packed === false) {
-            return true; // unparseable — block
-        }
-
-        if (strlen($packed) === 4) {
-            $n = unpack('N', $packed)[1];
-
-            return
-                ($n & 0xFF000000) === 0x7F000000 || // 127.0.0.0/8  loopback
-                ($n & 0xFF000000) === 0x0A000000 || // 10.0.0.0/8
-                ($n & 0xFFF00000) === 0xAC100000 || // 172.16.0.0/12
-                ($n & 0xFFFF0000) === 0xC0A80000 || // 192.168.0.0/16
-                ($n & 0xFFFF0000) === 0xA9FE0000 || // 169.254.0.0/16 link-local
-                $n === 0x00000000;                   // 0.0.0.0
-        }
-
-        // IPv6
-        if ($packed === "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01") {
-            return true; // ::1 loopback
-        }
-
-        if ((ord($packed[0]) & 0xFE) === 0xFC) {
-            return true; // fc00::/7 unique local
-        }
-
-        if (ord($packed[0]) === 0xFE && (ord($packed[1]) & 0xC0) === 0x80) {
-            return true; // fe80::/10 link-local
-        }
-
-        return false;
+        return IpUtils::checkIp($ip, [
+            '127.0.0.0/8',
+            '10.0.0.0/8',
+            '172.16.0.0/12',
+            '192.168.0.0/16',
+            '169.254.0.0/16',
+            '0.0.0.0',
+            '::1/128',
+            'fc00::/7',
+            'fe80::/10',
+        ]);
     }
 }

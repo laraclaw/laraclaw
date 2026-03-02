@@ -65,8 +65,13 @@ class ProcessMessage implements ShouldQueue
     /**
      * Resolve the user, conversation, and agent, then prompt the AI and deliver the reply.
      */
-    public function handle(ConversationStore $conversations, CommandRegistry $commandRegistry, SkillRegistry $skillRegistry, ToolRegistry $toolRegistry, ?CalendarDriver $calendarDriver = null): void
-    {
+    public function handle(
+        ConversationStore $conversations,
+        CommandRegistry $commandRegistry,
+        SkillRegistry $skillRegistry,
+        ToolRegistry $toolRegistry,
+        ?CalendarDriver $calendarDriver = null,
+    ): void {
         /** @var Collection<int, Attachment> $replyAttachments */
         $replyAttachments = collect();
 
@@ -87,15 +92,15 @@ class ProcessMessage implements ShouldQueue
         }
 
         // Build attachment objects for the agent
-        $agentAttachments = [];
-        foreach ($this->message->attachments as $attachment) {
-            $agentAttachments[] = match (true) {
-                $attachment->isImage() => Image::fromStorage($attachment->path, $attachment->disk),
-                $attachment->isDocument() => Document::fromStorage($attachment->path, $attachment->disk),
+        $agentAttachments = $this->message->attachments
+            ->map(fn (Attachment $a) => match (true) {
+                $a->isImage() => Image::fromStorage($a->path, $a->disk),
+                $a->isDocument() => Document::fromStorage($a->path, $a->disk),
                 default => null,
-            };
-        }
-        $agentAttachments = array_filter($agentAttachments);
+            })
+            ->filter()
+            ->values()
+            ->all();
 
         // Append attachment metadata so the agent knows the disk/path for tool use
         $attachmentMeta = $this->message->attachments

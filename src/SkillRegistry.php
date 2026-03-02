@@ -25,10 +25,10 @@ class SkillRegistry
      */
     public function all(): array
     {
-        return array_values(array_map(
-            fn (array $skill) => ['name' => $skill['name'], 'description' => $skill['description']],
-            $this->load(),
-        ));
+        return collect($this->load())
+            ->map(fn (array $skill) => ['name' => $skill['name'], 'description' => $skill['description']])
+            ->values()
+            ->all();
     }
 
     /**

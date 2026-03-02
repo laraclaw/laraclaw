@@ -30,7 +30,20 @@ class EmailManager extends BaseTool
     public function __construct(
         protected Message $message,
         private string $mailbox,
-    ) {}
+    ) {
+        $this->requiresConfirmation['delete'] = function (Request $request): string {
+            $uids = collect($request['uids'] ?: [$request['uid']])->filter();
+            $folder = $request['folder'] ?? 'INBOX';
+
+            return "Delete messages {$uids->implode(', ')} from {$folder}?";
+        };
+
+        $this->requiresConfirmation['delete_folder'] = function (Request $request): string {
+            $folders = collect($request['folders'] ?: [$request['folder']])->filter();
+
+            return "Delete folder {$folders->implode(', ')}?";
+        };
+    }
 
     public function description(): Stringable|string
     {
@@ -102,17 +115,13 @@ class EmailManager extends BaseTool
 
         $messages = $query->newest()->limit($limit)->get();
 
-        $result = [];
+        $result = collect($messages)->map(fn ($m) => $this->summarize($m));
 
-        foreach ($messages as $message) {
-            $result[] = $this->summarize($message);
-        }
-
-        if (empty($result)) {
+        if ($result->isEmpty()) {
             return 'No messages found.';
         }
 
-        return json_encode($result, JSON_PRETTY_PRINT);
+        return $result->toJson(JSON_PRETTY_PRINT);
     }
 
     /** Fetch and return the full content of a single message by UID. */
@@ -141,8 +150,8 @@ class EmailManager extends BaseTool
             'uid' => $message->uid(),
             'subject' => $message->subject(),
             'from' => $from ? ['email' => $from->email(), 'name' => $from->name()] : null,
-            'to' => array_map(fn ($a) => $a->toArray(), $message->to()),
-            'cc' => array_map(fn ($a) => $a->toArray(), $message->cc()),
+            'to' => collect($message->to())->map(fn ($a) => $a->toArray())->all(),
+            'cc' => collect($message->cc())->map(fn ($a) => $a->toArray())->all(),
             'date' => $message->date()?->toIso8601String(),
             'message_id' => $message->messageId(),
             'has_attachments' => $message->hasAttachments(),
@@ -206,7 +215,7 @@ class EmailManager extends BaseTool
             $subject = 'Re: ' . $subject;
         }
 
-        $to = ! empty($request['to']) ? $request['to'] : [$replyTo->email()];
+        $to = $request['to'] ?: [$replyTo->email()];
         $messageId = $original->messageId();
 
         $this->compose($body, $to, $subject, $request, function ($msg) use ($messageId) {
@@ -224,36 +233,25 @@ class EmailManager extends BaseTool
     /** Permanently delete one or more messages after user confirmation. */
     protected function delete(Request $request): string
     {
-        $uids = ! empty($request['uids']) ? array_values($request['uids']) : (($request['uid'] ?? null) !== null ? [$request['uid']] : []);
+        $uids = collect($request['uids'] ?: [$request['uid'] ?? null])->filter()->values()->all();
         if ($uids === []) {
             return 'The "uid" or "uids" parameter is required for the delete operation.';
         }
 
         $folderName = $request['folder'] ?? 'INBOX';
-
-        $count = count($uids);
-        $prompt = $count === 1
-            ? "Delete message {$uids[0]} from {$folderName}?"
-            : "Delete {$count} messages (UIDs: " . implode(', ', $uids) . ") from {$folderName}?";
-
-        if (! $this->message->channel->confirm($this->message, $prompt)) {
-            return 'Cancelled by user.';
-        }
-
         $folder = $this->getFolder($folderName);
-        $results = [];
 
-        foreach ($uids as $uid) {
-            $message = $folder->messages()->find((int) $uid);
-            if ($message === null) {
-                $results[] = "UID {$uid}: not found";
-            } else {
-                $folder->messages()->destroy((int) $uid, expunge: true);
-                $results[] = "UID {$uid}: deleted";
-            }
-        }
+        return collect($uids)
+            ->map(function (int $uid) use ($folder): string {
+                if ($folder->messages()->find($uid) === null) {
+                    return "UID {$uid}: not found";
+                }
 
-        return implode('; ', $results) . '.';
+                $folder->messages()->destroy($uid, expunge: true);
+
+                return "UID {$uid}: deleted";
+            })
+            ->implode('; ') . '.';
     }
 
     /** Move a message from one folder to another. */
@@ -354,16 +352,9 @@ class EmailManager extends BaseTool
         $mailbox = Imap::mailbox($this->mailbox);
         $folders = $mailbox->folders()->get();
 
-        $result = [];
-
-        foreach ($folders as $folder) {
-            $result[] = [
-                'path' => $folder->path(),
-                'name' => $folder->name(),
-            ];
-        }
-
-        return json_encode($result, JSON_PRETTY_PRINT);
+        return collect($folders)
+            ->map(fn ($folder) => ['path' => $folder->path(), 'name' => $folder->name()])
+            ->toJson(JSON_PRETTY_PRINT);
     }
 
     /** Create a new folder in the mailbox. */
@@ -382,33 +373,25 @@ class EmailManager extends BaseTool
     /** Delete one or more folders after user confirmation. */
     protected function deleteFolder(Request $request): string
     {
-        $folders = ! empty($request['folders']) ? array_values($request['folders']) : (($request['folder'] ?? null) !== null ? [$request['folder']] : []);
+        $folders = collect($request['folders'] ?: [$request['folder'] ?? null])->filter()->values()->all();
+
         if ($folders === []) {
             return 'The "folder" or "folders" parameter is required for the delete_folder operation.';
         }
 
-        $count = count($folders);
-        $prompt = $count === 1
-            ? "Delete folder \"{$folders[0]}\"?"
-            : "Delete {$count} folders: " . implode(', ', $folders) . '?';
-
-        if (! $this->message->channel->confirm($this->message, $prompt)) {
-            return 'Cancelled by user.';
-        }
-
         $mailbox = Imap::mailbox($this->mailbox);
-        $results = [];
 
-        foreach ($folders as $folder) {
-            try {
-                $mailbox->folders()->findOrFail($folder)->delete();
-                $results[] = "{$folder}: deleted";
-            } catch (Exception $e) {
-                $results[] = "{$folder}: {$e->getMessage()}";
-            }
-        }
+        return collect($folders)
+            ->map(function (string $folder) use ($mailbox): string {
+                try {
+                    $mailbox->folders()->findOrFail($folder)->delete();
 
-        return implode('; ', $results) . '.';
+                    return "{$folder}: deleted";
+                } catch (Exception $e) {
+                    return "{$folder}: {$e->getMessage()}";
+                }
+            })
+            ->implode('; ') . '.';
     }
 
     /**

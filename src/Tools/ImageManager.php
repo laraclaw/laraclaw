@@ -20,8 +20,6 @@ use Stringable;
  */
 class ImageManager extends BaseTool
 {
-    private const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'tif'];
-
     public function __construct(protected Message $message, private ?Collection $attachments = null) {}
 
     public function description(): Stringable|string
@@ -64,8 +62,7 @@ class ImageManager extends BaseTool
             return "File not found: {$path}";
         }
 
-        $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
-        if (! in_array($ext, self::IMAGE_EXTENSIONS, true)) {
+        if (! str_starts_with($storage->mimeType($path) ?: '', 'image/')) {
             return "Not an image file: {$path}";
         }
 
