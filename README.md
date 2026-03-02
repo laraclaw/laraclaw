@@ -1,12 +1,12 @@
 # LaraClaw
 
-AI-powered chatbot package for Laravel. Connects your AI agent to Telegram, Slack, Email, or the terminal — with tools for file management, web requests, image processing, calendar, email, skills, and personas.
+What if your Laravel app could talk back? LaraClaw is an AI chatbot package that connects your agent to **Telegram, Slack, Email, and the terminal** — with persistent memory, file handling, calendar access, reminders, and more.
 
 Built on [laravel/ai](https://github.com/laravel/ai).
 
 ## Requirements
 
-- PHP 8.2+
+- PHP 8.4+
 - Laravel 12+
 - Redis
 
@@ -16,91 +16,73 @@ Built on [laravel/ai](https://github.com/laravel/ai).
 composer require laraclaw/laraclaw
 ```
 
-Publish the config and migrations:
+Publish the config file and run the interactive setup wizard:
 
 ```bash
 php artisan vendor:publish --tag=laraclaw
-php artisan vendor:publish --provider="Laravel\Ai\AiServiceProvider"
-php artisan migrate
+php artisan laraclaw:setup
 ```
 
-## Configuration
+The wizard will walk you through migrations, owner account creation, channel configuration, and optional tools. That's it!
 
-Set the required environment variables in your `.env`:
+## Channels
 
-```env
-OPENAI_API_KEY=sk-...
-LARACLAW_OWNER_ID=1
-```
-
-`LARACLAW_OWNER_ID` is the primary key of your app's user that owns this LaraClaw installation. All bot interactions are attributed to this user.
-
-Then configure your channels below.
-
-## Channel Routing
-
-LaraClaw has a single owner — the user identified by `LARACLAW_OWNER_ID`. All channels route messages through that user.
+LaraClaw has a single owner — one user who controls the bot. All channels route messages through that user.
 
 | Channel | Who can message | Threading | Conversation scope |
 |---|---|---|---|
-| Telegram DM | Owner only (others ignored) | — | Per user |
+| Telegram DM | Owner only | — | Per user |
 | Telegram group | Anyone | — | Per group |
-| Slack DM | Owner only (others ignored) | No | Per user |
-| Slack channel | Anyone (when @mentioned) | Always threads | Per thread |
-| Email | Owner only (others ignored) | — | Per email thread |
+| Slack DM | Owner only | No | Per user |
+| Slack channel | Anyone (@mentioned) | Always threads | Per thread |
+| Email | Owner only | — | Per email thread |
 | Terminal | Owner | — | Per session |
 
-**DM channels** (Telegram DM, Slack DM, Email) look up the sender in the `user_channels` table. If the sender isn't registered as the owner, the message is silently ignored.
+**DM channels** (Telegram DM, Slack DM, Email) ignore anyone who isn't registered as the owner. **Group/open channels** always respond using the owner user.
 
-**Group/open channels** (Telegram groups, Slack channels, Terminal) always respond using the owner user. This is required because conversation memory in `laravel/ai` is tied to an authenticated user.
+### Telegram
 
-### Registering the owner's identifiers
-
-After running migrations, link the owner's channel identifiers to their user ID:
+You'll need a bot token from [@BotFather](https://t.me/BotFather). After setup, register the webhook:
 
 ```bash
-php artisan laraclaw:channel-add 1 telegram 123456789
-php artisan laraclaw:channel-add 1 slack U0123456789
-php artisan laraclaw:channel-add 1 email alice@example.com
+php artisan nutgram:register-webhook
 ```
 
-The first argument is the user ID (`LARACLAW_OWNER_ID`). The second is the channel name. The third is the channel-specific identifier — your Telegram chat ID, Slack user ID, or email address.
-
-## Optional Features
-
-### Image Management
+For local development without a public URL, use long-polling instead:
 
 ```bash
-composer require spatie/image
+php artisan nutgram:run
 ```
 
-### Google Calendar
+### Slack
+
+Create a Slack app at [api.slack.com/apps](https://api.slack.com/apps) and add these bot token scopes: `chat:write`, `reactions:add`, `files:read`. Then point your Event Subscriptions URL at:
+
+```
+https://your-app.com/slack/webhook
+```
+
+Subscribe to `message.channels` and `message.im`.
+
+### Email
+
+LaraClaw uses its own SMTP and IMAP config, so it won't interfere with your app's existing mail setup. The setup wizard will prompt you for both. After that, start the IMAP listener:
 
 ```bash
-composer require spatie/laravel-google-calendar
+php artisan imap:watch default --with=headers,body
 ```
 
-```env
-LARACLAW_CALENDAR_DRIVER=google
-LARACLAW_GOOGLE_CREDENTIALS_JSON=/path/to/oauth-credentials.json
-LARACLAW_GOOGLE_TOKEN_JSON=/path/to/oauth-token.json
-LARACLAW_GOOGLE_CALENDAR_ID=example@gmail.com
-```
+Replies thread correctly in email clients using `In-Reply-To` and `References` headers. Conversations are scoped per email thread, not per sender.
 
-### Apple Calendar (CalDAV)
+## Optional Tools
 
-```bash
-composer require sabre/vobject
-```
+### Calendar
 
-```env
-LARACLAW_CALENDAR_DRIVER=apple
-LARACLAW_APPLE_CALDAV_USERNAME=your@icloud.com
-LARACLAW_APPLE_CALDAV_PASSWORD=app-specific-password
-LARACLAW_APPLE_CALDAV_CALENDAR=your-calendar-name
-```
+The setup wizard lets you pick between **Google Calendar** and **Apple CalDAV**. For Google, it will walk you through the OAuth flow. For Apple, you'll need an app-specific password.
 
 ### Text-to-Speech
+
+Enable TTS in your `.env`:
 
 ```env
 LARACLAW_TTS_ENABLED=true
@@ -109,7 +91,7 @@ LARACLAW_TTS_VOICE=default-female
 
 ## Personas
 
-Personas are Markdown files that override the agent's system prompt. Place them in `laraclaw/personas/` (relative to your project root):
+Personas are Markdown files that override the agent's system prompt. Drop them in `laraclaw/personas/` at your project root:
 
 ```
 laraclaw/
@@ -118,26 +100,17 @@ laraclaw/
     developer.md
 ```
 
-Set a default persona:
+Set a default in your `.env`:
 
 ```env
 LARACLAW_PERSONA=assistant
 ```
 
-Users can switch personas at runtime by asking the bot.
+Users can switch personas at runtime just by asking the bot. Pretty neat, right?
 
 ## Skills
 
 Skills are Markdown files with YAML frontmatter that give the agent reusable instructions. Place them in `laraclaw/skills/`:
-
-```
-laraclaw/
-  skills/
-    summarise.md
-    translate.md
-```
-
-Each skill file:
 
 ```markdown
 ---
@@ -148,6 +121,8 @@ description: Summarises a given text
 Summarise the following text in 3 bullet points...
 ```
 
+The agent picks up new skills automatically — no code changes needed.
+
 ## Queue
 
 Messages are processed via Laravel's queue. Make sure a worker is running:
@@ -155,200 +130,6 @@ Messages are processed via Laravel's queue. Make sure a worker is running:
 ```bash
 php artisan queue:work
 ```
-
-## Channel Setup
-
----
-
-### Telegram
-
-#### 1. Create a bot
-
-Open a chat with [@BotFather](https://t.me/BotFather) on Telegram and run `/newbot`. Follow the prompts — you'll receive a bot token.
-
-#### 2. Install the driver
-
-```bash
-composer require nutgram/laravel
-```
-
-#### 3. Set environment variables
-
-```env
-LARACLAW_TELEGRAM_TOKEN=your-bot-token
-```
-
-#### 4. Register the webhook
-
-Your app must be publicly accessible (use [ngrok](https://ngrok.com) for local dev).
-
-```bash
-php artisan nutgram:register-webhook
-```
-
-This tells Telegram to POST new messages to `https://your-app.com/telegram/webhook`.
-
-#### 5. Start the bot
-
-For webhook mode (recommended in production), messages arrive automatically via the webhook route. No long-polling process needed.
-
-For local dev without a public URL, use long-polling instead of registering a webhook:
-
-```bash
-php artisan nutgram:run
-```
-
-#### 6. Register the owner
-
-Find your Telegram chat ID by messaging [@userinfobot](https://t.me/userinfobot), then register it:
-
-```bash
-php artisan laraclaw:channel-add 1 telegram 123456789
-```
-
-The bot will only respond to DMs from this chat ID. It responds to all messages in groups.
-
----
-
-### Slack
-
-#### 1. Create a Slack app
-
-Go to [api.slack.com/apps](https://api.slack.com/apps) → **Create New App** → **From scratch**. Give it a name and pick a workspace.
-
-#### 2. Add bot token scopes
-
-Under **OAuth & Permissions** → **Bot Token Scopes**, add:
-
-| Scope | Purpose |
-|---|---|
-| `chat:write` | Send messages |
-| `reactions:add` | Acknowledge messages with 👍 |
-| `files:read` | Download files shared by users |
-
-#### 3. Install the app
-
-Under **OAuth & Permissions** → **Install to Workspace**. After installing, copy the **Bot User OAuth Token** (starts with `xoxb-`).
-
-#### 4. Enable event subscriptions
-
-Under **Event Subscriptions**:
-- Toggle **Enable Events: On**
-- Set the **Request URL** to `https://your-app.com/slack/webhook`
-  - Slack sends a `url_verification` challenge — your app must be running to respond. The handler does this automatically.
-- Under **Subscribe to bot events**, add:
-  - `message.channels` — messages in public channels
-  - `message.im` — direct messages
-
-#### 5. Set environment variables
-
-```env
-LARACLAW_SLACK_ENABLED=true
-LARACLAW_SLACK_BOT_TOKEN=xoxb-your-bot-token
-LARACLAW_SLACK_SIGNING_SECRET=your-signing-secret
-LARACLAW_SLACK_BOT_USER_ID=U0123456789
-```
-
-The signing secret is under **Basic Information** → **App Credentials**.
-
-The bot user ID is found under **App Home** → **Your App's Presence in Slack**, or by calling `https://slack.com/api/auth.test` with your bot token — it's the `user_id` field in the response.
-
-#### 6. Register the owner
-
-```bash
-php artisan laraclaw:channel-add 1 slack U0123456789
-```
-
-The bot will only respond to DMs from this Slack user ID. In channels, it responds when @mentioned by anyone.
-
-#### 7. Invite the bot to a channel
-
-In Slack, open the channel you want the bot in and run:
-
-```
-/invite @your-bot-name
-```
-
-In channels, the bot only responds when @mentioned. In DMs, it responds to every message (owner only).
-
----
-
-### Email
-
-#### 1. Install the IMAP driver
-
-```bash
-composer require directorytree/imapengine-laravel
-```
-
-#### 2. Configure SMTP (outgoing mail)
-
-LaraClaw uses its own SMTP config so it doesn't interfere with your app's mail settings:
-
-```env
-LARACLAW_EMAIL_ENABLED=true
-LARACLAW_MAIL_HOST=smtp.example.com
-LARACLAW_MAIL_PORT=587
-LARACLAW_MAIL_ENCRYPTION=tls
-LARACLAW_MAIL_USERNAME=bot@example.com
-LARACLAW_MAIL_PASSWORD=your-password
-LARACLAW_MAIL_FROM_ADDRESS=bot@example.com
-LARACLAW_MAIL_FROM_NAME="Your Bot"
-```
-
-#### 3. Configure IMAP (incoming mail)
-
-```env
-LARACLAW_IMAP_HOST=imap.example.com
-LARACLAW_IMAP_PORT=993
-LARACLAW_IMAP_ENCRYPTION=ssl
-LARACLAW_IMAP_USERNAME=bot@example.com
-LARACLAW_IMAP_PASSWORD=your-password
-```
-
-These values populate the mailbox entry in `config/imap.php` automatically. Set `LARACLAW_EMAIL_MAILBOX` if you need a non-default mailbox name.
-
-#### 4. Allow list
-
-Only emails from listed addresses are processed. Empty = block all.
-
-```env
-LARACLAW_EMAIL_ALLOW_LIST=alice@example.com,bob@example.com
-```
-
-#### 5. Register the owner
-
-```bash
-php artisan laraclaw:channel-add 1 email alice@example.com
-```
-
-Only emails from this address will receive a reply. The allow list provides a first layer of filtering; the `user_channels` lookup is the authoritative check.
-
-#### 6. Require DKIM + SPF (optional)
-
-Reject emails that don't pass both DKIM and SPF authentication:
-
-```env
-LARACLAW_EMAIL_REQUIRE_AUTH=true
-```
-
-#### 7. Start the IMAP listener
-
-Add this to your `Procfile` (or run it directly):
-
-```bash
-php artisan imap:watch default --with=headers,body
-```
-
-The `--with=headers,body` flag is required — without it the message content won't be fetched.
-
-#### 8. How it works
-
-- Incoming emails are dispatched as `ProcessMessage` jobs
-- The bot replies by sending an HTML email back to the sender
-- Replies include the `In-Reply-To` and `References` headers so they thread correctly in email clients
-- Conversations are scoped per email thread (using the root `Message-ID`), not per sender
-- After replying, the original email is marked as read
 
 ## License
 
