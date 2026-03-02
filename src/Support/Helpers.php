@@ -40,6 +40,22 @@ function markdownToMrkdwn(string $text): string
 }
 
 /**
+ * Interpolate {placeholder} tokens in a template string using values from an array.
+ *
+ * Array values are joined with a comma. Tokens with no matching key are left as-is.
+ *
+ * @param  array<string, mixed>  $values
+ */
+function interpolate(string $template, array $values): string
+{
+    return preg_replace_callback('/\{(\w+)\}/', function ($m) use ($values) {
+        $value = $values[$m[1]] ?? $m[0];
+
+        return is_array($value) ? implode(', ', $value) : $value;
+    }, $template);
+}
+
+/**
  * Strip HTML tags and decode entities from a string, returning null if input is null.
  */
 function stripHtml(?string $html): ?string

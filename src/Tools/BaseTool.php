@@ -11,6 +11,8 @@ use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Tools\Request;
 use Stringable;
 
+use function LaraClaw\Support\interpolate;
+
 /**
  * Base class for tools that dispatch named operations, with built-in confirmation, storage, and channel helpers.
  */
@@ -61,11 +63,7 @@ abstract class BaseTool implements Tool
 
         $prompt = is_callable($template)
             ? $template($request)
-            : preg_replace_callback('/\{(\w+)\}/', function ($m) use ($request) {
-                $value = $request[$m[1]] ?? $m[0];
-
-                return is_array($value) ? implode(', ', $value) : $value;
-            }, $template);
+            : interpolate($template, $request->toArray());
 
         if (! $this->message->channel->confirm($this->message, $prompt)) {
             return 'Cancelled by user.';
