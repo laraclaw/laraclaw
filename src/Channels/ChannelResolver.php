@@ -1,10 +1,7 @@
 <?php
 
-namespace LaraClaw\Support;
+namespace LaraClaw\Channels;
 
-use LaraClaw\Channels\Channel;
-use LaraClaw\Channels\SlackChannel;
-use LaraClaw\Channels\TelegramChannel;
 use LaraClaw\Enums\ChannelType;
 use RuntimeException;
 use SergiX44\Nutgram\Nutgram;

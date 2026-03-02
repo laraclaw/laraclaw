@@ -8,8 +8,8 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
+use LaraClaw\Channels\ChannelResolver;
 use LaraClaw\Models\Heartbeat;
-use LaraClaw\Support\ChannelResolver;
 use Throwable;
 
 /**
