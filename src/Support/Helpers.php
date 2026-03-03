@@ -40,6 +40,117 @@ function markdownToMrkdwn(string $text): string
 }
 
 /**
+ * Render a Markdown string to the terminal using ANSI escape codes.
+ *
+ * Handles headings, bold, italic, inline code, fenced code blocks,
+ * ordered and unordered lists, blockquotes, and horizontal rules.
+ */
+function markdownToAnsi(string $markdown): string
+{
+    $lines = explode("\n", $markdown);
+    $output = "\n";
+    $inCodeBlock = false;
+    $codeLines = [];
+
+    foreach ($lines as $line) {
+        if (str_starts_with(trim($line), '```')) {
+            if ($inCodeBlock) {
+                $inCodeBlock = false;
+                foreach ($codeLines as $codeLine) {
+                    $output .= "  \033[90m{$codeLine}\033[39m\n";
+                }
+                $codeLines = [];
+                $output .= "\n";
+            } else {
+                $inCodeBlock = true;
+            }
+
+            continue;
+        }
+
+        if ($inCodeBlock) {
+            $codeLines[] = $line;
+
+            continue;
+        }
+
+        if (preg_match('/^(#{1,6})\s+(.+)$/', $line, $m)) {
+            $output .= "\n\033[1m" . ansiInline($m[2]) . "\033[22m\n\n";
+
+            continue;
+        }
+
+        if (preg_match('/^(\s*)[*\-+]\s+(.+)$/', $line, $m)) {
+            $indent = str_repeat('  ', (int) (strlen($m[1]) / 2));
+            $output .= "{$indent}• " . ansiInline($m[2]) . "\n";
+
+            continue;
+        }
+
+        if (preg_match('/^(\s*)(\d+)\.\s+(.+)$/', $line, $m)) {
+            $indent = str_repeat('  ', (int) (strlen($m[1]) / 2));
+            $output .= "{$indent}{$m[2]}. " . ansiInline($m[3]) . "\n";
+
+            continue;
+        }
+
+        if (preg_match('/^>\s?(.*)$/', $line, $m)) {
+            $output .= "\033[90m│ " . ansiInline($m[1]) . "\033[39m\n";
+
+            continue;
+        }
+
+        if (preg_match('/^[-*_]{3,}$/', trim($line))) {
+            $output .= str_repeat('─', 60) . "\n";
+
+            continue;
+        }
+
+        $output .= ansiInline($line) . "\n";
+    }
+
+    return $output . "\n";
+}
+
+/**
+ * Apply inline Markdown formatting (bold, italic, code) as ANSI escape codes.
+ */
+function ansiInline(string $text): string
+{
+    // Extract links before any other processing so URLs are not touched by bold/italic regexes.
+    // Underscores in URLs (e.g. utm_source) would otherwise trigger the italic pattern.
+    $links = [];
+    $text = preg_replace_callback('/\[([^\]]+)\]\(([^)]+)\)/', function ($m) use (&$links) {
+        $token = "\x00" . count($links) . "\x00";
+        $links[$token] = $m;
+
+        return $token;
+    }, $text);
+
+    // Inline code next so bold/italic patterns inside backticks are left alone
+    $text = preg_replace('/`([^`]+)`/', "\033[7m \$1 \033[27m", $text);
+    $text = preg_replace('/\*\*(.+?)\*\*/', "\033[1m\$1\033[22m", $text);
+    $text = preg_replace('/__(.+?)__/', "\033[1m\$1\033[22m", $text);
+    $text = preg_replace('/\*([^*\n]+)\*/', "\033[3m\$1\033[23m", $text);
+    $text = preg_replace('/_([^_\n]+)_/', "\033[3m\$1\033[23m", $text);
+
+    // Catch bare https:// URLs before restoring link tokens so the regex cannot
+    // match URLs that are already embedded inside OSC 8 escape sequences.
+    $text = preg_replace_callback(
+        '/https?:\/\/[^\s\)\]]+/',
+        fn ($m) => "\033]8;;{$m[0]}\007\033[4m{$m[0]}\033[24m\033]8;;\007",
+        $text,
+    );
+
+    // Restore extracted [text](url) links as OSC 8 hyperlinks
+    foreach ($links as $token => $m) {
+        $text = str_replace($token, "\033]8;;{$m[2]}\007\033[4m{$m[1]}\033[24m\033]8;;\007", $text);
+    }
+
+    return $text;
+}
+
+/**
  * Interpolate {placeholder} tokens in a template string using values from an array.
  *
  * Array values are joined with a comma. Tokens with no matching key are left as-is.

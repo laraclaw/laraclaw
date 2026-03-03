@@ -8,6 +8,7 @@ use LaraClaw\Jobs\ProcessMessage;
 use LaraClaw\Message;
 use LaraClaw\Models\UserAccount;
 
+use function LaraClaw\Support\markdownToAnsi;
 use function Laravel\Prompts\error;
 use function Laravel\Prompts\info;
 use function Laravel\Prompts\spin;
@@ -58,7 +59,11 @@ class Chat extends Command
 
             spin(fn () => app()->call([new ProcessMessage($message), 'handle']), 'Thinking…');
 
-            info($channel->flush() ?? '');
+            $response = $channel->flush();
+
+            if ($response) {
+                echo markdownToAnsi($response);
+            }
         }
 
         return self::SUCCESS;
