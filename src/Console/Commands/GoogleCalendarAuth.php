@@ -6,6 +6,10 @@ use Google_Client;
 use Google_Service_Calendar;
 use Illuminate\Console\Command;
 
+use function Laravel\Prompts\error;
+use function Laravel\Prompts\info;
+use function Laravel\Prompts\text;
+
 /**
  * Artisan command that completes the Google Calendar OAuth flow and saves the token.
  */
@@ -24,9 +28,9 @@ class GoogleCalendarAuth extends Command
         $tokenJson = config('laraclaw.tools.calendar_manager.google.token_json');
 
         if (! file_exists($credentialsJson)) {
-            $this->error("Credentials file not found at: {$credentialsJson}");
-            $this->line('Download your OAuth 2.0 credentials from the Google Cloud Console:');
-            $this->line('  APIs & Services → Credentials → Create Credentials → OAuth client ID (Desktop app)');
+            error("Credentials file not found at: {$credentialsJson}");
+            info('Download your OAuth 2.0 credentials from the Google Cloud Console:');
+            info('APIs & Services → Credentials → Create Credentials → OAuth client ID (Desktop app)');
 
             return self::FAILURE;
         }
@@ -39,24 +43,21 @@ class GoogleCalendarAuth extends Command
 
         $authUrl = $client->createAuthUrl();
 
-        $this->line('');
-        $this->line('Visit this URL to authorize the application:');
-        $this->line('');
-        $this->line("  <href={$authUrl}>{$authUrl}</href>");
-        $this->line('');
+        info('Visit this URL to authorize the application:');
 
-        $code = $this->ask('Paste the authorization code here');
+        echo ' ' . $authUrl . PHP_EOL . PHP_EOL;
 
-        if (! $code) {
-            $this->error('No code provided.');
+        info('You will be redirected to a localhost page. Copy the full URL of that page and paste it below.');
 
-            return self::FAILURE;
-        }
+        $url = text('Paste the full redirect URL here', required: true);
 
-        $token = $client->fetchAccessTokenWithAuthCode(trim($code));
+        parse_str(parse_url(trim($url), PHP_URL_QUERY), $params);
+        $code = $params['code'] ?? trim($url);
+
+        $token = $client->fetchAccessTokenWithAuthCode($code);
 
         if (isset($token['error'])) {
-            $this->error('Failed to fetch token: ' . $token['error_description'] ?? $token['error']);
+            error('Failed to fetch token: ' . $token['error_description'] ?? $token['error']);
 
             return self::FAILURE;
         }
@@ -68,8 +69,7 @@ class GoogleCalendarAuth extends Command
 
         file_put_contents($tokenJson, json_encode($token));
 
-        $this->info("Token saved to: {$tokenJson}");
-        $this->line('Google Calendar is ready to use.');
+        info('Token saved. Google Calendar is ready to use.');
 
         return self::SUCCESS;
     }
