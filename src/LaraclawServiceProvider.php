@@ -20,6 +20,11 @@ use LaraClaw\Console\Commands\Chat;
 use LaraClaw\Console\Commands\GoogleCalendarAuth;
 use LaraClaw\Console\Commands\ProcessHeartbeats;
 use LaraClaw\Console\Commands\SendReminders;
+use LaraClaw\Console\Commands\SetupAdmin;
+use LaraClaw\Console\Commands\SetupAgent;
+use LaraClaw\Console\Commands\SetupCalendar;
+use LaraClaw\Console\Commands\SetupChannel;
+use LaraClaw\Console\Commands\SetupFiles;
 use LaraClaw\Console\Commands\SetupWizard;
 use LaraClaw\Events\TelegramMessageReceived;
 use LaraClaw\Http\Middleware\VerifySlackSignature;
@@ -266,6 +271,11 @@ class LaraclawServiceProvider extends ServiceProvider
             SendReminders::class,
             ProcessHeartbeats::class,
             SetupWizard::class,
+            SetupAdmin::class,
+            SetupAgent::class,
+            SetupCalendar::class,
+            SetupChannel::class,
+            SetupFiles::class,
             Chat::class,
         ]);
     }
