@@ -34,6 +34,24 @@ class Message
     }
 
     /**
+     * Return the UserAccount row for the admin user on the given channel, or null if none is registered.
+     *
+     * @return array{0: \LaraClaw\Enums\ChannelType, 1: string}|null
+     */
+    public function adminAccountForChannel(string $channelType): ?array
+    {
+        $account = UserAccount::where('user_id', config('laraclaw.auth.admin_user_id'))
+            ->where('channel', $channelType)
+            ->first();
+
+        if (! $account) {
+            return null;
+        }
+
+        return [$account->channel, $account->account];
+    }
+
+    /**
      * Determine whether this DM originated from an unregistered account.
      * Always returns false for group/open channel messages.
      */

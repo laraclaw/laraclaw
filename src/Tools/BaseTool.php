@@ -6,7 +6,6 @@ use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Storage;
 use LaraClaw\Enums\ChannelType;
 use LaraClaw\Message;
-use LaraClaw\Models\UserAccount;
 use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Tools\Request;
 use Stringable;
@@ -37,6 +36,9 @@ abstract class BaseTool implements Tool
             return $denied;
         }
 
+        // Operation names use snake_case (e.g. "save_attachment") because that is what the JSON schema
+        // exposes to the model, but PHP methods are camelCase. Convert here so subclasses can just
+        // define saveAttachment() without any extra routing boilerplate.
         $method = str_contains($operation, '_') ? lcfirst(str_replace('_', '', ucwords($operation, '_'))) : $operation;
 
         return $this->{$method}($request);
@@ -135,12 +137,10 @@ abstract class BaseTool implements Tool
     protected function resolveChannel(?string $channelType): array
     {
         if ($channelType) {
-            $userAccount = UserAccount::where('user_id', config('laraclaw.auth.admin_user_id'))
-                ->where('channel', $channelType)
-                ->first();
+            $account = $this->message->adminAccountForChannel($channelType);
 
-            if ($userAccount) {
-                return [$userAccount->channel, $userAccount->account];
+            if ($account) {
+                return $account;
             }
         }
 
