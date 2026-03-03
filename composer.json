@@ -14,7 +14,7 @@
         "sabre/vobject": "^4.0",
         "spatie/image": "^3.0",
         "spatie/laravel-google-calendar": "^3.0",
-        "symfony/yaml": "^7.0"
+        "symfony/yaml": "^7.0|^8.0"
     },
     "autoload": {
         "files": [
