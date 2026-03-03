@@ -7,6 +7,9 @@ use Illuminate\Database\UniqueConstraintViolationException;
 use LaraClaw\Enums\ChannelType;
 use LaraClaw\Models\UserAccount;
 
+use function Laravel\Prompts\error;
+use function Laravel\Prompts\info;
+
 /**
  * Artisan command that links an existing user to a channel account identifier.
  */
@@ -29,7 +32,7 @@ class ChannelAddCommand extends Command
 
         if (! $channel) {
             $valid = implode(', ', array_column(ChannelType::cases(), 'value'));
-            $this->error("Invalid channel '{$channelValue}'. Valid options: {$valid}");
+            error("Invalid channel '{$channelValue}'. Valid options: {$valid}");
 
             return self::FAILURE;
         }
@@ -41,7 +44,7 @@ class ChannelAddCommand extends Command
             : $userModel::where('email', $userInput)->first();
 
         if (! $user) {
-            $this->error("User not found: {$userInput}");
+            error("User not found: {$userInput}");
 
             return self::FAILURE;
         }
@@ -53,12 +56,12 @@ class ChannelAddCommand extends Command
                 'account' => $identifier,
             ]);
         } catch (UniqueConstraintViolationException) {
-            $this->error("Account already registered: {$channel->value}:{$identifier}");
+            error("Account already registered: {$channel->value}:{$identifier}");
 
             return self::FAILURE;
         }
 
-        $this->info("Linked {$channel->value}:{$identifier} → user #{$user->getAuthIdentifier()} ({$user->email})");
+        info("Linked {$channel->value}:{$identifier} → user #{$user->getAuthIdentifier()} ({$user->email})");
 
         return self::SUCCESS;
     }

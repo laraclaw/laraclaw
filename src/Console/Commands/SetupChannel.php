@@ -91,7 +91,7 @@ class SetupChannel extends Command
         $imapHost = $this->askEnv('IMAP host', 'LARACLAW_IMAP_HOST', placeholder: 'imap.gmail.com');
         $imapPort = $this->askEnv('IMAP port', 'LARACLAW_IMAP_PORT', input: fn () => text('IMAP port', placeholder: '993', default: '993', required: true));
         $imapEncryption = $this->askEnv('IMAP encryption', 'LARACLAW_IMAP_ENCRYPTION', input: fn () => text('IMAP encryption', placeholder: 'ssl', default: 'ssl', required: true));
-        $imapUsername = $this->askEnv('IMAP username', 'LARACLAW_IMAP_USERNAME', placeholder: 'you@example.com');
+        $imapUsername = $this->askEnv('IMAP username (email address)', 'LARACLAW_IMAP_USERNAME', placeholder: 'you@example.com');
         $imapPassword = $this->askEnv('IMAP password', 'LARACLAW_IMAP_PASSWORD', secret: true);
 
         $ownerEmails = $this->askOwnerEmails($user);
@@ -103,8 +103,6 @@ class SetupChannel extends Command
         $smtpEncryption = $this->askEnv('SMTP encryption', 'LARACLAW_SMTP_ENCRYPTION', input: fn () => text('SMTP encryption', placeholder: 'tls', default: 'tls', required: true));
         $smtpUsername = $this->askEnv('SMTP username', 'LARACLAW_SMTP_USERNAME', input: fn () => text('SMTP username', placeholder: 'you@example.com', default: $imapUsername, required: true));
         $smtpPassword = $this->askEnv('SMTP password', 'LARACLAW_SMTP_PASSWORD', secret: true);
-        $fromAddress = $this->askEnv('From address', 'LARACLAW_SMTP_FROM_ADDRESS', input: fn () => text('From address', placeholder: 'you@example.com', default: $smtpUsername, required: true));
-        $fromName = $this->askEnv('From name', 'LARACLAW_SMTP_FROM_NAME', input: fn () => text('From name', default: $this->readEnv('LARACLAW_AGENT_NAME') ?? $user->name, required: true));
 
         $this->saveEnv([
             'LARACLAW_EMAIL_ENABLED' => 'true',
@@ -113,8 +111,8 @@ class SetupChannel extends Command
             'LARACLAW_SMTP_ENCRYPTION' => $smtpEncryption,
             'LARACLAW_SMTP_USERNAME' => $smtpUsername,
             'LARACLAW_SMTP_PASSWORD' => $smtpPassword,
-            'LARACLAW_SMTP_FROM_ADDRESS' => $fromAddress,
-            'LARACLAW_SMTP_FROM_NAME' => $fromName,
+            'LARACLAW_SMTP_FROM_ADDRESS' => $smtpUsername,
+            'LARACLAW_SMTP_FROM_NAME' => $this->readEnv('LARACLAW_AGENT_NAME') ?? $user->name,
             'LARACLAW_IMAP_HOST' => $imapHost,
             'LARACLAW_IMAP_PORT' => $imapPort,
             'LARACLAW_IMAP_ENCRYPTION' => $imapEncryption,

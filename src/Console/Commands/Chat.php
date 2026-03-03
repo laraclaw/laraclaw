@@ -8,6 +8,10 @@ use LaraClaw\Jobs\ProcessMessage;
 use LaraClaw\Message;
 use LaraClaw\Models\UserAccount;
 
+use function Laravel\Prompts\error;
+use function Laravel\Prompts\info;
+use function Laravel\Prompts\text;
+
 /**
  * Interactive REPL that pipes terminal input through ProcessMessage using the TerminalChannel.
  */
@@ -24,7 +28,7 @@ class Chat extends Command
         $userInput = $this->argument('user') ?? config('laraclaw.auth.admin_user_id');
 
         if (! $userInput) {
-            $this->error('No user specified and LARACLAW_ADMIN_USER_ID is not set.');
+            error('No user specified and LARACLAW_ADMIN_USER_ID is not set.');
 
             return self::FAILURE;
         }
@@ -35,7 +39,7 @@ class Chat extends Command
             : $userModel::where('email', $userInput)->first();
 
         if (! $user) {
-            $this->error("User not found: {$userInput}");
+            error("User not found: {$userInput}");
 
             return self::FAILURE;
         }
@@ -49,26 +53,21 @@ class Chat extends Command
             'user_id' => $user->getAuthIdentifier(),
         ]);
 
-        $this->line('Chat session started. Type your message and press Enter. Ctrl+C to exit.');
-        $this->newLine();
+        info('Chat session started. Type your message and press Enter. Ctrl+C to exit.');
 
         while (true) {
-            $text = $this->ask('<fg=cyan>You</>');
-
-            if ($text === null || $text === '') {
-                continue;
-            }
+            $input = text(label: '', required: true);
 
             $message = new Message(
                 channel: $channel,
-                text: $text,
+                text: $input,
                 conversationKey: $channel->conversationKey(),
                 conversationIsDirectMessage: true,
             );
 
             ProcessMessage::dispatchSync($message);
 
-            $this->newLine();
+            echo PHP_EOL;
         }
 
         return self::SUCCESS;

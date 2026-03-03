@@ -110,7 +110,7 @@ class SetupWizard extends Command
         $appUrl = config('app.url', 'https://your-app.com');
 
         $webhooks = collect([
-            'telegram' => "  - Telegram: register your webhook at {$appUrl}/telegram/webhook",
+            'telegram' => "  - Telegram: set your webhook URL to {$appUrl}/telegram/webhook",
             'slack' => "  - Slack: set your event subscription URL to {$appUrl}/slack/webhook",
         ])->only($channels)->values()->implode(PHP_EOL);
 
