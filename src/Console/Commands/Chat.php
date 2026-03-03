@@ -10,7 +10,7 @@ use LaraClaw\Models\UserAccount;
 
 use function Laravel\Prompts\error;
 use function Laravel\Prompts\info;
-use function Laravel\Prompts\text;
+use function Laravel\Prompts\spin;
 
 /**
  * Interactive REPL that pipes terminal input through ProcessMessage using the TerminalChannel.
@@ -23,24 +23,11 @@ class Chat extends Command
 
     public function handle(): int
     {
-        $channel = new TerminalChannel($this);
+        $channel = new TerminalChannel;
 
-        $userInput = $this->argument('user') ?? config('laraclaw.auth.admin_user_id');
-
-        if (! $userInput) {
-            error('No user specified and LARACLAW_ADMIN_USER_ID is not set.');
-
-            return self::FAILURE;
-        }
-
-        $userModel = config('laraclaw.auth.user_model');
-        $user = is_numeric($userInput)
-            ? $userModel::find((int) $userInput)
-            : $userModel::where('email', $userInput)->first();
+        $user = $this->resolveUser();
 
         if (! $user) {
-            error("User not found: {$userInput}");
-
             return self::FAILURE;
         }
 
@@ -56,7 +43,11 @@ class Chat extends Command
         info('Chat session started. Type your message and press Enter. Ctrl+C to exit.');
 
         while (true) {
-            $input = text(label: '', required: true);
+            $input = readline('❯ ');
+
+            if (blank($input)) {
+                continue;
+            }
 
             $message = new Message(
                 channel: $channel,
@@ -65,11 +56,36 @@ class Chat extends Command
                 conversationIsDirectMessage: true,
             );
 
-            ProcessMessage::dispatchSync($message);
+            spin(fn () => app()->call([new ProcessMessage($message), 'handle']), 'Thinking…');
 
-            echo PHP_EOL;
+            info($channel->flush() ?? '');
         }
 
         return self::SUCCESS;
+    }
+
+    private function resolveUser(): mixed
+    {
+        $userInput = $this->argument('user') ?? config('laraclaw.auth.admin_user_id');
+
+        if (! $userInput) {
+            error('No user specified and LARACLAW_ADMIN_USER_ID is not set.');
+
+            return null;
+        }
+
+        $userModel = config('laraclaw.auth.user_model');
+
+        $user = is_numeric($userInput)
+            ? $userModel::find((int) $userInput)
+            : $userModel::where('email', $userInput)->first();
+
+        if (! $user) {
+            error("User not found: {$userInput}");
+
+            return null;
+        }
+
+        return $user;
     }
 }

@@ -2,20 +2,19 @@
 
 namespace LaraClaw\Channels;
 
-use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 use LaraClaw\Channels\Contracts\SupportsConfirmation;
 use LaraClaw\DTOs\Attachment;
 use LaraClaw\Message;
 
+use function Laravel\Prompts\confirm;
+use function Laravel\Prompts\info;
+
 class TerminalChannel extends Channel implements SupportsConfirmation
 {
     public string $name { get { return 'terminal'; } }
 
-    /**
-     * Create a new TerminalChannel instance.
-     */
-    public function __construct(private Command $command) {}
+    private ?string $pendingResponse = null;
 
     /**
      * Use the current process ID as the conversation key.
@@ -26,11 +25,40 @@ class TerminalChannel extends Channel implements SupportsConfirmation
     }
 
     /**
-     * Terminal sessions are always direct messages.
+     * Print each attachment filename to the terminal output.
      */
-    public function conversationIsDirectMessage(): bool
+    public function handleAttachments(Collection $attachments): void
     {
-        return true;
+        foreach ($attachments as $attachment) {
+            info($attachment->filename ?? basename($attachment->path));
+        }
+    }
+
+    /**
+     * Buffer the response so it can be printed after the spinner clears.
+     */
+    public function send(string $message): void
+    {
+        $this->pendingResponse = $message;
+    }
+
+    /**
+     * Return the buffered response and clear it.
+     */
+    public function flush(): ?string
+    {
+        $response = $this->pendingResponse;
+        $this->pendingResponse = null;
+
+        return $response;
+    }
+
+    /**
+     * Prompt for interactive confirmation via the terminal.
+     */
+    public function confirm(Message $context, string $prompt, int $timeout = 120): bool
+    {
+        return confirm("⚠️ {$prompt}");
     }
 
     /**
@@ -39,31 +67,5 @@ class TerminalChannel extends Channel implements SupportsConfirmation
     public function intercept(Message $message): bool
     {
         return false;
-    }
-
-    /**
-     * Print each attachment filename to the terminal output.
-     */
-    public function handleAttachments(Collection $attachments): void
-    {
-        foreach ($attachments as $attachment) {
-            $this->command->line($attachment->filename ?? basename($attachment->path));
-        }
-    }
-
-    /**
-     * Output the message to the terminal.
-     */
-    public function send(string $message): void
-    {
-        $this->command->info($message);
-    }
-
-    /**
-     * Prompt for interactive confirmation via the Artisan command.
-     */
-    public function confirm(Message $context, string $prompt, int $timeout = 120): bool
-    {
-        return $this->command->confirm("⚠️ {$prompt}");
     }
 }
