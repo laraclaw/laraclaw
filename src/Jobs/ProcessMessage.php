@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Log;
 use LaraClaw\Agents\ChatBotAgent;
 use LaraClaw\Calendar\Contracts\CalendarDriver;
 use LaraClaw\Channels\Contracts\SupportsAcknowledgement;
+use LaraClaw\Channels\Contracts\SupportsStreaming;
 use LaraClaw\Commands\CommandRegistry;
 use LaraClaw\DTOs\Attachment;
 use LaraClaw\Message;
@@ -24,6 +25,7 @@ use LaraClaw\Tools\ToolRegistry;
 use Laravel\Ai\Contracts\ConversationStore;
 use Laravel\Ai\Files\Document;
 use Laravel\Ai\Files\Image;
+use Laravel\Ai\Streaming\Events\TextDelta;
 use Laravel\Ai\Transcription;
 use Throwable;
 
@@ -93,12 +95,18 @@ class ProcessMessage implements ShouldQueue
             $agent = $agent->continue($conversationId, as: $user);
         }
 
-        $response = $conversationId
-            ? $agent->prompt($text, $agentAttachments)
-            : $agent->forUser($user)->prompt($text, $agentAttachments);
+        $stream = $conversationId
+            ? $agent->stream($text, $agentAttachments)
+            : $agent->forUser($user)->stream($text, $agentAttachments);
+
+        $stream->each(function (object $event) use ($channel): void {
+            if ($channel instanceof SupportsStreaming && $event instanceof TextDelta) {
+                $channel->chunk($event->delta);
+            }
+        });
 
         $channel->handleAttachments($replyAttachments);
-        $channel->send($response);
+        $channel->send($stream->text ?? '');
     }
 
     /**

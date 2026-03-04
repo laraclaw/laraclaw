@@ -125,7 +125,9 @@ abstract class BaseTool implements Tool
             return ! str_starts_with($real, $root . '/') && $real !== $root;
         }
 
-        return ! str_starts_with($this->normalizePath($candidate), $root . '/');
+        $normalized = $this->normalizePath($candidate);
+
+        return ! str_starts_with($normalized, $root . '/') && $normalized !== $root;
     }
 
     /**

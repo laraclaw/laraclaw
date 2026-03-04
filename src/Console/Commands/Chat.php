@@ -64,7 +64,7 @@ class Chat extends Command
                 message: 'Fetching response...'
             );
 
-            if ($reply = $channel->takeReply()) {
+            if ($reply = $channel->flush()) {
                 note(markdownToAnsi($reply));
             }
         }

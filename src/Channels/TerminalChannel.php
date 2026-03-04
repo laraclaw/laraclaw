@@ -44,7 +44,7 @@ class TerminalChannel extends Channel implements SupportsConfirmation
     /**
      * Return the buffered reply and clear it so the next turn starts fresh.
      */
-    public function takeReply(): ?string
+    public function flush(): ?string
     {
         $reply = self::$pendingReply;
         self::$pendingReply = null;
