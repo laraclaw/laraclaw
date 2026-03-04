@@ -4,17 +4,15 @@ namespace LaraClaw\Channels;
 
 use Illuminate\Support\Collection;
 use LaraClaw\Channels\Contracts\SupportsConfirmation;
-use LaraClaw\DTOs\Attachment;
 use LaraClaw\Message;
 
+use function LaraClaw\Support\markdownToAnsi;
 use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\info;
 
 class TerminalChannel extends Channel implements SupportsConfirmation
 {
     public string $name { get { return 'terminal'; } }
-
-    private ?string $pendingResponse = null;
 
     /**
      * Use the current process ID as the conversation key.
@@ -35,22 +33,11 @@ class TerminalChannel extends Channel implements SupportsConfirmation
     }
 
     /**
-     * Buffer the response so it can be printed after the spinner clears.
+     * Render and print the response to the terminal.
      */
     public function send(string $message): void
     {
-        $this->pendingResponse = $message;
-    }
-
-    /**
-     * Return the buffered response and clear it.
-     */
-    public function flush(): ?string
-    {
-        $response = $this->pendingResponse;
-        $this->pendingResponse = null;
-
-        return $response;
+        info(markdownToAnsi($message));
     }
 
     /**

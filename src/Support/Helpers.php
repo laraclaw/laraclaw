@@ -113,7 +113,7 @@ function markdownToAnsi(string $markdown): string
         $output .= ansiInline($line) . "\n";
     }
 
-    return $output . "\n";
+    return $output;
 }
 
 /**

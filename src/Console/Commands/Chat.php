@@ -3,15 +3,14 @@
 namespace LaraClaw\Console\Commands;
 
 use Illuminate\Console\Command;
+use Illuminate\Contracts\Auth\Authenticatable;
 use LaraClaw\Channels\TerminalChannel;
 use LaraClaw\Jobs\ProcessMessage;
 use LaraClaw\Message;
 use LaraClaw\Models\UserAccount;
 
-use function LaraClaw\Support\markdownToAnsi;
 use function Laravel\Prompts\error;
 use function Laravel\Prompts\info;
-use function Laravel\Prompts\spin;
 
 /**
  * Interactive REPL that pipes terminal input through ProcessMessage using the TerminalChannel.
@@ -57,19 +56,13 @@ class Chat extends Command
                 conversationIsDirectMessage: true,
             );
 
-            spin(fn () => app()->call([new ProcessMessage($message), 'handle']), 'Thinking…');
-
-            $response = $channel->flush();
-
-            if ($response) {
-                $this->output->write(markdownToAnsi($response));
-            }
+            ProcessMessage::dispatchSync($message);
         }
 
         return self::SUCCESS;
     }
 
-    private function resolveUser(): mixed
+    private function resolveUser(): ?Authenticatable
     {
         $userInput = $this->argument('user') ?? config('laraclaw.auth.admin_user_id');
 
