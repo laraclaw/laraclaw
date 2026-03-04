@@ -9,8 +9,11 @@ use LaraClaw\Jobs\ProcessMessage;
 use LaraClaw\Message;
 use LaraClaw\Models\UserAccount;
 
+use function LaraClaw\Support\markdownToAnsi;
 use function Laravel\Prompts\error;
 use function Laravel\Prompts\info;
+use function Laravel\Prompts\note;
+use function Laravel\Prompts\spin;
 
 /**
  * Interactive REPL that pipes terminal input through ProcessMessage using the TerminalChannel.
@@ -56,7 +59,14 @@ class Chat extends Command
                 conversationIsDirectMessage: true,
             );
 
-            ProcessMessage::dispatchSync($message);
+            spin(
+                callback: fn () => ProcessMessage::dispatchSync($message),
+                message: 'Fetching response...'
+            );
+
+            if ($reply = $channel->takeReply()) {
+                note(markdownToAnsi($reply));
+            }
         }
 
         return self::SUCCESS;
