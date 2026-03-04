@@ -35,10 +35,13 @@
         "optimize-autoloader": true,
         "sort-packages": true,
         "allow-plugins": {
-            "pestphp/pest-plugin": true
+            "pestphp/pest-plugin": true,
+            "captainhook/plugin-composer": true
         }
     },
     "require-dev": {
+        "captainhook/captainhook": "*",
+        "captainhook/plugin-composer": "*",
         "driftingly/rector-laravel": "^2.1",
         "mockery/mockery": "^1.6",
         "orchestra/testbench": "^10.0",
