@@ -229,7 +229,7 @@ class LaraclawServiceProvider extends ServiceProvider
             ]);
         }
 
-        $this->app->singleton(fn (): \LaraClaw\Calendar\Contracts\CalendarDriver => match (config('laraclaw.tools.calendar_manager.driver')) {
+        $this->app->singleton(fn (): ?\LaraClaw\Calendar\Contracts\CalendarDriver => match (config('laraclaw.tools.calendar_manager.driver')) {
             'google' => new GoogleCalendarDriver,
             'apple' => new AppleCalendarDriver(
                 server: config('laraclaw.tools.calendar_manager.apple.server'),
