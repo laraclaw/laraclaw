@@ -16,11 +16,11 @@ class TerminalChannel extends Channel implements SupportsConfirmation
     private static ?string $pendingReply = null;
 
     /**
-     * Use the current process ID as the conversation key.
+     * Use a fixed key so all terminal sessions share one account and conversation record.
      */
     public function conversationKey(): string
     {
-        return (string) getmypid();
+        return 'default';
     }
 
     /**
