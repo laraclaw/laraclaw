@@ -62,7 +62,7 @@ class Chat extends Command
             $response = $channel->flush();
 
             if ($response) {
-                echo markdownToAnsi($response);
+                $this->output->write(markdownToAnsi($response));
             }
         }
 

@@ -54,16 +54,20 @@ function markdownToAnsi(string $markdown): string
 
     foreach ($lines as $line) {
         if (str_starts_with(trim($line), '```')) {
-            if ($inCodeBlock) {
-                $inCodeBlock = false;
-                foreach ($codeLines as $codeLine) {
-                    $output .= "  \033[90m{$codeLine}\033[39m\n";
-                }
-                $codeLines = [];
-                $output .= "\n";
-            } else {
+            if (! $inCodeBlock) {
                 $inCodeBlock = true;
+
+                continue;
             }
+
+            $inCodeBlock = false;
+
+            foreach ($codeLines as $codeLine) {
+                $output .= "  \033[90m{$codeLine}\033[39m\n";
+            }
+
+            $codeLines = [];
+            $output .= "\n";
 
             continue;
         }
@@ -74,8 +78,8 @@ function markdownToAnsi(string $markdown): string
             continue;
         }
 
-        if (preg_match('/^(#{1,6})\s+(.+)$/', $line, $m)) {
-            $output .= "\n\033[1m" . ansiInline($m[2]) . "\033[22m\n\n";
+        if (preg_match('/^(?:#{1,6})\s+(.+)$/', $line, $m)) {
+            $output .= "\n\033[1m" . ansiInline($m[1]) . "\033[22m\n\n";
 
             continue;
         }
@@ -120,8 +124,10 @@ function ansiInline(string $text): string
     // Extract links before any other processing so URLs are not touched by bold/italic regexes.
     // Underscores in URLs (e.g. utm_source) would otherwise trigger the italic pattern.
     $links = [];
+    // Pass by reference is necessary here because preg_replace_callback fires per match
+    // and we need to accumulate all links into one array across multiple calls.
     $text = preg_replace_callback('/\[([^\]]+)\]\(([^)]+)\)/', function ($m) use (&$links) {
-        $token = "\x00" . count($links) . "\x00";
+        $token = "\u{E000}" . count($links) . "\u{E000}";
         $links[$token] = $m;
 
         return $token;
@@ -129,10 +135,8 @@ function ansiInline(string $text): string
 
     // Inline code next so bold/italic patterns inside backticks are left alone
     $text = preg_replace('/`([^`]+)`/', "\033[7m \$1 \033[27m", $text);
-    $text = preg_replace('/\*\*(.+?)\*\*/', "\033[1m\$1\033[22m", $text);
-    $text = preg_replace('/__(.+?)__/', "\033[1m\$1\033[22m", $text);
-    $text = preg_replace('/\*([^*\n]+)\*/', "\033[3m\$1\033[23m", $text);
-    $text = preg_replace('/_([^_\n]+)_/', "\033[3m\$1\033[23m", $text);
+    $text = preg_replace(['/\*\*(.+?)\*\*/', '/__(.+?)__/'], "\033[1m\$1\033[22m", $text);
+    $text = preg_replace(['/\*([^*\n]+)\*/', '/_([^_\n]+)_/'], "\033[3m\$1\033[23m", $text);
 
     // Catch bare https:// URLs before restoring link tokens so the regex cannot
     // match URLs that are already embedded inside OSC 8 escape sequences.
@@ -143,9 +147,11 @@ function ansiInline(string $text): string
     );
 
     // Restore extracted [text](url) links as OSC 8 hyperlinks
-    foreach ($links as $token => $m) {
-        $text = str_replace($token, "\033]8;;{$m[2]}\007\033[4m{$m[1]}\033[24m\033]8;;\007", $text);
-    }
+    $text = str_replace(
+        array_keys($links),
+        array_map(fn ($m) => "\033]8;;{$m[2]}\007\033[4m{$m[1]}\033[24m\033]8;;\007", $links),
+        $text,
+    );
 
     return $text;
 }
