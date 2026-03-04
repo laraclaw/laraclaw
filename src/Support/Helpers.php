@@ -22,7 +22,7 @@ function markdownToMrkdwn(string $text): string
     // Handle fenced code blocks first so their content is not touched by the rules below.
     $html = preg_replace_callback(
         '/<pre><code[^>]*>(.*?)<\/code><\/pre>/s',
-        fn ($m): string => "\n```\n" . html_entity_decode((string) $m[1], ENT_QUOTES, 'UTF-8') . "```\n",
+        fn ($m): string => "\n```\n" . html_entity_decode($m[1], ENT_QUOTES, 'UTF-8') . "```\n",
         $html,
     );
 

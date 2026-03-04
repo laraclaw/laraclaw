@@ -291,7 +291,7 @@ class ChatBotAgent implements Agent, Conversational, HasTools
 
         $personasPath = config('laraclaw.personas.path');
         $allowed = collect(glob($personasPath . '/*.md') ?: [])
-            ->map(fn ($f): string => pathinfo((string) $f, PATHINFO_FILENAME))
+            ->map(fn ($f): string => pathinfo($f, PATHINFO_FILENAME))
             ->all();
 
         $stem = basename($persona);

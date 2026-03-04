@@ -149,12 +149,12 @@ class SetupChannel extends Command
                 default: $user->email,
                 required: true,
                 validate: fn (string $value): ?string => collect(explode(',', $value))
-                    ->map(fn ($e): string => trim((string) $e))
+                    ->map(fn ($e): string => trim($e))
                     ->filter()
                     ->contains(fn ($e): bool => ! filter_var($e, FILTER_VALIDATE_EMAIL))
                     ? 'Please enter valid email addresses separated by commas.'
                     : null,
             ))
-        )->map(fn ($e): string => trim((string) $e))->filter();
+        )->map(fn ($e): string => trim($e))->filter();
     }
 }
