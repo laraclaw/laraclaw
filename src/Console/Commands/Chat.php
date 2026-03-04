@@ -5,14 +5,9 @@ namespace LaraClaw\Console\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Auth\Authenticatable;
 use LaraClaw\Agents\ChatBotAgent;
-use LaraClaw\Calendar\Contracts\CalendarDriver;
 use LaraClaw\Channels\TerminalChannel;
-use LaraClaw\Commands\CommandRegistry;
 use LaraClaw\Message;
 use LaraClaw\Models\UserAccount;
-use LaraClaw\SkillRegistry;
-use LaraClaw\Tools\ToolRegistry;
-use Laravel\Ai\Contracts\ConversationStore;
 
 use function LaraClaw\Support\markdownToAnsi;
 use function Laravel\Prompts\error;
@@ -32,13 +27,8 @@ class Chat extends Command
     /**
      * Register the terminal account if needed, then start the interactive loop.
      */
-    public function handle(
-        ConversationStore $conversations,
-        CommandRegistry $commandRegistry,
-        SkillRegistry $skillRegistry,
-        ToolRegistry $toolRegistry,
-        ?CalendarDriver $calendarDriver = null,
-    ): int {
+    public function handle(): int
+    {
         $channel = new TerminalChannel;
 
         $user = $this->resolveUser();
@@ -70,14 +60,7 @@ class Chat extends Command
                 conversationIsDirectMessage: true,
             );
 
-            $agent = new ChatBotAgent(
-                message: $message,
-                conversations: $conversations,
-                commandRegistry: $commandRegistry,
-                skillRegistry: $skillRegistry,
-                toolRegistry: $toolRegistry,
-                calendarDriver: $calendarDriver,
-            );
+            $agent = app(ChatBotAgent::class, ['message' => $message]);
 
             if (! $agent->isReady()) {
                 continue;

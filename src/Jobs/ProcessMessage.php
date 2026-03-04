@@ -9,14 +9,9 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use LaraClaw\Agents\ChatBotAgent;
-use LaraClaw\Calendar\Contracts\CalendarDriver;
 use LaraClaw\Channels\Contracts\SupportsAcknowledgement;
 use LaraClaw\Channels\Contracts\SupportsStreaming;
-use LaraClaw\Commands\CommandRegistry;
 use LaraClaw\Message;
-use LaraClaw\SkillRegistry;
-use LaraClaw\Tools\ToolRegistry;
-use Laravel\Ai\Contracts\ConversationStore;
 use Laravel\Ai\Streaming\Events\TextDelta;
 use Throwable;
 
@@ -40,27 +35,15 @@ class ProcessMessage implements ShouldQueue
     /**
      * Acknowledge receipt, run the agent, and deliver the response via the channel.
      */
-    public function handle(
-        ConversationStore $conversations,
-        CommandRegistry $commandRegistry,
-        SkillRegistry $skillRegistry,
-        ToolRegistry $toolRegistry,
-        ?CalendarDriver $calendarDriver = null,
-    ): void {
+    public function handle(): void
+    {
         $channel = $this->message->channel;
 
         if ($channel instanceof SupportsAcknowledgement) {
             $channel->acknowledge();
         }
 
-        $agent = new ChatBotAgent(
-            message: $this->message,
-            conversations: $conversations,
-            commandRegistry: $commandRegistry,
-            skillRegistry: $skillRegistry,
-            toolRegistry: $toolRegistry,
-            calendarDriver: $calendarDriver,
-        );
+        $agent = app(ChatBotAgent::class, ['message' => $this->message]);
 
         if (! $agent->isReady()) {
             return;
