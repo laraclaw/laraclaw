@@ -22,10 +22,10 @@ class AppleCalendarDriver implements CalendarDriver
      * Create a new AppleCalendarDriver instance.
      */
     public function __construct(
-        private string $server,
-        private string $username,
-        private string $password,
-        private string $calendar,
+        private readonly string $server,
+        private readonly string $username,
+        private readonly string $password,
+        private readonly string $calendar,
     ) {}
 
     /**
@@ -102,11 +102,11 @@ class AppleCalendarDriver implements CalendarDriver
             $vevent->SUMMARY = $event->title;
         }
 
-        if ($event->start !== null) {
+        if ($event->start instanceof DateTimeImmutable) {
             $vevent->DTSTART = $event->start;
         }
 
-        if ($event->end !== null) {
+        if ($event->end instanceof DateTimeImmutable) {
             $vevent->DTEND = $event->end;
         }
 
@@ -144,7 +144,7 @@ class AppleCalendarDriver implements CalendarDriver
      */
     private function resolveCalendarUrl(): string
     {
-        return Cache::remember("caldav:calendar_url:{$this->username}:{$this->calendar}", 3600, function () {
+        return Cache::remember("caldav:calendar_url:{$this->username}:{$this->calendar}", 3600, function (): string {
             $principalUrl = $this->server . $this->resolvePrincipal();
             $homeSetUrl = $this->server . $this->resolveCalendarHomeSet($principalUrl);
 

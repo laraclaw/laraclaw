@@ -204,7 +204,7 @@ class ChatBotAgent implements Agent, Conversational, HasTools
         $startFresh = Cache::pull("new_conversation:{$channel->name}:{$this->message->conversationKey}");
         $conversationId = $startFresh ? null : $conversations->latestConversationId($user->getAuthIdentifier());
 
-        return compact('user', 'conversation', 'conversationId');
+        return ['user' => $user, 'conversation' => $conversation, 'conversationId' => $conversationId];
     }
 
     /**
@@ -251,7 +251,7 @@ class ChatBotAgent implements Agent, Conversational, HasTools
 
         $conversationId = $conversation->conversation_id;
 
-        return compact('user', 'conversation', 'conversationId');
+        return ['user' => $user, 'conversation' => $conversation, 'conversationId' => $conversationId];
     }
 
     /**
@@ -270,7 +270,7 @@ class ChatBotAgent implements Agent, Conversational, HasTools
 
         $result = $command->handle($this->message);
 
-        if ($result === null) {
+        if (! $result instanceof \LaraClaw\Message) {
             return null;
         }
 
@@ -291,7 +291,7 @@ class ChatBotAgent implements Agent, Conversational, HasTools
 
         $personasPath = config('laraclaw.personas.path');
         $allowed = collect(glob($personasPath . '/*.md') ?: [])
-            ->map(fn ($f) => pathinfo($f, PATHINFO_FILENAME))
+            ->map(fn ($f): string => pathinfo((string) $f, PATHINFO_FILENAME))
             ->all();
 
         $stem = basename($persona);

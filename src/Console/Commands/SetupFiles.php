@@ -31,13 +31,13 @@ class SetupFiles extends Command
 
         $selected = multiselect(
             label: 'Which disks should I have access to?',
-            options: collect($existingDisks)->mapWithKeys(fn ($d) => [$d => $d])->put('_new', '+ Create a new local disk')->all(),
+            options: collect($existingDisks)->mapWithKeys(fn ($d): array => [$d => $d])->put('_new', '+ Create a new local disk')->all(),
             default: $currentAllowed ?: ['local'],
             required: true,
         );
 
         if (in_array('_new', $selected)) {
-            $selected = array_values(array_filter($selected, fn ($d) => $d !== '_new'));
+            $selected = array_values(array_filter($selected, fn ($d): bool => $d !== '_new'));
             $selected[] = $this->createLocalDisk();
         }
 
@@ -55,7 +55,7 @@ class SetupFiles extends Command
             label: 'New disk name',
             placeholder: 'E.g. files',
             required: true,
-            validate: fn (string $v) => preg_match('/^[a-z][a-z0-9_]*$/', $v)
+            validate: fn (string $v): ?string => preg_match('/^[a-z][a-z0-9_]*$/', $v)
                 ? null
                 : 'Use lowercase letters, digits, and underscores only.',
         );

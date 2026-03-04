@@ -29,7 +29,7 @@ class TerminalChannel extends Channel implements SupportsConfirmation
     public function handleAttachments(Collection $attachments): void
     {
         foreach ($attachments as $attachment) {
-            info($attachment->filename ?? basename($attachment->path));
+            info($attachment->filename ?? basename((string) $attachment->path));
         }
     }
 

@@ -70,7 +70,7 @@ class TelegramChannel extends Channel implements SupportsAcknowledgement, Suppor
     {
         $html = (new CommonMarkConverter)->convert($message)->getContent();
         $html = preg_replace('/<li>/', '<li>• ', $html);
-        $html = strip_tags($html, '<b><strong><i><em><u><s><a><code><pre><blockquote>');
+        $html = strip_tags((string) $html, '<b><strong><i><em><u><s><a><code><pre><blockquote>');
         $html = trim($html);
 
         $this->bot->sendMessage($html, chat_id: $this->chatId, parse_mode: ParseMode::HTML);
@@ -83,23 +83,23 @@ class TelegramChannel extends Channel implements SupportsAcknowledgement, Suppor
     {
         foreach ($attachments as $attachment) {
             if ($attachment->isAudio()) {
-                $this->withTempFile($attachment, function (string $tempPath) {
+                $this->withTempFile($attachment, function (string $tempPath): void {
                     $this->bot->sendVoice(
                         voice: InputFile::make(fopen($tempPath, 'r')),
                         chat_id: $this->chatId,
                     );
                 });
             } elseif ($attachment->isImage()) {
-                $this->withTempFile($attachment, function (string $tempPath) use ($attachment) {
+                $this->withTempFile($attachment, function (string $tempPath) use ($attachment): void {
                     $this->bot->sendPhoto(
-                        photo: InputFile::make(fopen($tempPath, 'r'), basename($attachment->path)),
+                        photo: InputFile::make(fopen($tempPath, 'r'), basename((string) $attachment->path)),
                         chat_id: $this->chatId,
                     );
                 });
             } else {
-                $this->withTempFile($attachment, function (string $tempPath) use ($attachment) {
+                $this->withTempFile($attachment, function (string $tempPath) use ($attachment): void {
                     $this->bot->sendDocument(
-                        document: InputFile::make(fopen($tempPath, 'r'), $attachment->filename ?? basename($attachment->path)),
+                        document: InputFile::make(fopen($tempPath, 'r'), $attachment->filename ?? basename((string) $attachment->path)),
                         chat_id: $this->chatId,
                     );
                 });
@@ -125,8 +125,8 @@ class TelegramChannel extends Channel implements SupportsAcknowledgement, Suppor
 
         $files = [];
 
-        if (! empty($raw->photo)) {
-            $photo = collect($raw->photo)->sortByDesc(fn (PhotoSize $p) => $p->file_size ?? 0)->first();
+        if ($raw->photo !== null && $raw->photo !== []) {
+            $photo = collect($raw->photo)->sortByDesc(fn (PhotoSize $p): int => $p->file_size ?? 0)->first();
             $files[] = $this->downloadFile($photo->file_id, 'image/jpeg', null, $disk, $basePath);
         }
 

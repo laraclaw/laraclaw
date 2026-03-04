@@ -23,7 +23,7 @@ class ProcessHeartbeats extends Command
     {
         $now = now();
 
-        Heartbeat::where('is_active', true)->each(function (Heartbeat $heartbeat) use ($now) {
+        Heartbeat::where('is_active', true)->each(function (Heartbeat $heartbeat) use ($now): void {
             if ($heartbeat->last_run_at === null) {
                 SendHeartbeat::dispatch($heartbeat);
 

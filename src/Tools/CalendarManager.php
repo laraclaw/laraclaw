@@ -10,6 +10,7 @@ use LaraClaw\Calendar\Contracts\CalendarDriver;
 use LaraClaw\DTOs\CalendarEvent;
 use LaraClaw\Message;
 use Laravel\Ai\Tools\Request;
+use Override;
 use Stringable;
 use Throwable;
 
@@ -24,7 +25,7 @@ class CalendarManager extends BaseTool
 
     public function __construct(
         protected Message $message,
-        private CalendarDriver $driver,
+        private readonly CalendarDriver $driver,
     ) {}
 
     public function description(): Stringable|string
@@ -49,6 +50,7 @@ class CalendarManager extends BaseTool
     /**
      * Run the requested operation and catch any calendar driver exceptions as a string error.
      */
+    #[Override]
     public function handle(Request $request): Stringable|string
     {
         try {
@@ -81,17 +83,17 @@ class CalendarManager extends BaseTool
         $startDate = $this->parseDate($start);
         $endDate = $this->parseDate($end);
 
-        if ($startDate === null) {
+        if (! $startDate instanceof DateTimeImmutable) {
             return "Could not parse start date: {$start}";
         }
-        if ($endDate === null) {
+        if (! $endDate instanceof DateTimeImmutable) {
             return "Could not parse end date: {$end}";
         }
 
         $events = $this->driver->list($startDate, $endDate);
 
         return collect($events)
-            ->map(fn (CalendarEvent $e) => [
+            ->map(fn (CalendarEvent $e): array => [
                 'id' => $e->id,
                 'title' => $e->title,
                 'start' => $e->start->format('c'),
@@ -119,12 +121,12 @@ class CalendarManager extends BaseTool
         }
 
         $startDate = $this->parseDate($start);
-        if ($startDate === null) {
+        if (! $startDate instanceof DateTimeImmutable) {
             return "Could not parse start date: {$start}";
         }
 
         $endDate = isset($request['end']) ? $this->parseDate($request['end']) : null;
-        if (isset($request['end']) && $endDate === null) {
+        if (isset($request['end']) && ! $endDate instanceof DateTimeImmutable) {
             return "Could not parse end date: {$request['end']}";
         }
 
@@ -166,12 +168,12 @@ class CalendarManager extends BaseTool
         }
 
         $startDate = $start !== null ? $this->parseDate($start) : null;
-        if ($start !== null && $startDate === null) {
+        if ($start !== null && ! $startDate instanceof DateTimeImmutable) {
             return "Could not parse start date: {$start}";
         }
 
         $endDate = $end !== null ? $this->parseDate($end) : null;
-        if ($end !== null && $endDate === null) {
+        if ($end !== null && ! $endDate instanceof DateTimeImmutable) {
             return "Could not parse end date: {$end}";
         }
 

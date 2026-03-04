@@ -67,7 +67,7 @@ class EmailChannel extends Channel implements SupportsConfirmation
             conversationIsDirectMessage: $channel->conversationIsDirectMessage(),
             text: $message->text() ?? stripHtml($message->html()),
             attachments: collect($message->attachments())
-                ->map(fn (ImapAttachment $a) => self::storeAttachment($a, $disk, $basePath)),
+                ->map(fn (ImapAttachment $a): \LaraClaw\DTOs\Attachment => self::storeAttachment($a, $disk, $basePath)),
         );
     }
 

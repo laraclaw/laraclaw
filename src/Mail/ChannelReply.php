@@ -26,7 +26,7 @@ class ChannelReply extends Mailable
         $inReplyTo = $this->inReplyTo;
 
         return new Envelope(
-            using: [function (Email $email) use ($inReplyTo) {
+            using: [function (Email $email) use ($inReplyTo): void {
                 $email->getHeaders()->addTextHeader('In-Reply-To', $inReplyTo);
                 $email->getHeaders()->addTextHeader('References', $inReplyTo);
             }]

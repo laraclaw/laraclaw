@@ -8,6 +8,7 @@ use Illuminate\Support\Collection;
 use LaraClaw\DTOs\Attachment;
 use LaraClaw\Message;
 use Laravel\Ai\Tools\Request;
+use Override;
 use RuntimeException;
 use Spatie\Image\Enums\FlipDirection;
 use Spatie\Image\Enums\ImageDriver;
@@ -20,7 +21,7 @@ use Stringable;
  */
 class ImageManager extends BaseTool
 {
-    public function __construct(protected Message $message, private ?Collection $attachments = null) {}
+    public function __construct(protected Message $message, private readonly ?Collection $attachments = null) {}
 
     /**
      * Return the tool description shown to the agent.
@@ -52,6 +53,7 @@ class ImageManager extends BaseTool
     /**
      * Validate disk access, load the image, dispatch to the operation, and queue the result for the reply.
      */
+    #[Override]
     public function handle(Request $request): Stringable|string
     {
         if ($error = $this->validateDiskAccess($request['disk'], $request['path'])) {
@@ -97,9 +99,9 @@ class ImageManager extends BaseTool
         };
 
         if ($operation !== 'info') {
-            $dir = dirname($path) === '.' ? '' : dirname($path) . '/';
+            $dir = dirname((string) $path) === '.' ? '' : dirname((string) $path) . '/';
             $pendingPath = $operation === 'convert'
-                ? $dir . pathinfo($path, PATHINFO_FILENAME) . '.' . ($request['format'] ?? '')
+                ? $dir . pathinfo((string) $path, PATHINFO_FILENAME) . '.' . ($request['format'] ?? '')
                 : $targetPath;
             $this->setPending($request['disk'], $pendingPath);
         }
@@ -284,12 +286,11 @@ class ImageManager extends BaseTool
     private function driver(): ImageDriver
     {
         $driver = config('laraclaw.tools.image_manager.driver', 'imagick');
-        $imageDriver = match ($driver) {
+
+        return match ($driver) {
             'gd' => ImageDriver::Gd,
             default => ImageDriver::Imagick,
         };
-
-        return $imageDriver;
     }
 
     /**

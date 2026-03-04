@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use LaraClaw\Message;
 use Laravel\Ai\Tools\Request;
+use Override;
 use Stringable;
 
 use function LaraClaw\Support\stripHtml;
@@ -21,15 +22,15 @@ use function LaraClaw\Support\stripHtml;
  */
 class EmailManager extends BaseTool
 {
-    private const MAX_LIST = 20;
+    private const int MAX_LIST = 20;
 
-    private const MAX_BODY = 50000;
+    private const int MAX_BODY = 50000;
 
     protected array $requiresConfirmation = [];
 
     public function __construct(
         protected Message $message,
-        private string $mailbox,
+        private readonly string $mailbox,
     ) {
         $this->requiresConfirmation['delete'] = function (Request $request): string {
             $uids = collect($request['uids'] ?: [$request['uid']])->filter();
@@ -88,6 +89,7 @@ class EmailManager extends BaseTool
     /**
      * Run the requested operation and catch any email exceptions as a string error.
      */
+    #[Override]
     public function handle(Request $request): Stringable|string
     {
         try {
@@ -129,7 +131,7 @@ class EmailManager extends BaseTool
 
         $messages = $query->newest()->limit($limit)->get();
 
-        $result = collect($messages)->map(fn ($m) => $this->summarize($m));
+        $result = collect($messages)->map(fn (\DirectoryTree\ImapEngine\MessageInterface $m): array => $this->summarize($m));
 
         if ($result->isEmpty()) {
             return 'No messages found.';
@@ -151,7 +153,7 @@ class EmailManager extends BaseTool
         $folder = $this->getFolder($request['folder'] ?? 'INBOX');
         $message = $folder->messages()->withHeaders()->withBody()->find((int) $uid);
 
-        if ($message === null) {
+        if (! $message instanceof \DirectoryTree\ImapEngine\MessageInterface) {
             return "Message with UID {$uid} not found.";
         }
 
@@ -166,8 +168,8 @@ class EmailManager extends BaseTool
             'uid' => $message->uid(),
             'subject' => $message->subject(),
             'from' => $from ? ['email' => $from->email(), 'name' => $from->name()] : null,
-            'to' => collect($message->to())->map(fn ($a) => $a->toArray())->all(),
-            'cc' => collect($message->cc())->map(fn ($a) => $a->toArray())->all(),
+            'to' => collect($message->to())->map(fn ($a): array => $a->toArray())->all(),
+            'cc' => collect($message->cc())->map(fn ($a): array => $a->toArray())->all(),
             'date' => $message->date()?->toIso8601String(),
             'message_id' => $message->messageId(),
             'has_attachments' => $message->hasAttachments(),
@@ -221,12 +223,12 @@ class EmailManager extends BaseTool
         $folder = $this->getFolder($request['folder'] ?? 'INBOX');
         $original = $folder->messages()->withHeaders()->withBody()->find((int) $uid);
 
-        if ($original === null) {
+        if (! $original instanceof \DirectoryTree\ImapEngine\MessageInterface) {
             return "Message with UID {$uid} not found.";
         }
 
         $replyTo = $original->replyTo() ?? $original->from();
-        if ($replyTo === null) {
+        if (! $replyTo instanceof \DirectoryTree\ImapEngine\Address) {
             return 'Cannot determine reply address for this message.';
         }
 
@@ -238,7 +240,7 @@ class EmailManager extends BaseTool
         $to = $request['to'] ?: [$replyTo->email()];
         $messageId = $original->messageId();
 
-        $this->compose($body, $to, $subject, $request, function ($msg) use ($messageId) {
+        $this->compose($body, $to, $subject, $request, function ($msg) use ($messageId): void {
             if ($messageId) {
                 $msg->getHeaders()->addTextHeader('In-Reply-To', $messageId);
                 $msg->getHeaders()->addTextHeader('References', $messageId);
@@ -265,7 +267,7 @@ class EmailManager extends BaseTool
 
         return collect($uids)
             ->map(function (int $uid) use ($folder): string {
-                if ($folder->messages()->find($uid) === null) {
+                if (! $folder->messages()->find($uid) instanceof \DirectoryTree\ImapEngine\MessageInterface) {
                     return "UID {$uid}: not found";
                 }
 
@@ -295,7 +297,7 @@ class EmailManager extends BaseTool
         $folder = $this->getFolder($sourceFolder);
         $message = $folder->messages()->find((int) $uid);
 
-        if ($message === null) {
+        if (! $message instanceof \DirectoryTree\ImapEngine\MessageInterface) {
             return "Message with UID {$uid} not found in {$sourceFolder}.";
         }
 
@@ -323,7 +325,7 @@ class EmailManager extends BaseTool
         $folder = $this->getFolder($sourceFolder);
         $message = $folder->messages()->find((int) $uid);
 
-        if ($message === null) {
+        if (! $message instanceof \DirectoryTree\ImapEngine\MessageInterface) {
             return "Message with UID {$uid} not found in {$sourceFolder}.";
         }
 
@@ -345,7 +347,7 @@ class EmailManager extends BaseTool
         $folder = $this->getFolder($request['folder'] ?? 'INBOX');
         $message = $folder->messages()->find((int) $uid);
 
-        if ($message === null) {
+        if (! $message instanceof \DirectoryTree\ImapEngine\MessageInterface) {
             return "Message with UID {$uid} not found.";
         }
 
@@ -367,7 +369,7 @@ class EmailManager extends BaseTool
         $folder = $this->getFolder($request['folder'] ?? 'INBOX');
         $message = $folder->messages()->find((int) $uid);
 
-        if ($message === null) {
+        if (! $message instanceof \DirectoryTree\ImapEngine\MessageInterface) {
             return "Message with UID {$uid} not found.";
         }
 
@@ -385,7 +387,7 @@ class EmailManager extends BaseTool
         $folders = $mailbox->folders()->get();
 
         return collect($folders)
-            ->map(fn ($folder) => ['path' => $folder->path(), 'name' => $folder->name()])
+            ->map(fn ($folder): array => ['path' => $folder->path(), 'name' => $folder->name()])
             ->toJson(JSON_PRETTY_PRINT);
     }
 
@@ -437,7 +439,7 @@ class EmailManager extends BaseTool
     {
         $fromAddress = config("imap.mailboxes.{$this->mailbox}.username");
 
-        Mail::raw($body, function ($msg) use ($to, $subject, $fromAddress, $request, $extra) {
+        Mail::raw($body, function ($msg) use ($to, $subject, $fromAddress, $request, $extra): void {
             $msg->to($to);
             $msg->subject($subject);
 
@@ -456,7 +458,7 @@ class EmailManager extends BaseTool
             foreach ($this->message->attachments as $attachment) {
                 $msg->attachData(
                     Storage::disk($attachment->disk)->get($attachment->path),
-                    $attachment->filename ?? basename($attachment->path),
+                    $attachment->filename ?? basename((string) $attachment->path),
                     ['mime' => $attachment->mimeType ?? 'application/octet-stream'],
                 );
             }

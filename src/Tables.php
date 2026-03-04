@@ -7,11 +7,11 @@ namespace LaraClaw;
  */
 final class Tables
 {
-    const ACCOUNTS = 'laraclaw_accounts';
+    const string ACCOUNTS = 'laraclaw_accounts';
 
-    const CONVERSATIONS = 'laraclaw_conversations';
+    const string CONVERSATIONS = 'laraclaw_conversations';
 
-    const REMINDERS = 'laraclaw_reminders';
+    const string REMINDERS = 'laraclaw_reminders';
 
-    const HEARTBEATS = 'laraclaw_heartbeats';
+    const string HEARTBEATS = 'laraclaw_heartbeats';
 }

@@ -64,7 +64,7 @@ trait ChecksRedisForConfirmations
             // into the key or $timeout seconds pass, whichever comes first.
             $reply = $connection->blpop($confirmKey, $timeout);
 
-            return $reply && strtolower($reply[1]) === 'yes';
+            return $reply && strtolower((string) $reply[1]) === 'yes';
         } finally {
             // Always clean up both keys so they never leak, even if the job is
             // killed, the connection drops, or an exception is thrown while we wait.

@@ -84,7 +84,7 @@ class Chat extends Command
             }
 
             $response = spin(
-                callback: fn () => $agent->send(),
+                callback: fn (): string => $agent->send(),
                 message: 'Fetching response...',
             );
 

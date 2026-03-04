@@ -62,7 +62,7 @@ class GoogleCalendarAuth extends Command
             return self::FAILURE;
         }
 
-        $tokenDir = dirname($tokenJson);
+        $tokenDir = dirname((string) $tokenJson);
         if (! is_dir($tokenDir)) {
             mkdir($tokenDir, 0755, true);
         }

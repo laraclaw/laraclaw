@@ -81,7 +81,7 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsC
         $basePath = config('laraclaw.filesystem.attachments_path', 'attachments').'/slack';
 
         return collect($event['files'] ?? [])
-            ->map(fn (array $file) => self::downloadFile($file, $disk, $basePath))
+            ->map(fn (array $file): ?\LaraClaw\DTOs\Attachment => self::downloadFile($file, $disk, $basePath))
             ->filter()
             ->values();
     }

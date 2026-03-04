@@ -52,7 +52,7 @@ trait ConfiguresEnv
             label: $label,
             placeholder: $placeholder,
             required: true,
-            validate: fn (string $value) => UserAccount::where('channel', $channel)
+            validate: fn (string $value): ?string => UserAccount::where('channel', $channel)
                 ->where('account', $value)
                 ->where('user_id', '!=', $userId)
                 ->exists()

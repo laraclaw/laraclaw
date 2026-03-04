@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use LaraClaw\Enums\ChannelType;
 use LaraClaw\Tables;
+use Override;
 
 /**
  * Eloquent model representing a single scheduled reminder message.
@@ -31,6 +32,7 @@ class Reminder extends Model
         return $this->belongsTo(config('laraclaw.auth.user_model'));
     }
 
+    #[Override]
     protected function casts(): array
     {
         return [

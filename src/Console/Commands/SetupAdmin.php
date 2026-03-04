@@ -55,7 +55,7 @@ class SetupAdmin extends Command
             label: "✉️ What's your email?",
             placeholder: 'E.g. john@example.com',
             required: true,
-            validate: fn (string $value) => match (true) {
+            validate: fn (string $value): ?string => match (true) {
                 ! filter_var($value, FILTER_VALIDATE_EMAIL) => 'Please enter a valid email address.',
                 $userModel::where('email', $value)->exists() => 'That email is already taken.',
                 default => null,
@@ -69,7 +69,7 @@ class SetupAdmin extends Command
         password(
             label: '🔑 Repeat password',
             required: true,
-            validate: fn (string $value) => $value !== $password ? 'Passwords do not match.' : null,
+            validate: fn (string $value): ?string => $value !== $password ? 'Passwords do not match.' : null,
         );
 
         return $userModel::create([

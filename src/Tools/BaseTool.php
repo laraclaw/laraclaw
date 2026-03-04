@@ -116,7 +116,7 @@ abstract class BaseTool implements Tool
             return str_contains($path, '..');
         }
 
-        $root = rtrim($root, '/');
+        $root = rtrim((string) $root, '/');
         $candidate = $root . '/' . ltrim($path, '/');
 
         $real = realpath($candidate);

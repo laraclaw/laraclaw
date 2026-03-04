@@ -7,6 +7,7 @@ use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Laravel\Ai\Tools\Request;
+use Override;
 use Stringable;
 use Symfony\Component\HttpFoundation\IpUtils;
 
@@ -15,7 +16,7 @@ use Symfony\Component\HttpFoundation\IpUtils;
  */
 class WebRequest extends BaseTool
 {
-    private const TIMEOUT = 15;
+    private const int TIMEOUT = 15;
 
     private const MAX_RESPONSE_BYTES = 100 * 1024;
 
@@ -44,6 +45,7 @@ class WebRequest extends BaseTool
     /**
      * Validate the URL and block private network addresses, then dispatch to the operation.
      */
+    #[Override]
     public function handle(Request $request): Stringable|string
     {
         $url = $request['url'] ?? '';
@@ -140,7 +142,7 @@ class WebRequest extends BaseTool
         $pending = Http::timeout(self::TIMEOUT)->withOptions([
             'allow_redirects' => [
                 'max' => 5,
-                'on_redirect' => function ($req) {
+                'on_redirect' => function ($req): void {
                     $redirectUrl = (string) $req->getUri();
                     if ($this->isPrivateUrl($redirectUrl)) {
                         throw new Exception('Redirect to private/internal network address blocked.');
@@ -149,7 +151,7 @@ class WebRequest extends BaseTool
             ],
         ]);
 
-        if (is_array($headers) && ! empty($headers)) {
+        if (is_array($headers) && $headers !== []) {
             $pending = $pending->withHeaders($headers);
         }
 
@@ -196,7 +198,7 @@ class WebRequest extends BaseTool
         $keep = ['content-type', 'content-length', 'location', 'x-request-id'];
 
         return collect($headers)
-            ->filter(fn ($v, $k) => in_array(strtolower($k), $keep, true))
+            ->filter(fn ($v, $k): bool => in_array(strtolower((string) $k), $keep, true))
             ->map(fn ($v) => is_array($v) ? implode(', ', $v) : $v)
             ->all();
     }
@@ -228,7 +230,7 @@ class WebRequest extends BaseTool
         // No DNS records found, which may mean this is a raw IP literal. Fall back to gethostbyname().
         if (empty($ips)) {
             $resolved = gethostbyname($host);
-            $ips[] = $resolved !== $host ? $resolved : $host;
+            $ips[] = $resolved;
         }
 
         foreach ($ips as $ip) {

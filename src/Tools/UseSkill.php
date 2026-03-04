@@ -13,7 +13,7 @@ use Stringable;
  */
 class UseSkill implements Tool
 {
-    public function __construct(private SkillRegistry $registry) {}
+    public function __construct(private readonly SkillRegistry $registry) {}
 
     /**
      * Return the tool description shown to the agent, listing all available skills.
@@ -22,12 +22,12 @@ class UseSkill implements Tool
     {
         $skills = $this->registry->all();
 
-        if (empty($skills)) {
+        if ($skills === []) {
             return 'Apply a specialized skill. No skills are currently available.';
         }
 
         $list = collect($skills)
-            ->map(fn (array $s, int $i) => ($i + 1) . ') ' . $s['name'] . ' — ' . $s['description'])
+            ->map(fn (array $s, int $i): string => ($i + 1) . ') ' . $s['name'] . ' — ' . $s['description'])
             ->join(', ');
 
         return "Apply a specialized skill. Follow the returned instructions carefully. Available skills: {$list}";

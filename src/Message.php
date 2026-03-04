@@ -72,7 +72,7 @@ class Message
     public function agentAttachments(): array
     {
         return $this->attachments
-            ->map(fn (Attachment $a) => match (true) {
+            ->map(fn (Attachment $a): \Laravel\Ai\Files\StoredImage|\Laravel\Ai\Files\StoredDocument|null => match (true) {
                 $a->isImage() => Image::fromStorage($a->path, $a->disk),
                 $a->isDocument() => Document::fromStorage($a->path, $a->disk),
                 default => null,
@@ -106,7 +106,7 @@ class Message
             return $this->text;
         }
 
-        $audio = $this->attachments->first(fn (Attachment $a) => $a->isAudio());
+        $audio = $this->attachments->first(fn (Attachment $a): bool => $a->isAudio());
 
         return $audio
             ? Transcription::fromStorage($audio->path, $audio->disk)->generate()->text
@@ -120,8 +120,8 @@ class Message
     private function attachmentMetadataBlock(): string
     {
         $meta = $this->attachments
-            ->filter(fn (Attachment $a) => $a->isImage() || $a->isDocument())
-            ->map(fn (Attachment $a) => ['type' => $a->mimeType, 'disk' => $a->disk, 'path' => $a->path])
+            ->filter(fn (Attachment $a): bool => $a->isImage() || $a->isDocument())
+            ->map(fn (Attachment $a): array => ['type' => $a->mimeType, 'disk' => $a->disk, 'path' => $a->path])
             ->values()
             ->all();
 

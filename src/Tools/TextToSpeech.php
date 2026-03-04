@@ -18,7 +18,7 @@ use Stringable;
  */
 class TextToSpeech implements Tool
 {
-    public function __construct(private Collection $attachments) {}
+    public function __construct(private readonly Collection $attachments) {}
 
     /**
      * Return the tool description shown to the agent.
@@ -47,7 +47,7 @@ class TextToSpeech implements Tool
     {
         $text = $request['text'] ?? null;
 
-        if ($text === null || trim($text) === '') {
+        if ($text === null || trim((string) $text) === '') {
             return 'The "text" parameter is required.';
         }
 

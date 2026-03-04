@@ -11,6 +11,7 @@ use Illuminate\Support\Str;
 use LaraClaw\DTOs\Attachment;
 use LaraClaw\Message;
 use Laravel\Ai\Tools\Request;
+use Override;
 use Stringable;
 
 /**
@@ -22,7 +23,7 @@ class Files extends BaseTool
 
     protected array $requiresConfirmation = [];
 
-    public function __construct(protected Message $message, private Collection $attachments)
+    public function __construct(protected Message $message, private readonly Collection $attachments)
     {
         $this->requiresConfirmation['delete'] = function (Request $request): string {
             $paths = collect($request['paths'] ?: [$request['path']])->filter();
@@ -61,6 +62,7 @@ class Files extends BaseTool
     /**
      * Validate disk and path access, then delegate to the requested operation.
      */
+    #[Override]
     public function handle(Request $request): Stringable|string
     {
         if ($error = $this->validateDiskAccess($request['disk'], $request['path'])) {
@@ -99,10 +101,10 @@ class Files extends BaseTool
         }
 
         $entries = collect($storage->files($path))
-            ->map(fn ($file) => ['name' => $file, 'size' => $storage->size($file), 'type' => 'file'])
+            ->map(fn ($file): array => ['name' => $file, 'size' => $storage->size($file), 'type' => 'file'])
             ->merge(collect($storage->directories($path))
-                ->map(fn ($dir) => ['name' => $dir, 'size' => 0, 'type' => 'directory']))
-            ->reject(fn ($entry) => $this->isProtectedPath($entry['name']));
+                ->map(fn ($dir): array => ['name' => $dir, 'size' => 0, 'type' => 'directory']))
+            ->reject(fn ($entry): bool => $this->isProtectedPath($entry['name']));
 
         return $entries->toJson(JSON_PRETTY_PRINT);
     }
@@ -125,8 +127,8 @@ class Files extends BaseTool
             return "Cannot read {$path}: binary file.";
         }
 
-        if (strlen($contents) > self::MAX_READ_BYTES) {
-            return substr($contents, 0, self::MAX_READ_BYTES) . "\n\n[Truncated: file exceeds 100KB]";
+        if (strlen((string) $contents) > self::MAX_READ_BYTES) {
+            return substr((string) $contents, 0, self::MAX_READ_BYTES) . "\n\n[Truncated: file exceeds 100KB]";
         }
 
         return $contents;
@@ -183,7 +185,7 @@ class Files extends BaseTool
         }
 
         return collect($paths)
-            ->map(function ($p) use ($storage) {
+            ->map(function ($p) use ($storage): string {
                 if ($storage->fileExists($p)) {
                     $storage->delete($p);
 
@@ -351,9 +353,9 @@ class Files extends BaseTool
         $path = $request['path'];
 
         // If path looks like a directory (no extension), derive a filename from the URL
-        if (! pathinfo($path, PATHINFO_EXTENSION)) {
-            $urlFilename = pathinfo(parse_url($url, PHP_URL_PATH), PATHINFO_BASENAME) ?: Str::uuid();
-            $path = rtrim($path, '/') . '/' . $urlFilename;
+        if (! pathinfo((string) $path, PATHINFO_EXTENSION)) {
+            $urlFilename = pathinfo(parse_url((string) $url, PHP_URL_PATH), PATHINFO_BASENAME) ?: Str::uuid();
+            $path = rtrim((string) $path, '/') . '/' . $urlFilename;
         }
 
         $actual = $this->uniqueFilePath($storage, $path);

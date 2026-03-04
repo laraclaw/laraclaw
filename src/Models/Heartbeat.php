@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use LaraClaw\Enums\ChannelType;
 use LaraClaw\Tables;
+use Override;
 
 /**
  * Eloquent model representing a recurring message that fires on a cron schedule.
@@ -32,6 +33,7 @@ class Heartbeat extends Model
         return $this->belongsTo(config('laraclaw.auth.user_model'));
     }
 
+    #[Override]
     protected function casts(): array
     {
         return [

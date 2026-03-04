@@ -33,6 +33,7 @@ use LaraClaw\Listeners\LogAgentRequest;
 use LaraClaw\Listeners\TelegramListener;
 use LaraClaw\Tools\ToolRegistry;
 use Laravel\Ai\Events\AgentPrompted;
+use Override;
 use RuntimeException;
 use SergiX44\Nutgram\Nutgram;
 use Spatie\GoogleCalendar\GoogleCalendar;
@@ -45,6 +46,7 @@ class LaraclawServiceProvider extends ServiceProvider
     /**
      * Bind services, configure channels, and register the calendar driver.
      */
+    #[Override]
     public function register(): void
     {
         $this->mergeConfigFrom(__DIR__ . '/../config/laraclaw.php', 'laraclaw');
@@ -139,7 +141,7 @@ class LaraclawServiceProvider extends ServiceProvider
      */
     private function registerBlockingRedisConnection(): void
     {
-        $this->app->booting(function () {
+        $this->app->booting(function (): void {
             $default = config('database.redis.default', []);
             config(['database.redis.laraclaw-blocking' => array_merge($default, ['read_write_timeout' => -1])]);
         });
@@ -150,18 +152,16 @@ class LaraclawServiceProvider extends ServiceProvider
      */
     private function registerCoreSingletons(): void
     {
-        $this->app->singleton(CommandRegistry::class, function () {
+        $this->app->singleton(function (): \LaraClaw\Commands\CommandRegistry {
             $registry = new CommandRegistry;
             $registry->register(new NewConversation);
 
             return $registry;
         });
 
-        $this->app->singleton(SkillRegistry::class, function () {
-            return new SkillRegistry(config('laraclaw.skills.path', base_path('laraclaw/skills')));
-        });
+        $this->app->singleton(fn (): \LaraClaw\SkillRegistry => new SkillRegistry(config('laraclaw.skills.path', base_path('laraclaw/skills'))));
 
-        $this->app->singleton(ToolRegistry::class, fn () => new ToolRegistry);
+        $this->app->singleton(ToolRegistry::class, fn (): \LaraClaw\Tools\ToolRegistry => new ToolRegistry);
     }
 
     /**
@@ -169,12 +169,12 @@ class LaraclawServiceProvider extends ServiceProvider
      */
     private function configureTelegramChannel(): void
     {
-        $this->app->booting(function () {
+        $this->app->booting(function (): void {
             config()->set('nutgram.token', config('laraclaw.channels.telegram.token'));
             config()->set('nutgram.config.timeout', 120);
         });
 
-        $this->app->resolving(Nutgram::class, function (Nutgram $bot) {
+        $this->app->resolving(Nutgram::class, function (Nutgram $bot): void {
             $bot->onMessage(fn (Nutgram $bot) => event(new TelegramMessageReceived($bot->message(), $bot)));
         });
     }
@@ -229,18 +229,16 @@ class LaraclawServiceProvider extends ServiceProvider
             ]);
         }
 
-        $this->app->singleton(CalendarDriver::class, function () {
-            return match (config('laraclaw.tools.calendar_manager.driver')) {
-                'google' => new GoogleCalendarDriver,
-                'apple' => new AppleCalendarDriver(
-                    server: config('laraclaw.tools.calendar_manager.apple.server'),
-                    username: config('laraclaw.tools.calendar_manager.apple.username'),
-                    password: config('laraclaw.tools.calendar_manager.apple.password'),
-                    calendar: config('laraclaw.tools.calendar_manager.apple.calendar'),
-                ),
-                null => null,
-                default => throw new RuntimeException('Unknown calendar driver: ' . config('laraclaw.tools.calendar_manager.driver')),
-            };
+        $this->app->singleton(fn (): \LaraClaw\Calendar\Contracts\CalendarDriver => match (config('laraclaw.tools.calendar_manager.driver')) {
+            'google' => new GoogleCalendarDriver,
+            'apple' => new AppleCalendarDriver(
+                server: config('laraclaw.tools.calendar_manager.apple.server'),
+                username: config('laraclaw.tools.calendar_manager.apple.username'),
+                password: config('laraclaw.tools.calendar_manager.apple.password'),
+                calendar: config('laraclaw.tools.calendar_manager.apple.calendar'),
+            ),
+            null => null,
+            default => throw new RuntimeException('Unknown calendar driver: ' . config('laraclaw.tools.calendar_manager.driver')),
         });
     }
 
@@ -285,7 +283,7 @@ class LaraclawServiceProvider extends ServiceProvider
      */
     private function registerScheduler(): void
     {
-        $this->callAfterResolving(Schedule::class, function (Schedule $schedule) {
+        $this->callAfterResolving(Schedule::class, function (Schedule $schedule): void {
             $schedule->command(SendReminders::class)->everyMinute();
             $schedule->command(ProcessHeartbeats::class)->everyMinute();
         });
@@ -300,7 +298,7 @@ class LaraclawServiceProvider extends ServiceProvider
             return;
         }
 
-        $this->app->extend(GoogleCalendar::class, function (GoogleCalendar $calendar) {
+        $this->app->extend(GoogleCalendar::class, function (GoogleCalendar $calendar): \Spatie\GoogleCalendar\GoogleCalendar {
             $client = $calendar->getService()->getClient();
             $tokenPath = config('laraclaw.tools.calendar_manager.google.token_json');
 

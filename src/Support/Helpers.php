@@ -17,24 +17,24 @@ function markdownToMrkdwn(string $text): string
     $environment->addExtension(new CommonMarkCoreExtension);
     $environment->addExtension(new StrikethroughExtension);
 
-    $html = (new MarkdownConverter($environment))->convert($text)->getContent();
+    $html = new MarkdownConverter($environment)->convert($text)->getContent();
 
     // Handle fenced code blocks first so their content is not touched by the rules below.
     $html = preg_replace_callback(
         '/<pre><code[^>]*>(.*?)<\/code><\/pre>/s',
-        fn ($m) => "\n```\n" . html_entity_decode($m[1], ENT_QUOTES, 'UTF-8') . "```\n",
+        fn ($m): string => "\n```\n" . html_entity_decode((string) $m[1], ENT_QUOTES, 'UTF-8') . "```\n",
         $html,
     );
 
-    $html = preg_replace('/<h[1-6][^>]*>(.*?)<\/h[1-6]>/s', "*$1*\n", $html);
-    $html = preg_replace('/<strong>(.*?)<\/strong>/s', '*$1*', $html);
-    $html = preg_replace('/<em>(.*?)<\/em>/s', '_$1_', $html);
-    $html = preg_replace('/<del>(.*?)<\/del>/s', '~$1~', $html);
-    $html = preg_replace('/<a\s[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/s', '<$1|$2>', $html);
-    $html = preg_replace('/<code>(.*?)<\/code>/s', '`$1`', $html);
-    $html = preg_replace('/<li[^>]*>(.*?)<\/li>/s', '• $1', $html);
-    $html = preg_replace('/<br\s*\/?>/i', "\n", $html);
-    $html = strip_tags($html);
+    $html = preg_replace('/<h[1-6][^>]*>(.*?)<\/h[1-6]>/s', "*$1*\n", (string) $html);
+    $html = preg_replace('/<strong>(.*?)<\/strong>/s', '*$1*', (string) $html);
+    $html = preg_replace('/<em>(.*?)<\/em>/s', '_$1_', (string) $html);
+    $html = preg_replace('/<del>(.*?)<\/del>/s', '~$1~', (string) $html);
+    $html = preg_replace('/<a\s[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/s', '<$1|$2>', (string) $html);
+    $html = preg_replace('/<code>(.*?)<\/code>/s', '`$1`', (string) $html);
+    $html = preg_replace('/<li[^>]*>(.*?)<\/li>/s', '• $1', (string) $html);
+    $html = preg_replace('/<br\s*\/?>/i', "\n", (string) $html);
+    $html = strip_tags((string) $html);
 
     return trim(html_entity_decode($html, ENT_QUOTES, 'UTF-8'));
 }
@@ -126,7 +126,7 @@ function ansiInline(string $text): string
     $links = [];
     // Pass by reference is necessary here because preg_replace_callback fires per match
     // and we need to accumulate all links into one array across multiple calls.
-    $text = preg_replace_callback('/\[([^\]]+)\]\(([^)]+)\)/', function ($m) use (&$links) {
+    $text = preg_replace_callback('/\[([^\]]+)\]\(([^)]+)\)/', function ($m) use (&$links): string {
         $token = "\u{E000}" . count($links) . "\u{E000}";
         $links[$token] = $m;
 
@@ -134,22 +134,22 @@ function ansiInline(string $text): string
     }, $text);
 
     // Inline code next so bold/italic patterns inside backticks are left alone
-    $text = preg_replace('/`([^`]+)`/', "\033[7m \$1 \033[27m", $text);
-    $text = preg_replace(['/\*\*(.+?)\*\*/', '/__(.+?)__/'], "\033[1m\$1\033[22m", $text);
-    $text = preg_replace(['/\*([^*\n]+)\*/', '/_([^_\n]+)_/'], "\033[3m\$1\033[23m", $text);
+    $text = preg_replace('/`([^`]+)`/', "\033[7m \$1 \033[27m", (string) $text);
+    $text = preg_replace(['/\*\*(.+?)\*\*/', '/__(.+?)__/'], "\033[1m\$1\033[22m", (string) $text);
+    $text = preg_replace(['/\*([^*\n]+)\*/', '/_([^_\n]+)_/'], "\033[3m\$1\033[23m", (string) $text);
 
     // Catch bare https:// URLs before restoring link tokens so the regex cannot
     // match URLs that are already embedded inside OSC 8 escape sequences.
     $text = preg_replace_callback(
         '/https?:\/\/[^\s\)\]]+/',
-        fn ($m) => "\033]8;;{$m[0]}\007\033[4m{$m[0]}\033[24m\033]8;;\007",
-        $text,
+        fn ($m): string => "\033]8;;{$m[0]}\007\033[4m{$m[0]}\033[24m\033]8;;\007",
+        (string) $text,
     );
 
     // Restore extracted [text](url) links as OSC 8 hyperlinks
     $text = str_replace(
         array_keys($links),
-        array_map(fn ($m) => "\033]8;;{$m[2]}\007\033[4m{$m[1]}\033[24m\033]8;;\007", $links),
+        array_map(fn (array $m): string => "\033]8;;{$m[2]}\007\033[4m{$m[1]}\033[24m\033]8;;\007", $links),
         $text,
     );
 
@@ -165,7 +165,7 @@ function ansiInline(string $text): string
  */
 function interpolate(string $template, array $values): string
 {
-    return preg_replace_callback('/\{(\w+)\}/', function ($m) use ($values) {
+    return preg_replace_callback('/\{(\w+)\}/', function (array $m) use ($values) {
         $value = $values[$m[1]] ?? $m[0];
 
         return is_array($value) ? implode(', ', $value) : $value;
@@ -181,5 +181,5 @@ function stripHtml(?string $html): ?string
         return null;
     }
 
-    return trim(preg_replace('/\s+/', ' ', strip_tags(html_entity_decode($html, ENT_QUOTES, 'UTF-8'))));
+    return trim((string) preg_replace('/\s+/', ' ', strip_tags(html_entity_decode($html, ENT_QUOTES, 'UTF-8'))));
 }

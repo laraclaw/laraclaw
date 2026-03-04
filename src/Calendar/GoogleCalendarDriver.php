@@ -20,7 +20,7 @@ class GoogleCalendarDriver implements CalendarDriver
     public function list(DateTimeInterface $start, DateTimeInterface $end): array
     {
         return collect($this->getEvents(Carbon::instance($start), Carbon::instance($end)))
-            ->map(fn (SpatieEvent $event) => new CalendarEvent(
+            ->map(fn (SpatieEvent $event): \LaraClaw\DTOs\CalendarEvent => new CalendarEvent(
                 title: $event->name ?? '',
                 start: new DateTimeImmutable($event->startDateTime->toIso8601String()),
                 end: new DateTimeImmutable($event->endDateTime->toIso8601String()),
@@ -74,11 +74,11 @@ class GoogleCalendarDriver implements CalendarDriver
             $spatieEvent->name = $event->title;
         }
 
-        if ($event->start !== null) {
+        if ($event->start instanceof DateTimeImmutable) {
             $spatieEvent->startDateTime = Carbon::instance($event->start);
         }
 
-        if ($event->end !== null) {
+        if ($event->end instanceof DateTimeImmutable) {
             $spatieEvent->endDateTime = Carbon::instance($event->end);
         }
 

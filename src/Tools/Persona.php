@@ -14,7 +14,7 @@ use Stringable;
  */
 class Persona implements Tool
 {
-    public function __construct(private ?Conversation $conversation = null) {}
+    public function __construct(private readonly ?Conversation $conversation = null) {}
 
     /**
      * Return the tool description shown to the agent, listing all available personas.
@@ -63,7 +63,7 @@ class Persona implements Tool
     {
         $personas = $this->availablePersonas();
 
-        if (empty($personas)) {
+        if ($personas === []) {
             return 'No persona files found in ' . config('laraclaw.personas.path');
         }
 
@@ -115,8 +115,8 @@ class Persona implements Tool
         }
 
         return collect(File::files($path))
-            ->filter(fn ($file) => $file->getExtension() === 'md')
-            ->map(fn ($file) => $file->getFilenameWithoutExtension())
+            ->filter(fn ($file): bool => $file->getExtension() === 'md')
+            ->map(fn ($file): string => $file->getFilenameWithoutExtension())
             ->sort()
             ->values()
             ->all();

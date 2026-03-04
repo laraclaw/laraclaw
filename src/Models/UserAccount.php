@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use LaraClaw\Enums\ChannelType;
 use LaraClaw\Tables;
+use Override;
 
 /**
  * Eloquent model linking a user to an external channel account identifier.
@@ -24,6 +25,7 @@ class UserAccount extends Model
         return $this->belongsTo(config('laraclaw.auth.user_model'));
     }
 
+    #[Override]
     protected function casts(): array
     {
         return [

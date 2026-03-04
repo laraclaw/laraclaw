@@ -15,7 +15,7 @@ class SkillRegistry
     private ?array $skills = null;
 
     public function __construct(
-        private string $basePath,
+        private readonly string $basePath,
     ) {}
 
     /**
@@ -26,7 +26,7 @@ class SkillRegistry
     public function all(): array
     {
         return collect($this->load())
-            ->map(fn (array $skill) => ['name' => $skill['name'], 'description' => $skill['description']])
+            ->map(fn (array $skill): array => ['name' => $skill['name'], 'description' => $skill['description']])
             ->values()
             ->all();
     }
@@ -75,7 +75,7 @@ class SkillRegistry
      */
     private function parseFrontmatter(string $raw): ?array
     {
-        $result = (new FrontMatterParser(new SymfonyYamlFrontMatterParser))->parse($raw);
+        $result = new FrontMatterParser(new SymfonyYamlFrontMatterParser)->parse($raw);
         $meta = $result->getFrontMatter();
 
         if (empty($meta['name']) || empty($meta['description'])) {

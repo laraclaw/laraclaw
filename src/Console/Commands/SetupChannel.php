@@ -89,8 +89,8 @@ class SetupChannel extends Command
         info("First, let's set up IMAP so I can read emails:");
 
         $imapHost = $this->askEnv('IMAP host', 'LARACLAW_IMAP_HOST', placeholder: 'imap.gmail.com');
-        $imapPort = $this->askEnv('IMAP port', 'LARACLAW_IMAP_PORT', input: fn () => text('IMAP port', placeholder: '993', default: '993', required: true));
-        $imapEncryption = $this->askEnv('IMAP encryption', 'LARACLAW_IMAP_ENCRYPTION', input: fn () => text('IMAP encryption', placeholder: 'ssl', default: 'ssl', required: true));
+        $imapPort = $this->askEnv('IMAP port', 'LARACLAW_IMAP_PORT', input: fn (): string => text('IMAP port', placeholder: '993', default: '993', required: true));
+        $imapEncryption = $this->askEnv('IMAP encryption', 'LARACLAW_IMAP_ENCRYPTION', input: fn (): string => text('IMAP encryption', placeholder: 'ssl', default: 'ssl', required: true));
         $imapUsername = $this->askEnv('IMAP username (email address)', 'LARACLAW_IMAP_USERNAME', placeholder: 'you@example.com');
         $imapPassword = $this->askEnv('IMAP password', 'LARACLAW_IMAP_PASSWORD', secret: true);
 
@@ -99,9 +99,9 @@ class SetupChannel extends Command
         info("Now, let's set up SMTP so I can send emails:");
 
         $smtpHost = $this->askEnv('SMTP host', 'LARACLAW_SMTP_HOST', placeholder: 'smtp.gmail.com');
-        $smtpPort = $this->askEnv('SMTP port', 'LARACLAW_SMTP_PORT', input: fn () => text('SMTP port', placeholder: '587', default: '587', required: true));
-        $smtpEncryption = $this->askEnv('SMTP encryption', 'LARACLAW_SMTP_ENCRYPTION', input: fn () => text('SMTP encryption', placeholder: 'tls', default: 'tls', required: true));
-        $smtpUsername = $this->askEnv('SMTP username', 'LARACLAW_SMTP_USERNAME', input: fn () => text('SMTP username', placeholder: 'you@example.com', default: $imapUsername, required: true));
+        $smtpPort = $this->askEnv('SMTP port', 'LARACLAW_SMTP_PORT', input: fn (): string => text('SMTP port', placeholder: '587', default: '587', required: true));
+        $smtpEncryption = $this->askEnv('SMTP encryption', 'LARACLAW_SMTP_ENCRYPTION', input: fn (): string => text('SMTP encryption', placeholder: 'tls', default: 'tls', required: true));
+        $smtpUsername = $this->askEnv('SMTP username', 'LARACLAW_SMTP_USERNAME', input: fn (): string => text('SMTP username', placeholder: 'you@example.com', default: $imapUsername, required: true));
         $smtpPassword = $this->askEnv('SMTP password', 'LARACLAW_SMTP_PASSWORD', secret: true);
 
         $this->saveEnv([
@@ -148,13 +148,13 @@ class SetupChannel extends Command
                 label: 'Which email addresses should I reply to? (comma-separated)',
                 default: $user->email,
                 required: true,
-                validate: fn (string $value) => collect(explode(',', $value))
-                    ->map(fn ($e) => trim($e))
+                validate: fn (string $value): ?string => collect(explode(',', $value))
+                    ->map(fn ($e): string => trim((string) $e))
                     ->filter()
-                    ->contains(fn ($e) => ! filter_var($e, FILTER_VALIDATE_EMAIL))
+                    ->contains(fn ($e): bool => ! filter_var($e, FILTER_VALIDATE_EMAIL))
                     ? 'Please enter valid email addresses separated by commas.'
                     : null,
             ))
-        )->map(fn ($e) => trim($e))->filter();
+        )->map(fn ($e): string => trim((string) $e))->filter();
     }
 }

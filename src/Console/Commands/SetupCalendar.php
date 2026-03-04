@@ -55,7 +55,7 @@ class SetupCalendar extends Command
         info('To connect Google Calendar, you need an OAuth credentials file:' . PHP_EOL . PHP_EOL . $steps);
         info("Save the file to: {$credentialsPath}");
 
-        spin(function () use ($credentialsPath) {
+        spin(function () use ($credentialsPath): void {
             while (! file_exists($credentialsPath)) {
                 sleep(1);
             }
@@ -75,7 +75,7 @@ class SetupCalendar extends Command
 
     private function setupAppleCalendar(): void
     {
-        $server = $this->askEnv('CalDAV server URL', 'LARACLAW_APPLE_CALDAV_SERVER', input: fn () => text('CalDAV server URL', default: 'https://caldav.icloud.com', required: true));
+        $server = $this->askEnv('CalDAV server URL', 'LARACLAW_APPLE_CALDAV_SERVER', input: fn (): string => text('CalDAV server URL', default: 'https://caldav.icloud.com', required: true));
         $username = $this->askEnv('CalDAV username', 'LARACLAW_APPLE_CALDAV_USERNAME');
         $password = $this->askEnv('CalDAV password', 'LARACLAW_APPLE_CALDAV_PASSWORD', secret: true);
         $calendar = $this->askEnv('Calendar name', 'LARACLAW_APPLE_CALDAV_CALENDAR');
