@@ -38,18 +38,19 @@ class ChatBotAgent implements Agent, Conversational, HasTools
 {
     use Promptable, RemembersConversations;
 
-    public ?string $prompt = null;
-
-    /** @var array<int, \Laravel\Ai\Files\Image|\Laravel\Ai\Files\Document> */
-    public array $attachments = [];
-
     /** @var Collection<int, \LaraClaw\DTOs\Attachment> */
     public Collection $replyAttachments;
+
+    private ?string $inputText = null;
+
+    /** @var array<int, \Laravel\Ai\Files\Image|\Laravel\Ai\Files\Document> */
+    private array $inputAttachments = [];
 
     private ?Conversation $conversation = null;
 
     /**
-     * Resolve the sender, conversation, and agent context from the incoming message.
+     * Prepare the agent for the incoming message, resolving the sender and conversation context.
+     * Call isReady() after construction to confirm processing should continue.
      */
     public function __construct(
         private Message $message,
@@ -78,8 +79,8 @@ class ChatBotAgent implements Agent, Conversational, HasTools
         }
 
         // If no command rewrote the text, resolve the full agent text now (may transcribe audio).
-        $this->prompt = ($text !== ($message->text ?? '')) ? $text : $message->agentText();
-        $this->attachments = $message->agentAttachments();
+        $this->inputText = ($text !== ($message->text ?? '')) ? $text : $message->agentText();
+        $this->inputAttachments = $message->agentAttachments();
 
         if ($conversationId) {
             $this->continue($conversationId, as: $user);
@@ -89,28 +90,28 @@ class ChatBotAgent implements Agent, Conversational, HasTools
     }
 
     /**
-     * Return true if the agent has a prompt ready to send to the AI.
+     * Return true if the agent has a message ready to send to the AI.
      * False means a command consumed the message or no owner user is configured.
      */
     public function isReady(): bool
     {
-        return $this->prompt !== null;
+        return $this->inputText !== null;
     }
 
     /**
-     * Send the prepared prompt and return the full response text.
+     * Send the prepared message to the AI and return the full response text.
      */
     public function send(): string
     {
-        return (string) $this->prompt($this->prompt, $this->attachments);
+        return (string) $this->prompt($this->inputText, $this->inputAttachments);
     }
 
     /**
-     * Stream the prepared prompt, yielding events as they arrive.
+     * Stream the prepared message, yielding events as they arrive from the AI.
      */
     public function run(): StreamableAgentResponse
     {
-        return $this->stream($this->prompt, $this->attachments);
+        return $this->stream($this->inputText, $this->inputAttachments);
     }
 
     /**
@@ -118,7 +119,7 @@ class ChatBotAgent implements Agent, Conversational, HasTools
      */
     public function instructions(): string
     {
-        $base = $this->buildPrompt();
+        $base = $this->buildSystemPrompt();
         $persona = $this->resolvePersona();
 
         return $base . $persona;
@@ -163,37 +164,60 @@ class ChatBotAgent implements Agent, Conversational, HasTools
     }
 
     /**
-     * Look up the sender and find or create their conversation record.
+     * Dispatch to the DM or group context resolver based on message type.
      *
-     * Returns null if this is a group message and no owner user is configured,
+     * Returns null if the group path finds no owner user configured,
      * in which case processing should stop.
      *
      * @return array{user: mixed, conversation: Conversation, conversationId: string|null}|null
      */
     private function resolveContext(ConversationStore $conversations): ?array
     {
-        $channel = $this->message->channel;
-
         if ($this->message->conversationIsDirectMessage) {
-            $userAccount = UserAccount::where('channel', $channel->name)
-                ->where('account', $this->message->conversationKey)
-                ->with('user')
-                ->firstOrFail();
-
-            $user = $userAccount->user;
-
-            $conversation = Conversation::firstOrCreate([
-                'channel' => $channel->name,
-                'key' => $this->message->conversationKey,
-            ]);
-
-            $startFresh = Cache::pull("new_conversation:{$channel->name}:{$this->message->conversationKey}");
-            $conversationId = $startFresh ? null : $conversations->latestConversationId($user->getAuthIdentifier());
-
-            return compact('user', 'conversation', 'conversationId');
+            return $this->resolveDmContext($conversations);
         }
 
-        // Group channels always run as the owner user with one conversation per channel.
+        return $this->resolveGroupContext($conversations);
+    }
+
+    /**
+     * Look up the sender and find or create their conversation record for a direct message.
+     *
+     * @return array{user: mixed, conversation: Conversation, conversationId: string|null}
+     */
+    private function resolveDmContext(ConversationStore $conversations): array
+    {
+        $channel = $this->message->channel;
+
+        $userAccount = UserAccount::where('channel', $channel->name)
+            ->where('account', $this->message->conversationKey)
+            ->with('user')
+            ->firstOrFail();
+
+        $user = $userAccount->user;
+
+        $conversation = Conversation::firstOrCreate([
+            'channel' => $channel->name,
+            'key' => $this->message->conversationKey,
+        ]);
+
+        $startFresh = Cache::pull("new_conversation:{$channel->name}:{$this->message->conversationKey}");
+        $conversationId = $startFresh ? null : $conversations->latestConversationId($user->getAuthIdentifier());
+
+        return compact('user', 'conversation', 'conversationId');
+    }
+
+    /**
+     * Find the owner user and the shared conversation for a group or open channel.
+     *
+     * Returns null if no owner user is configured, in which case the message is dropped.
+     *
+     * @return array{user: mixed, conversation: Conversation, conversationId: string|null}|null
+     */
+    private function resolveGroupContext(ConversationStore $conversations): ?array
+    {
+        $channel = $this->message->channel;
+
         $userModel = config('laraclaw.auth.user_model');
         $user = $userModel::find(config('laraclaw.auth.admin_user_id'));
 
@@ -254,8 +278,8 @@ class ChatBotAgent implements Agent, Conversational, HasTools
     }
 
     /**
-     * Load the active persona prompt from disk, returning an empty string
-     * if no persona is configured or the file does not exist.
+     * Load the active persona from disk and return its contents.
+     * Returns an empty string if no persona is set or the file does not exist.
      */
     private function resolvePersona(): string
     {
@@ -280,10 +304,10 @@ class ChatBotAgent implements Agent, Conversational, HasTools
     }
 
     /**
-     * Load the base prompt from the published resource path, falling back
-     * to the package default, and append the current date and timezone.
+     * Load the base system prompt, preferring the published copy over the package default.
+     * Appends the current date and timezone so the agent is always grounded in time.
      */
-    private function buildPrompt(string $name = 'default'): string
+    private function buildSystemPrompt(string $name = 'default'): string
     {
         $published = resource_path("laraclaw/prompts/{$name}.md");
         $tz = config('app.timezone', 'UTC');

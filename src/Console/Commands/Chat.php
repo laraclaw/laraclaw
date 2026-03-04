@@ -29,6 +29,9 @@ class Chat extends Command
 
     protected $description = 'Start an interactive chat session with the AI agent in your terminal';
 
+    /**
+     * Register the terminal account if needed, then start the interactive loop.
+     */
     public function handle(
         ConversationStore $conversations,
         CommandRegistry $commandRegistry,
@@ -95,6 +98,10 @@ class Chat extends Command
         return self::SUCCESS;
     }
 
+    /**
+     * Find the user by ID or email, falling back to the configured admin user.
+     * Returns null and prints an error if the user cannot be found.
+     */
     private function resolveUser(): ?Authenticatable
     {
         $userInput = $this->argument('user') ?? config('laraclaw.auth.admin_user_id');

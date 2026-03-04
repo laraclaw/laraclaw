@@ -29,11 +29,11 @@ class Message
     public function withText(string $text): self
     {
         return new self(
-            $this->channel,
-            $this->conversationKey,
-            $this->conversationIsDirectMessage,
-            $text,
-            $this->attachments,
+            channel: $this->channel,
+            conversationKey: $this->conversationKey,
+            conversationIsDirectMessage: $this->conversationIsDirectMessage,
+            text: $text,
+            attachments: $this->attachments,
         );
     }
 
@@ -56,31 +56,12 @@ class Message
     }
 
     /**
-     * Get the message text, transcribing any audio attachment if no text was provided.
+     * Get the message text for the agent, transcribing any audio if no text was provided.
      * Appends file metadata at the end so the agent knows where to find the attachments.
      */
     public function agentText(): string
     {
-        $text = $this->text ?? '';
-
-        if (blank($text)) {
-            $audio = $this->attachments->first(fn ($a) => $a->isAudio());
-            if ($audio) {
-                $text = Transcription::fromStorage($audio->path, $audio->disk)->generate()->text;
-            }
-        }
-
-        $attachmentMeta = $this->attachments
-            ->filter(fn ($a) => $a->isImage() || $a->isDocument())
-            ->map(fn ($a) => ['type' => $a->mimeType, 'disk' => $a->disk, 'path' => $a->path])
-            ->values()
-            ->all();
-
-        if (! empty($attachmentMeta)) {
-            $text .= PHP_EOL . PHP_EOL . '[Attached files: ' . json_encode($attachmentMeta) . ']';
-        }
-
-        return $text;
+        return $this->transcribedText() . $this->attachmentMetadataBlock();
     }
 
     /**
@@ -114,5 +95,36 @@ class Message
         return ! UserAccount::where('channel', $this->channel->name)
             ->where('account', $this->conversationKey)
             ->exists();
+    }
+
+    /**
+     * Return the message text, transcribing the first audio attachment if text is absent.
+     */
+    private function transcribedText(): string
+    {
+        if (filled($this->text)) {
+            return $this->text;
+        }
+
+        $audio = $this->attachments->first(fn (Attachment $a) => $a->isAudio());
+
+        return $audio
+            ? Transcription::fromStorage($audio->path, $audio->disk)->generate()->text
+            : '';
+    }
+
+    /**
+     * Build the attachment metadata block appended to the agent text.
+     * Returns an empty string when there are no image or document attachments.
+     */
+    private function attachmentMetadataBlock(): string
+    {
+        $meta = $this->attachments
+            ->filter(fn (Attachment $a) => $a->isImage() || $a->isDocument())
+            ->map(fn (Attachment $a) => ['type' => $a->mimeType, 'disk' => $a->disk, 'path' => $a->path])
+            ->values()
+            ->all();
+
+        return empty($meta) ? '' : PHP_EOL . PHP_EOL . '[Attached files: ' . json_encode($meta) . ']';
     }
 }

@@ -38,7 +38,7 @@ class ProcessMessage implements ShouldQueue
     ) {}
 
     /**
-     * Load the sender and their conversation, prompt the agent and deliver its response.
+     * Acknowledge receipt, run the agent, and deliver the response via the channel.
      */
     public function handle(
         ConversationStore $conversations,

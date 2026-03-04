@@ -50,7 +50,7 @@ class TerminalChannel extends Channel implements SupportsConfirmation
     }
 
     /**
-     * Terminal never intercepts messages; always returns false.
+     * The terminal has no intercept mechanism. The Chat command drives the loop directly.
      */
     public function intercept(Message $message): bool
     {

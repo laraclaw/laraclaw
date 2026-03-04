@@ -102,11 +102,11 @@ abstract class BaseTool implements Tool
     }
 
     /**
-     * Return true if $path resolves outside the disk root.
+     * Return true if the path resolves outside the disk root.
      *
-     * For existing paths uses realpath() so symlinks cannot escape the root.
-     * For paths not yet on disk, manually normalises the candidate so that
-     * write/mkdir operations are also protected.
+     * For existing paths, realpath() is used so symlinks cannot escape the root.
+     * For paths that do not exist yet, the candidate is normalized by hand so
+     * new writes are also covered.
      */
     protected function pathEscapesDisk(string $disk, string $path): bool
     {
