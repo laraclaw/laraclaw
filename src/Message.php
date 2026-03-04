@@ -4,7 +4,11 @@ namespace LaraClaw;
 
 use Illuminate\Support\Collection;
 use LaraClaw\Channels\Channel;
+use LaraClaw\DTOs\Attachment;
 use LaraClaw\Models\UserAccount;
+use Laravel\Ai\Files\Document;
+use Laravel\Ai\Files\Image;
+use Laravel\Ai\Transcription;
 
 /**
  * Domain object representing an inbound message from any channel.
@@ -49,6 +53,52 @@ class Message
         }
 
         return [$account->channel, $account->account];
+    }
+
+    /**
+     * Get the message text, transcribing any audio attachment if no text was provided.
+     * Appends file metadata at the end so the agent knows where to find the attachments.
+     */
+    public function agentText(): string
+    {
+        $text = $this->text ?? '';
+
+        if (blank($text)) {
+            $audio = $this->attachments->first(fn ($a) => $a->isAudio());
+            if ($audio) {
+                $text = Transcription::fromStorage($audio->path, $audio->disk)->generate()->text;
+            }
+        }
+
+        $attachmentMeta = $this->attachments
+            ->filter(fn ($a) => $a->isImage() || $a->isDocument())
+            ->map(fn ($a) => ['type' => $a->mimeType, 'disk' => $a->disk, 'path' => $a->path])
+            ->values()
+            ->all();
+
+        if (! empty($attachmentMeta)) {
+            $text .= PHP_EOL . PHP_EOL . '[Attached files: ' . json_encode($attachmentMeta) . ']';
+        }
+
+        return $text;
+    }
+
+    /**
+     * Build the list of images and documents the agent will receive alongside the message text.
+     *
+     * @return array<int, Image|Document>
+     */
+    public function agentAttachments(): array
+    {
+        return $this->attachments
+            ->map(fn (Attachment $a) => match (true) {
+                $a->isImage() => Image::fromStorage($a->path, $a->disk),
+                $a->isDocument() => Document::fromStorage($a->path, $a->disk),
+                default => null,
+            })
+            ->filter()
+            ->values()
+            ->all();
     }
 
     /**

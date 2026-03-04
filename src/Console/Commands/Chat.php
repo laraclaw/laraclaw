@@ -4,10 +4,15 @@ namespace LaraClaw\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Auth\Authenticatable;
+use LaraClaw\Agents\ChatBotAgent;
+use LaraClaw\Calendar\Contracts\CalendarDriver;
 use LaraClaw\Channels\TerminalChannel;
-use LaraClaw\Jobs\ProcessMessage;
+use LaraClaw\Commands\CommandRegistry;
 use LaraClaw\Message;
 use LaraClaw\Models\UserAccount;
+use LaraClaw\SkillRegistry;
+use LaraClaw\Tools\ToolRegistry;
+use Laravel\Ai\Contracts\ConversationStore;
 
 use function LaraClaw\Support\markdownToAnsi;
 use function Laravel\Prompts\error;
@@ -16,7 +21,7 @@ use function Laravel\Prompts\note;
 use function Laravel\Prompts\spin;
 
 /**
- * Interactive REPL that pipes terminal input through ProcessMessage using the TerminalChannel.
+ * Interactive REPL that runs the AI agent directly in the terminal, without going through the queue.
  */
 class Chat extends Command
 {
@@ -24,8 +29,13 @@ class Chat extends Command
 
     protected $description = 'Start an interactive chat session with the AI agent in your terminal';
 
-    public function handle(): int
-    {
+    public function handle(
+        ConversationStore $conversations,
+        CommandRegistry $commandRegistry,
+        SkillRegistry $skillRegistry,
+        ToolRegistry $toolRegistry,
+        ?CalendarDriver $calendarDriver = null,
+    ): int {
         $channel = new TerminalChannel;
 
         $user = $this->resolveUser();
@@ -34,8 +44,6 @@ class Chat extends Command
             return self::FAILURE;
         }
 
-        // Ensure a UserAccount exists for the terminal channel so ProcessMessage
-        // can resolve the owner when processing as a DM.
         UserAccount::firstOrCreate([
             'channel' => $channel->name,
             'account' => $channel->conversationKey(),
@@ -59,13 +67,28 @@ class Chat extends Command
                 conversationIsDirectMessage: true,
             );
 
-            spin(
-                callback: fn () => ProcessMessage::dispatchSync($message),
-                message: 'Fetching response...'
+            $agent = new ChatBotAgent(
+                message: $message,
+                conversations: $conversations,
+                commandRegistry: $commandRegistry,
+                skillRegistry: $skillRegistry,
+                toolRegistry: $toolRegistry,
+                calendarDriver: $calendarDriver,
             );
 
-            if ($reply = $channel->flush()) {
-                note(markdownToAnsi($reply));
+            if (! $agent->isReady()) {
+                continue;
+            }
+
+            $response = spin(
+                callback: fn () => $agent->send(),
+                message: 'Fetching response...',
+            );
+
+            $channel->handleAttachments($agent->replyAttachments);
+
+            if (filled($response)) {
+                note(markdownToAnsi($response));
             }
         }
 

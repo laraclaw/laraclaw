@@ -6,14 +6,14 @@ use Illuminate\Support\Collection;
 use LaraClaw\Channels\Contracts\SupportsConfirmation;
 use LaraClaw\Message;
 
+use function LaraClaw\Support\markdownToAnsi;
 use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\info;
+use function Laravel\Prompts\note;
 
 class TerminalChannel extends Channel implements SupportsConfirmation
 {
     public string $name { get { return 'terminal'; } }
-
-    private static ?string $pendingReply = null;
 
     /**
      * Use a fixed key so all terminal sessions share one account and conversation record.
@@ -34,22 +34,11 @@ class TerminalChannel extends Channel implements SupportsConfirmation
     }
 
     /**
-     * Buffer the response so the Chat command can render it after the spin completes.
+     * Render the response to the terminal with ANSI formatting.
      */
     public function send(string $message): void
     {
-        self::$pendingReply = $message;
-    }
-
-    /**
-     * Return the buffered reply and clear it so the next turn starts fresh.
-     */
-    public function flush(): ?string
-    {
-        $reply = self::$pendingReply;
-        self::$pendingReply = null;
-
-        return $reply;
+        note(markdownToAnsi($message));
     }
 
     /**
