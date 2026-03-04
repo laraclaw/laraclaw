@@ -12,6 +12,7 @@ use LaraClaw\Message;
 use LaraClaw\Models\Conversation;
 use LaraClaw\Models\UserAccount;
 use LaraClaw\SkillRegistry;
+use LaraClaw\Tools\Bash;
 use LaraClaw\Tools\CalendarManager;
 use LaraClaw\Tools\EmailManager;
 use LaraClaw\Tools\Files;
@@ -150,6 +151,10 @@ class ChatBotAgent implements Agent, Conversational, HasTools
 
         if (config('laraclaw.tools.tts.enabled')) {
             $tools[] = new TextToSpeech($this->replyAttachments);
+        }
+
+        if (config('laraclaw.tools.bash.enabled')) {
+            $tools[] = new Bash;
         }
 
         if ($this->calendarDriver) {

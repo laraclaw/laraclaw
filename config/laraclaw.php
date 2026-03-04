@@ -37,6 +37,10 @@ return [
             'driver' => env('LARACLAW_IMAGE_DRIVER', 'imagick'),
         ],
 
+        'bash' => [
+            'enabled' => env('LARACLAW_BASH_ENABLED', false),
+        ],
+
         'calendar_manager' => [
             // Driver to use for calendar processing ('google' or 'apple', null for disabling calendar support)
             'driver' => env('LARACLAW_CALENDAR_DRIVER'),
