@@ -17,6 +17,8 @@ return RectorConfig::configure()
         SetList::CODE_QUALITY,
         SetList::DEAD_CODE,
         SetList::TYPE_DECLARATION,
+        SetList::PRIVATIZATION,
+        SetList::EARLY_RETURN,
         LaravelSetList::LARAVEL_120,
     ])
     ->withSkip([

@@ -170,7 +170,10 @@ abstract class BaseTool implements Tool
         $result = [];
 
         foreach ($parts as $part) {
-            if ($part === '' || $part === '.') {
+            if ($part === '') {
+                continue;
+            }
+            if ($part === '.') {
                 continue;
             }
             if ($part === '..') {
