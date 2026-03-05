@@ -2,7 +2,8 @@
 
 namespace LaraClaw\Commands;
 
-use LaraClaw\Message;
+use LaraClaw\DTOs\IncomingMessage;
+use LaraClaw\Models\Thread;
 
 interface Command
 {
@@ -12,8 +13,8 @@ interface Command
     public function trigger(): string;
 
     /**
-     * Handle the command. Return a Message to continue to the agent (optionally with
-     * mutated text), or null to halt execution after the command completes.
+     * Handle the command. Return the text to continue processing with, or null
+     * to halt execution and skip the agent entirely.
      */
-    public function handle(Message $message): ?Message;
+    public function handle(IncomingMessage $message, Thread $thread): ?string;
 }

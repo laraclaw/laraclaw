@@ -2,58 +2,52 @@
 
 namespace LaraClaw\Channels;
 
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use LaraClaw\Channels\Contracts\SupportsConfirmation;
-use LaraClaw\Message;
+use LaraClaw\DTOs\IncomingMessage;
+use LaraClaw\Enums\ChannelType;
+use LaraClaw\Models\Thread;
 
 use function LaraClaw\Support\markdownToAnsi;
 use function Laravel\Prompts\confirm;
-use function Laravel\Prompts\info;
 use function Laravel\Prompts\note;
 
 class TerminalChannel extends Channel implements SupportsConfirmation
 {
-    public string $name { get { return 'terminal'; } }
+    public ChannelType $type { get { return ChannelType::Terminal; } }
 
     /**
-     * Use a fixed key so all terminal sessions share one account and conversation record.
+     * Build an IncomingMessage from a raw Slack event payload,
+     * downloading any file attachments to storage.
      */
-    public function conversationKey(): string
+    public static function createIncomingMessageFrom(string $input, Authenticatable $user): IncomingMessage
     {
-        return 'default';
-    }
+        $uuid = (string) Str::uuid();
 
-    /**
-     * Print each attachment filename to the terminal output.
-     */
-    public function handleAttachments(Collection $attachments): void
-    {
-        foreach ($attachments as $attachment) {
-            info($attachment->filename ?? basename((string) $attachment->path));
-        }
+        return new IncomingMessage(
+            text: $input,
+            channel: ChannelType::Terminal,
+            key: $user->id,
+            isDirectMessage: true,
+            uuid: $uuid,
+        );
     }
 
     /**
      * Render the response to the terminal with ANSI formatting.
      */
-    public function send(string $message): void
+    public function reply(?Thread $thread, string $text, ?Collection $attachments = null)
     {
-        note(markdownToAnsi($message));
+        return note(markdownToAnsi($text));
     }
 
     /**
      * Prompt for interactive confirmation via the terminal.
      */
-    public function confirm(Message $context, string $prompt, int $timeout = 120): bool
+    public function askForConfirmation(IncomingMessage $context, string $prompt, int $timeout = 120): bool
     {
         return confirm("⚠️ {$prompt}");
-    }
-
-    /**
-     * The terminal has no intercept mechanism. The Chat command drives the loop directly.
-     */
-    public function intercept(Message $message): bool
-    {
-        return false;
     }
 }

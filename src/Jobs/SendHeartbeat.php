@@ -8,8 +8,8 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
-use LaraClaw\Channels\ChannelResolver;
 use LaraClaw\Models\Heartbeat;
+use LaraClaw\Models\Thread;
 use Throwable;
 
 /**
@@ -30,8 +30,8 @@ class SendHeartbeat implements ShouldQueue
      */
     public function handle(): void
     {
-        $channel = ChannelResolver::fromParts($this->heartbeat->channel, $this->heartbeat->key);
-        $channel->send($this->heartbeat->message);
+        $thread = Thread::firstOrCreate(['channel' => $this->heartbeat->channel, 'key' => $this->heartbeat->key]);
+        $thread->channel()->reply($thread, $this->heartbeat->message);
         $this->heartbeat->update(['last_run_at' => now()]);
     }
 

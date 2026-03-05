@@ -7,14 +7,20 @@ use DirectoryTree\ImapEngine\Enums\ImapFlag;
 use DirectoryTree\ImapEngine\Laravel\Facades\Imap;
 use DirectoryTree\ImapEngine\MessageInterface;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use LaraClaw\Channels\Concerns\ChecksRedisForConfirmations;
 use LaraClaw\Channels\Contracts\SupportsConfirmation;
 use LaraClaw\DTOs\Attachment;
+use LaraClaw\DTOs\IncomingMessage;
+use LaraClaw\Enums\ChannelType;
 use LaraClaw\Mail\ChannelReply;
-use LaraClaw\Message;
+use LaraClaw\Models\Thread;
+use LaraClaw\Models\UserAccount;
+use LaraClaw\Services\Attachments;
 use League\CommonMark\CommonMarkConverter;
 
 use function LaraClaw\Support\stripHtml;
@@ -23,63 +29,153 @@ class EmailChannel extends Channel implements SupportsConfirmation
 {
     use ChecksRedisForConfirmations;
 
-    public string $name { get { return 'email'; } }
+    public ChannelType $type { get { return ChannelType::Email; } }
 
     /** @var Attachment[] */
     private array $attachments = [];
 
-    /**
-     * Create a new EmailChannel instance.
-     */
     public function __construct(
         private string $senderEmail,
-        private ?string $senderName,
-        private ?string $subject,
-        private ?string $messageId,
-        private string $threadId,
-        private int $uid,
-        private string $mailbox,
+        private ?string $senderName = null,
+        private ?string $subject = null,
+        private ?string $messageId = null,
     ) {}
 
     /**
-     * Build a Message from a raw IMAP message, downloading any
-     * attachments to storage.
+     * Validate an incoming IMAP message. Throws if the message should not be processed.
      */
-    public static function parseIncomingMessage(MessageInterface $message): Message
+    public static function validateEvent(MessageInterface $message): void
     {
-        $disk = config('laraclaw.filesystem.attachments_disk', 'local');
-        $basePath = config('laraclaw.filesystem.attachments_path', 'attachments').'/email';
+        if (! config('laraclaw.channels.email.enabled')) {
+            throw ValidationException::withMessages(['email' => 'CHANNEL_DISABLED']);
+        }
+
+        $botEmail = config('imap.mailboxes.' . config('laraclaw.channels.email.imap.mailbox', 'default') . '.username');
+        $fromEmail = $message->from()?->email() ?? 'unknown';
+
+        if ($fromEmail === $botEmail) {
+            throw ValidationException::withMessages(['email' => 'SELF_MESSAGE']);
+        }
+
+        if (! UserAccount::query()->forChannel($fromEmail, ChannelType::Email)->exists()) {
+            throw ValidationException::withMessages(['email' => 'UNREGISTERED_ACCOUNT']);
+        }
+
+        if (config('laraclaw.channels.email.verify_sender_dkim_and_spf') && ! self::passesAuthCheck($message)) {
+            Log::warning('LaraClaw: email rejected due to failed DKIM or SPF authentication', [
+                'from' => $fromEmail,
+                'subject' => $message->subject() ?? '(no subject)',
+            ]);
+
+            throw ValidationException::withMessages(['email' => 'AUTH_CHECK_FAILED']);
+        }
+
+        if (blank($message->text()) && blank($message->html()) && $message->attachments() === []) {
+            throw ValidationException::withMessages(['email' => 'EMPTY_MESSAGE']);
+        }
+    }
+
+    /**
+     * Build the reply channel from a raw IMAP message.
+     */
+    public static function fromRawMessage(MessageInterface $message): self
+    {
         $from = $message->from();
 
-        $channel = new self(
+        return new self(
             senderEmail: $from?->email() ?? 'unknown',
             senderName: $from?->name(),
             subject: $message->subject(),
             messageId: $message->messageId(),
-            threadId: self::resolveThreadId($message),
-            uid: $message->uid(),
-            mailbox: config('laraclaw.channels.email.imap.mailbox', 'default'),
         );
+    }
 
-        return new Message(
-            channel: $channel,
-            conversationKey: $channel->conversationKey(),
-            conversationIsDirectMessage: $channel->conversationIsDirectMessage(),
+    /**
+     * Build an IncomingMessage DTO from a raw IMAP message,
+     * saving any file attachments to storage.
+     */
+    public static function createIncomingMessageFrom(MessageInterface $message, Attachments $attachments): IncomingMessage
+    {
+        $uuid = (string) Str::uuid();
+
+        return new IncomingMessage(
             text: $message->text() ?? stripHtml($message->html()),
-            attachments: collect($message->attachments())
-                ->map(fn (ImapAttachment $a): Attachment => self::storeAttachment($a, $disk, $basePath)),
+            channel: ChannelType::Email,
+            key: $message->from()?->email() ?? 'unknown',
+            isDirectMessage: true,
+            attachments: self::saveAttachments($message, $attachments->inbound($uuid)),
+            uuid: $uuid,
         );
+    }
+
+    /**
+     * Build a minimal EmailChannel from just the sender email address.
+     * Used for outbound messages that do not need threading headers.
+     */
+    public static function forKey(string $key): self
+    {
+        return new self(senderEmail: $key);
+    }
+
+    /**
+     * Flag the original IMAP message as seen so it is not reprocessed on the next poll.
+     */
+    public static function markSeen(int $uid, ?string $mailbox = null): void
+    {
+        $mailbox ??= config('laraclaw.channels.email.imap.mailbox', 'default');
+
+        Imap::mailbox($mailbox)
+            ->inbox()
+            ->messages()
+            ->find($uid)
+            ?->flag(ImapFlag::Seen, '+');
+    }
+
+    /**
+     * Send a reply to the given thread, optionally with file attachments.
+     */
+    public function reply(?Thread $thread, string $text, ?Collection $attachments = null): void
+    {
+        if ($attachments?->isNotEmpty()) {
+            $this->handleAttachments($attachments);
+        }
+
+        $this->send($text);
+    }
+
+    /**
+     * Return true if both DKIM and SPF pass in the Authentication-Results header.
+     */
+    private static function passesAuthCheck(MessageInterface $message): bool
+    {
+        $authResults = $message->header('Authentication-Results')?->getRawValue() ?? '';
+
+        $dkimPass = Str::contains($authResults, 'dkim=pass', ignoreCase: true);
+        $spfPass = Str::contains($authResults, 'spf=pass', ignoreCase: true);
+
+        return $dkimPass && $spfPass;
+    }
+
+    /**
+     * Save all IMAP attachments to storage and return their DTOs.
+     *
+     * @return Attachment[]
+     */
+    private static function saveAttachments(MessageInterface $message, Attachments $attachments): array
+    {
+        return collect($message->attachments())
+            ->map(fn (ImapAttachment $a): Attachment => self::storeAttachment($a, $attachments))
+            ->toArray();
     }
 
     /**
      * Save a single IMAP attachment to storage and return its DTO.
      */
-    private static function storeAttachment(ImapAttachment $attachment, string $disk, string $basePath): Attachment
+    private static function storeAttachment(ImapAttachment $attachment, Attachments $attachments): Attachment
     {
-        $filename = $attachment->filename() ?? 'attachment.'.($attachment->extension() ?? 'bin');
-        $path = $basePath.'/'.Str::uuid().'/'.$filename;
-
-        Storage::disk($disk)->put($path, $attachment->contents());
+        $filename = $attachment->filename() ?? 'attachment.' . ($attachment->extension() ?? 'bin');
+        $disk = config('laraclaw.filesystem.attachments_disk', 'local');
+        $path = $attachments->set($filename, $attachment->contents());
 
         return new Attachment(
             path: $path,
@@ -89,31 +185,7 @@ class EmailChannel extends Channel implements SupportsConfirmation
         );
     }
 
-    /**
-     * Resolve the root thread ID from email headers, falling back
-     * to the message ID or a fresh UUID.
-     */
-    private static function resolveThreadId(MessageInterface $message): string
-    {
-        return self::firstMessageId($message->header('References')?->getRawValue())
-            ?? self::firstMessageId($message->header('In-Reply-To')?->getRawValue())
-            ?? $message->messageId()
-            ?? Str::uuid()->toString();
-    }
-
-    /**
-     * Extract the first Message-ID value from a References or
-     * In-Reply-To header string.
-     */
-    private static function firstMessageId(?string $header): ?string
-    {
-        return $header && preg_match('/<([^>]+)>/', $header, $m) ? $m[1] : null;
-    }
-
-    /**
-     * Queue attachments to be included in the outgoing reply.
-     */
-    public function handleAttachments(Collection $attachments): void
+    private function handleAttachments(Collection $attachments): void
     {
         $this->attachments = array_merge($this->attachments, $attachments->all());
     }
@@ -121,7 +193,7 @@ class EmailChannel extends Channel implements SupportsConfirmation
     /**
      * Send the text reply, including any queued attachments.
      */
-    public function send(string $message): void
+    private function send(string $message): void
     {
         $mailable = new ChannelReply(
             body: $this->renderMarkdown($message),
@@ -136,27 +208,9 @@ class EmailChannel extends Channel implements SupportsConfirmation
         }
 
         $mailable->to($this->senderEmail, $this->senderName)
-            ->subject('Re: '.($this->subject ?? 'No Subject'));
+            ->subject('Re: ' . ($this->subject ?? 'No Subject'));
 
         Mail::send($mailable);
-
-        $this->markSeen();
-    }
-
-    /**
-     * Use the sender's email address as the conversation key.
-     */
-    private function conversationKey(): string
-    {
-        return $this->senderEmail;
-    }
-
-    /**
-     * Email conversations are always direct messages.
-     */
-    private function conversationIsDirectMessage(): bool
-    {
-        return true;
     }
 
     /**
@@ -165,18 +219,5 @@ class EmailChannel extends Channel implements SupportsConfirmation
     private function renderMarkdown(string $content): string
     {
         return (new CommonMarkConverter)->convert($content)->getContent();
-    }
-
-    /**
-     * Flag the original IMAP message as seen so it is not
-     * reprocessed on the next poll.
-     */
-    private function markSeen(): void
-    {
-        Imap::mailbox($this->mailbox)
-            ->inbox()
-            ->messages()
-            ->find($this->uid)
-            ?->flag(ImapFlag::Seen, '+');
     }
 }

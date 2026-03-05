@@ -3,9 +3,8 @@
 namespace LaraClaw\Tools;
 
 use Closure;
-use Illuminate\Support\Collection;
-use LaraClaw\Message;
-use LaraClaw\Models\Conversation;
+use LaraClaw\DTOs\IncomingMessage;
+use LaraClaw\Models\Thread;
 use Laravel\Ai\Contracts\Tool;
 
 /**
@@ -19,7 +18,7 @@ class ToolRegistry
     /**
      * Register a factory closure that will be called with runtime context to produce a Tool.
      *
-     * @param  Closure(Message, Collection, ?Conversation): Tool  $factory
+     * @param  Closure(IncomingMessage, ?Thread): Tool  $factory
      */
     public function register(Closure $factory): void
     {
@@ -32,10 +31,10 @@ class ToolRegistry
      *
      * @return Tool[]
      */
-    public function resolve(Message $message, Collection $attachments, ?Conversation $conversation): array
+    public function resolve(IncomingMessage $message, ?Thread $thread): array
     {
         return collect($this->factories)
-            ->map(fn (Closure $factory) => $factory($message, $attachments, $conversation))
+            ->map(fn (Closure $factory) => $factory($message, $thread))
             ->all();
     }
 }

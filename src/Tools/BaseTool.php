@@ -4,8 +4,9 @@ namespace LaraClaw\Tools;
 
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Storage;
-use LaraClaw\Enums\ChannelType;
-use LaraClaw\Message;
+use LaraClaw\Channels\Channel;
+use LaraClaw\Channels\Contracts\SupportsConfirmation;
+use LaraClaw\DTOs\IncomingMessage;
 use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Tools\Request;
 use Stringable;
@@ -19,7 +20,19 @@ abstract class BaseTool implements Tool
 {
     protected array $requiresConfirmation = [];
 
-    public function __construct(protected Message $message) {}
+    protected ?Channel $channel = null;
+
+    public function __construct(protected IncomingMessage $message) {}
+
+    /**
+     * Set the active channel so confirmation prompts can reach the user.
+     */
+    public function withChannel(Channel $channel): static
+    {
+        $this->channel = $channel;
+
+        return $this;
+    }
 
     /**
      * Validate the requested operation, run optional confirmation, then dispatch to the method.
@@ -67,7 +80,7 @@ abstract class BaseTool implements Tool
             ? $template($request)
             : interpolate($template, $request->toArray());
 
-        if (! $this->message->channel->confirm($this->message, $prompt)) {
+        if (! $this->channel instanceof SupportsConfirmation || ! $this->channel->askForConfirmation($this->message, $prompt)) {
             return 'Cancelled by user.';
         }
 
@@ -146,7 +159,7 @@ abstract class BaseTool implements Tool
             }
         }
 
-        return [ChannelType::from($this->message->channel->name), $this->message->conversationKey];
+        return [$this->message->channel, $this->message->key];
     }
 
     /**
@@ -156,9 +169,12 @@ abstract class BaseTool implements Tool
     {
         $normalized = trim($path, '/');
 
-        $attachmentsPath = config('laraclaw.filesystem.attachments_path', 'attachments');
+        $protected = [
+            config('laraclaw.filesystem.incoming_attachments_path', 'inbound'),
+            config('laraclaw.filesystem.outgoing_attachments_path', 'outbound'),
+        ];
 
-        return $normalized === $attachmentsPath || str_starts_with($normalized, $attachmentsPath . '/');
+        return array_any($protected, fn ($root): bool => $normalized === $root || str_starts_with($normalized, $root . '/'));
     }
 
     /**

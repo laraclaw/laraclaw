@@ -2,8 +2,8 @@
 
 namespace LaraClaw\Commands;
 
-use Illuminate\Support\Facades\Cache;
-use LaraClaw\Message;
+use LaraClaw\DTOs\IncomingMessage;
+use LaraClaw\Models\Thread;
 
 /**
  * Command that resets the current user's conversation history.
@@ -15,10 +15,10 @@ class NewConversation implements Command
         return '!new';
     }
 
-    public function handle(Message $message): ?Message
+    public function handle(IncomingMessage $message, Thread $thread): ?string
     {
-        Cache::put("new_conversation:{$message->channel->name}:{$message->conversationKey}", true);
-        $message->channel->send('Conversation reset. How can I help you?');
+        $thread->update(['conversation_id' => null]);
+        $thread->channel()->reply($thread, '✅ Conversation reset.');
 
         return null;
     }

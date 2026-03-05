@@ -4,7 +4,7 @@ namespace LaraClaw\Tools;
 
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Facades\File;
-use LaraClaw\Models\Conversation;
+use LaraClaw\Models\Thread;
 use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Tools\Request;
 use Stringable;
@@ -14,7 +14,7 @@ use Stringable;
  */
 class Persona implements Tool
 {
-    public function __construct(private readonly ?Conversation $conversation = null) {}
+    public function __construct(private readonly ?Thread $thread = null) {}
 
     /**
      * Return the tool description shown to the agent, listing all available personas.
@@ -83,7 +83,7 @@ class Persona implements Tool
             return "Unknown persona '{$persona}'. Available: " . implode(', ', $this->availablePersonas());
         }
 
-        $this->conversation?->update(['persona' => $persona]);
+        $this->thread?->update(['persona' => $persona]);
 
         return "Persona switched to '{$persona}'.";
     }
@@ -93,7 +93,7 @@ class Persona implements Tool
      */
     private function clear(): string
     {
-        $this->conversation?->update(['persona' => null]);
+        $this->thread?->update(['persona' => null]);
 
         $default = config('laraclaw.personas.default');
         $fallback = $default ? " Falling back to default: {$default}." : '';

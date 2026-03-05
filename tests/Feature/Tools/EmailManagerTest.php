@@ -11,8 +11,8 @@ use Illuminate\Mail\Events\MessageSending;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Storage;
 use LaraClaw\DTOs\Attachment;
-use LaraClaw\Message;
-use LaraClaw\Tests\Fixtures\FakeChannel;
+use LaraClaw\DTOs\IncomingMessage;
+use LaraClaw\Enums\ChannelType;
 use LaraClaw\Tools\EmailManager;
 use Laravel\Ai\Tools\Request;
 use Symfony\Component\Mime\Email;
@@ -26,32 +26,16 @@ function emailRequest(array $data): Request
     return $mock;
 }
 
-function emailTool(?Message $message = null): EmailManager
+function emailTool(?IncomingMessage $message = null): EmailManager
 {
-    $message ??= new Message(
-        channel: new FakeChannel,
-        conversationKey: 'user-123',
-        conversationIsDirectMessage: true,
+    $message ??= new IncomingMessage(
         text: 'test',
+        channel: ChannelType::Telegram,
+        key: 'user-123',
+        isDirectMessage: true,
     );
 
     return new EmailManager($message, 'default');
-}
-
-/**
- * Listen for the next outbound Symfony Email and return it.
- * Uses the MessageSending event which carries the fully-built Email object,
- * giving us access to attachments regardless of how Mail::raw() was called.
- */
-function captureOutboundEmail(): Email
-{
-    $captured = null;
-
-    Event::listen(MessageSending::class, function (MessageSending $event) use (&$captured) {
-        $captured = $event->message;
-    });
-
-    return tap($captured, fn () => null); // resolved after the closure fires
 }
 
 // ── send ────────────────────────────────────────────────────────────────────
@@ -108,12 +92,12 @@ it('attaches message attachments when sending an email', function () {
         filename: 'photo.jpg',
     );
 
-    $message = new Message(
-        channel: new FakeChannel,
-        conversationKey: 'user-123',
-        conversationIsDirectMessage: true,
+    $message = new IncomingMessage(
         text: 'test',
-        attachments: collect([$attachment]),
+        channel: ChannelType::Telegram,
+        key: 'user-123',
+        isDirectMessage: true,
+        attachments: [$attachment],
     );
 
     $captured = null;
@@ -147,7 +131,6 @@ it('attaches files passed explicitly via the attachments parameter', function ()
         $captured = $e->message;
     });
 
-    // No attachments on the Message itself — the agent passes disk/path from conversation history
     emailTool()->handle(emailRequest([
         'operation' => 'send',
         'to' => ['to@example.com'],
@@ -198,12 +181,12 @@ it('attaches message attachments when replying', function () {
         filename: 'doc.pdf',
     );
 
-    $message = new Message(
-        channel: new FakeChannel,
-        conversationKey: 'user-123',
-        conversationIsDirectMessage: true,
+    $message = new IncomingMessage(
         text: 'test',
-        attachments: collect([$attachment]),
+        channel: ChannelType::Telegram,
+        key: 'user-123',
+        isDirectMessage: true,
+        attachments: [$attachment],
     );
 
     $from = new Address('sender@example.com', 'Sender');

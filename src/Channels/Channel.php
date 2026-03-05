@@ -3,7 +3,8 @@
 namespace LaraClaw\Channels;
 
 use Illuminate\Support\Collection;
-use LaraClaw\Message;
+use LaraClaw\Enums\ChannelType;
+use LaraClaw\Models\Thread;
 
 /**
  * Base class for all LaraClaw channel implementations.
@@ -11,23 +12,13 @@ use LaraClaw\Message;
 abstract class Channel
 {
     /**
-     * Unique identifier string for this channel (e.g. "telegram", "slack").
+     * The channel type for this implementation.
      */
-    abstract public string $name { get; }
+    abstract public ChannelType $type { get; }
 
     /**
-     * Send a text message to the channel.
+     * Send a reply to the given thread, optionally with file attachments.
      */
-    abstract public function send(string $message): void;
+    abstract public function reply(?Thread $thread, string $text, ?Collection $attachments = null);
 
-    /**
-     * Deliver any pending file attachments to the channel.
-     */
-    abstract public function handleAttachments(Collection $attachments): void;
-
-    /**
-     * Optionally intercept an inbound message (e.g. a confirmation reply).
-     * Returns true if the message was consumed and should not be processed further.
-     */
-    abstract public function intercept(Message $message): bool;
 }

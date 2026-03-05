@@ -2,96 +2,186 @@
 
 namespace LaraClaw\Channels;
 
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use LaraClaw\Channels\Concerns\ChecksRedisForConfirmations;
-
-use function LaraClaw\Support\markdownToMrkdwn;
-use LaraClaw\Channels\Contracts\SupportsAcknowledgement;
 use LaraClaw\Channels\Contracts\SupportsConfirmation;
 use LaraClaw\DTOs\Attachment;
-use LaraClaw\Message;
+use LaraClaw\DTOs\IncomingMessage;
+use LaraClaw\Enums\ChannelType;
+use LaraClaw\Models\Thread;
+use LaraClaw\Models\UserAccount;
+use LaraClaw\Services\Attachments;
+use Illuminate\Validation\ValidationException;
 use RuntimeException;
 use Throwable;
 
-class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsConfirmation
+use function LaraClaw\Support\markdownToMrkdwn;
+
+class SlackChannel extends Channel implements SupportsConfirmation
 {
-    use ChecksRedisForConfirmations {
-        intercept as interceptConfirmation;
+    public $channelId;
+
+    public $threadTs;
+
+    use ChecksRedisForConfirmations;
+
+    public ChannelType $type { get { return ChannelType::Slack; } }
+
+    /**
+     * Validate the incoming Slack event request. Throws if the event should not be processed.
+     */
+    public static function validateEvent(Request $request): void
+    {
+        $botUserId = config('laraclaw.channels.slack.bot_user_id');
+        $isEnabled = config('laraclaw.channels.slack.enabled');
+
+        $isDirectMessage = Str::startsWith($request->input('event.channel', ''), 'D');
+
+        $validator = Validator::make($request->all(), [
+            'type' => ['required', Rule::in(['event_callback'])],
+            'event.type' => ['required', Rule::in(['message'])],
+            'event.bot_id' => ['prohibited'],
+            'event.subtype' => ['nullable', Rule::in(['file_share'])],
+            'event.channel' => ['required'],
+            'event.user' => [Rule::requiredIf($isDirectMessage)],
+        ], [
+            'type.required' => 'NOT_CALLBACK_EVENT',
+            'type.in' => 'NOT_CALLBACK_EVENT',
+            'event.type.required' => 'NOT_MESSAGE',
+            'event.type.in' => 'NOT_MESSAGE',
+            'event.bot_id.prohibited' => 'BOT_MESSAGE',
+            'event.subtype.in' => 'UNSUPPORTED_SUBTYPE',
+            'event.channel.required' => 'NO_CHANNEL',
+            'event.user.required' => 'NO_USER',
+        ])->after(function ($validator) use ($request, $isEnabled, $botUserId, $isDirectMessage): void {
+            if ($validator->errors()->isNotEmpty()) {
+                return;
+            }
+
+            if (! $isEnabled || ! $botUserId) {
+                $validator->errors()->add('event', 'CHANNEL_DISABLED');
+                return;
+            }
+
+            $isMentioned = str_contains((string) $request->input('event.text', ''), "<@{$botUserId}>");
+            $isThreadReply = self::isReplyInKnownThread($request);
+
+            if (! $isDirectMessage && ! $isMentioned && ! $isThreadReply) {
+                $validator->errors()->add('event', 'BOT_NOT_MENTIONED');
+                return;
+            }
+
+            if ($isDirectMessage && ! UserAccount::query()->forChannel($request->input('event.user'), ChannelType::Slack)->exists()) {
+                $validator->errors()->add('event', 'UNREGISTERED_ACCOUNT');
+                return;
+            }
+
+            if (blank($request->input('event.text')) && empty($request->input('event.files'))) {
+                $validator->errors()->add('event', 'EMPTY_MESSAGE_WITHOUT_ATTACHMENTS');
+            }
+        });
+
+        if ($validator->fails()) {
+            throw new ValidationException($validator);
+        }
     }
 
-    public string $name { get { return 'slack'; } }
-
     /**
-     * Create a new SlackChannel instance.
+     * Build an IncomingMessage from a raw Slack event payload,
+     * downloading any file attachments to storage.
      */
-    public function __construct(
-        private string $channelId,
-        private ?string $threadTs = null,
-        private ?string $messageTs = null,
-        private ?string $userId = null,
-    ) {}
-
-    /**
-     * Open or retrieve a DM channel with the given Slack user ID.
-     */
-    public static function openDm(string $userId): self
+    public static function createIncomingMessageFrom(array $event, Attachments $attachments): IncomingMessage
     {
-        $response = Http::withToken(self::token())
-            ->post('https://slack.com/api/conversations.open', ['users' => $userId]);
+        $uuid = (string) Str::uuid();
+        $isDirectMessage = str_starts_with((string) $event['channel'], 'D');
 
-        $channelId = $response->json('channel.id');
+        return new IncomingMessage(
+            text: $event['text'] ?? null,
+            channel: ChannelType::Slack,
+            key: self::getThreadKey($event),
+            isDirectMessage: $isDirectMessage,
+            attachments: self::saveAttachments($event, $attachments->inbound($uuid)),
+            uuid: $uuid,
+        );
+    }
 
-        if (! $response->successful() || ! $channelId) {
-            throw new RuntimeException("Failed to open Slack DM with user {$userId}: ".$response->body());
+    /**
+     * Build a SlackChannel instance with channelId and threadTs resolved from a thread key.
+     */
+    public static function forKey(string $key): self
+    {
+        $channel = new self;
+        $channel->applyKey($key);
+
+        return $channel;
+    }
+
+    /**
+     * Parse a thread key into channelId and threadTs on this instance.
+     * Keys with ':' are channel:threadTs pairs; bare keys are user IDs for DMs.
+     */
+    private function applyKey(string $key): void
+    {
+        if (str_contains($key, ':')) {
+            [$this->channelId, $this->threadTs] = explode(':', $key, 2);
+        } else {
+            $this->channelId = $key;
+        }
+    }
+
+    /**
+     * Check if the event is a reply inside a thread the bot has already responded to.
+     * This lets thread replies through without requiring an explicit mention.
+     */
+    private static function isReplyInKnownThread(Request $request): bool
+    {
+        $threadTs = $request->input('event.thread_ts');
+        $channel  = $request->input('event.channel');
+
+        if (! $threadTs || ! $channel) {
+            return false;
         }
 
-        return new self(channelId: $channelId);
+        return Thread::where('channel', ChannelType::Slack)
+            ->where('key', "{$channel}:{$threadTs}")
+            ->exists();
     }
 
     /**
-     * Build a Message from a raw Slack event payload, downloading any
-     * file attachments to storage.
+     * Returns a thread key: `user` in DMs and `channel:ts` in channels.
      */
-    public static function parseIncomingMessage(array $event): Message
+    private static function getThreadKey(array $event): string
     {
-        $channel = new self(
-            channelId: $event['channel'],
-            threadTs: $event['thread_ts'] ?? $event['ts'] ?? null,
-            messageTs: $event['ts'] ?? null,
-            userId: $event['user'] ?? null,
-        );
-
-        return new Message(
-            channel: $channel,
-            conversationKey: $channel->conversationKey(),
-            conversationIsDirectMessage: $channel->conversationIsDirectMessage(),
-            text: $event['text'] ?? null,
-            attachments: self::collectAttachments($event),
-        );
+        return str_starts_with((string) $event['channel'], 'D')
+            ? $event['user']
+            : implode(':', [
+                $event['channel'],
+                $event['thread_ts'] ?? $event['ts']
+            ]);
     }
 
     /**
-     * Download all file attachments from the event payload to storage.
+     * Download all file attachments from the event to storage.
      */
-    private static function collectAttachments(array $event): Collection
+    private static function saveAttachments(array $event, Attachments $attachments): array
     {
-        $disk = config('laraclaw.filesystem.attachments_disk', 'local');
-        $basePath = config('laraclaw.filesystem.attachments_path', 'attachments').'/slack';
-
         return collect($event['files'] ?? [])
-            ->map(fn (array $file): ?Attachment => self::downloadFile($file, $disk, $basePath))
+            ->map(fn (array $file): ?Attachment => self::downloadFile($file, $attachments))
             ->filter()
-            ->values();
+            ->toArray();
     }
 
     /**
      * Download a single Slack file to storage and return its DTO.
      */
-    private static function downloadFile(array $file, string $disk, string $basePath): ?Attachment
+    private static function downloadFile(array $file, Attachments $attachments): ?Attachment
     {
         $url = $file['url_private_download'] ?? $file['url_private'] ?? null;
 
@@ -101,7 +191,6 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsC
 
         $mimeType = $file['mimetype'] ?? 'application/octet-stream';
         $fileName = $file['name'] ?? 'attachment';
-        $path = $basePath.'/'.Str::uuid().'/'.$fileName;
 
         try {
             $response = Http::withToken(self::token())->get($url);
@@ -112,13 +201,31 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsC
                 return null;
             }
 
-            Storage::disk($disk)->put($path, $response->body());
+            $disk = config('laraclaw.filesystem.attachments_disk', 'local');
+            $path = $attachments->set($fileName, $response->body());
 
             return new Attachment(path: $path, disk: $disk, mimeType: $mimeType, filename: $fileName);
         } catch (Throwable $e) {
             Log::warning('Slack file download error', ['url' => $url, 'error' => $e->getMessage()]);
 
             return null;
+        }
+    }
+
+    /**
+     * React with a thumbsup to acknowledge the incoming message.
+     */
+    public function thumbsUp(array $event): void
+    {
+        try {
+            Http::withToken(self::token())
+                ->post('https://slack.com/api/reactions.add', [
+                    'channel' => $event['channel'],
+                    'name' => 'thumbsup',
+                    'timestamp' => $event['ts'],
+                ]);
+        } catch (Throwable $e) {
+            Log::warning('Slack reaction failed', ['error' => $e->getMessage()]);
         }
     }
 
@@ -131,62 +238,47 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsC
     }
 
     /**
-     * For channel messages, only respond when the bot is mentioned.
-     * Falls through to the confirmation intercept for everything else.
+     * Resolve the destination from the thread key, open a DM if needed,
+     * upload any reply attachments, then post the message.
      */
-    public function intercept(Message $message): bool
+    public function reply(?Thread $thread, string $text, ?Collection $attachments = null): void
     {
-        if (! $message->conversationIsDirectMessage) {
-            $botUserId = config('laraclaw.channels.slack.bot_user_id');
+        if ($thread instanceof Thread) {
+            $this->applyKey($thread->key);
+        }
 
-            if (! $botUserId || ! str_contains($message->text ?? '', "<@{$botUserId}>")) {
-                return true;
+        if (str_starts_with((string) $this->channelId, 'U')) {
+            $response = Http::withToken(self::token())
+                ->post('https://slack.com/api/conversations.open', ['users' => $this->channelId]);
+
+            $channelId = $response->json('channel.id');
+
+            if (! $response->successful() || ! $channelId) {
+                throw new RuntimeException("Failed to open Slack DM with user {$this->channelId}: " . $response->body());
             }
+
+            $this->channelId = $channelId;
         }
 
-        return $this->interceptConfirmation($message);
-    }
+        $isDm = str_starts_with((string) $this->channelId, 'D');
 
-    /**
-     * React with a thumbsup to acknowledge the incoming message.
-     */
-    public function acknowledge(): void
-    {
-        if (! $this->messageTs) {
-            return;
+        if ($attachments?->isNotEmpty()) {
+            $this->handleAttachments($attachments);
         }
 
-        try {
-            Http::withToken(self::token())
-                ->post('https://slack.com/api/reactions.add', [
-                    'channel' => $this->channelId,
-                    'name' => 'thumbsup',
-                    'timestamp' => $this->messageTs,
-                ]);
-        } catch (Throwable $e) {
-            Log::warning('Slack reaction failed', ['error' => $e->getMessage()]);
-        }
-    }
-
-    /**
-     * Convert Markdown to Slack mrkdwn and post to the channel or thread.
-     * Captures the thread_ts on the first reply so subsequent messages thread correctly.
-     */
-    public function send(string $message): void
-    {
         $payload = [
             'channel' => $this->channelId,
-            'text' => $this->toMrkdwn($message),
+            'text' => $this->toMrkdwn($text),
         ];
 
-        if (! $this->conversationIsDirectMessage() && $this->threadTs) {
+        if (! $isDm && $this->threadTs) {
             $payload['thread_ts'] = $this->threadTs;
         }
 
         $response = Http::withToken(self::token())
             ->post('https://slack.com/api/chat.postMessage', $payload);
 
-        if (! $this->conversationIsDirectMessage() && ! $this->threadTs && $response->successful()) {
+        if (! $isDm && ! $this->threadTs && $response->successful()) {
             $data = $response->json();
             if ($data['ok'] && isset($data['ts'])) {
                 $this->threadTs = $data['ts'];
@@ -197,21 +289,11 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsC
     /**
      * Upload each attachment to Slack via the external upload API.
      */
-    public function handleAttachments(Collection $attachments): void
+    private function handleAttachments(Collection $attachments): void
     {
         foreach ($attachments as $attachment) {
             $this->uploadAttachment($attachment);
         }
-    }
-
-    /**
-     * Key DM conversations by user ID and threaded conversations by channel and thread timestamp.
-     */
-    private function conversationKey(): string
-    {
-        return $this->conversationIsDirectMessage()
-            ? $this->userId ?? throw new RuntimeException('Slack DM event is missing user ID.')
-            : "{$this->channelId}:{$this->threadTs}";
     }
 
     /**
@@ -223,14 +305,6 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsC
             Storage::disk($attachment->disk)->path($attachment->path),
             $attachment->filename ?? basename($attachment->path),
         );
-    }
-
-    /**
-     * Slack DM channel IDs start with 'D'.
-     */
-    private function conversationIsDirectMessage(): bool
-    {
-        return str_starts_with($this->channelId, 'D');
     }
 
     /**
@@ -264,7 +338,13 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsC
         $uploadUrl = $urlResponse->json('upload_url');
         $fileId = $urlResponse->json('file_id');
 
-        Http::attach('file', file_get_contents($filePath), $fileName)->post($uploadUrl);
+        $uploadResponse = Http::attach('file', file_get_contents($filePath), $fileName)->post($uploadUrl);
+
+        if (! $uploadResponse->successful()) {
+            Log::warning('Slack file upload failed', ['status' => $uploadResponse->status(), 'file' => $fileName]);
+
+            return false;
+        }
 
         $completePayload = [
             'files' => [['id' => $fileId, 'title' => $fileName]],
@@ -275,8 +355,14 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsC
             $completePayload['thread_ts'] = $this->threadTs;
         }
 
-        Http::withToken(self::token())
+        $completeResponse = Http::withToken(self::token())
             ->post('https://slack.com/api/files.completeUploadExternal', $completePayload);
+
+        if (! $completeResponse->successful() || ! $completeResponse->json('ok')) {
+            Log::warning('Slack file complete upload failed', ['response' => $completeResponse->body(), 'file' => $fileName]);
+
+            return false;
+        }
 
         return true;
     }
