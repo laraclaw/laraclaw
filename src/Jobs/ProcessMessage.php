@@ -8,13 +8,13 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
-use LaraClaw\Agents\ChatBotAgent;
 use LaraClaw\Channels\Contracts\SupportsAcknowledgement;
+use LaraClaw\Gateway;
 use LaraClaw\Message;
 use Throwable;
 
 /**
- * Takes a message off the queue, passes it through the AI agent and sends the response.
+ * Takes a message off the queue, passes it through the Gateway and delivers the response.
  */
 class ProcessMessage implements ShouldQueue
 {
@@ -31,7 +31,7 @@ class ProcessMessage implements ShouldQueue
     ) {}
 
     /**
-     * Acknowledge receipt, run the agent, and deliver the response via the channel.
+     * Acknowledge receipt, run the Gateway, and deliver the response via the channel.
      */
     public function handle(): void
     {
@@ -41,17 +41,13 @@ class ProcessMessage implements ShouldQueue
             $channel->acknowledge();
         }
 
-        $agent = app(ChatBotAgent::class, ['message' => $this->message]);
+        $agent = app(Gateway::class)->handle($this->message);
 
-        if (! $agent->isReady()) {
+        if ($agent === null) {
             return;
         }
 
-        $response = $agent->send();
-
-        if (blank($response)) {
-            return;
-        }
+        $response = $agent->run();
 
         $channel->handleAttachments($agent->replyAttachments);
         $channel->send($response);

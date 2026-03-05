@@ -162,6 +162,8 @@ class LaraclawServiceProvider extends ServiceProvider
         $this->app->singleton(fn (): SkillRegistry => new SkillRegistry(config('laraclaw.skills.path', base_path('laraclaw/skills'))));
 
         $this->app->singleton(ToolRegistry::class, fn (): ToolRegistry => new ToolRegistry);
+
+        $this->app->singleton(Gateway::class);
     }
 
     /**

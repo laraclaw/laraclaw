@@ -53,36 +53,7 @@ class SlackController extends Controller
             return $this->bail($bail);
         }
 
-        $message = SlackChannel::parseIncomingMessage($event);
-        $channel = $message->channel;
-
-        if ($channel->intercept($message)) {
-            $bail = 'INTERCEPTED';
-        }
-
-        if (blank($message->text) && $message->attachments->isEmpty()) {
-            $bail = 'EMPTY_MESSAGE';
-        }
-
-        if ($message->isFromUnrecognizedAccount()) {
-            $bail = 'UNRECOGNIZED_ACCOUNT';
-        }
-
-        if (! $message->conversationIsDirectMessage) {
-            $botUserId = config('laraclaw.channels.slack.bot_user_id');
-
-            if (! $botUserId) {
-                $bail = 'BOT_USER_NOT_CONFIGURED';
-            } elseif (! str_contains($message->text ?? '', "<@{$botUserId}>")) {
-                $bail = 'NOT_MENTIONED';
-            }
-        }
-
-        if ($bail) {
-            return $this->bail($bail);
-        }
-
-        ProcessMessage::dispatch($message);
+        ProcessMessage::dispatch(SlackChannel::parseIncomingMessage($event));
 
         return response()->json(['success' => true]);
     }

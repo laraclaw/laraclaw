@@ -19,18 +19,6 @@ class TelegramListener
         $raw = $event->message;
         $message = TelegramChannel::parseIncomingMessage($raw, $event->bot);
 
-        if ($message->channel->intercept($message)) {
-            return;
-        }
-
-        if (blank($message->text) && $message->attachments->isEmpty()) {
-            return;
-        }
-
-        if ($message->isFromUnrecognizedAccount()) {
-            return;
-        }
-
         ProcessMessage::dispatch($message);
     }
 }

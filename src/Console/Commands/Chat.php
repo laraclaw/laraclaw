@@ -4,8 +4,8 @@ namespace LaraClaw\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Auth\Authenticatable;
-use LaraClaw\Agents\ChatBotAgent;
 use LaraClaw\Channels\TerminalChannel;
+use LaraClaw\Gateway;
 use LaraClaw\Message;
 use LaraClaw\Models\UserAccount;
 
@@ -60,22 +60,27 @@ class Chat extends Command
                 conversationIsDirectMessage: true,
             );
 
-            $agent = app(ChatBotAgent::class, ['message' => $message]);
+            $result = spin(
+                callback: function () use ($message): ?array {
+                    $agent = app(Gateway::class)->handle($message);
 
-            if (! $agent->isReady()) {
-                continue;
-            }
+                    if ($agent === null) {
+                        return null;
+                    }
 
-            $response = spin(
-                callback: fn (): string => $agent->send(),
+                    return [$agent->run(), $agent->replyAttachments];
+                },
                 message: 'Fetching response...',
             );
 
-            $channel->handleAttachments($agent->replyAttachments);
-
-            if (filled($response)) {
-                note(markdownToAnsi($response));
+            if ($result === null) {
+                continue;
             }
+
+            [$response, $attachments] = $result;
+
+            $channel->handleAttachments($attachments);
+            note(markdownToAnsi($response));
         }
 
         return self::SUCCESS;

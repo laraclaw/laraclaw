@@ -19,7 +19,9 @@ use Throwable;
 
 class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsConfirmation
 {
-    use ChecksRedisForConfirmations;
+    use ChecksRedisForConfirmations {
+        intercept as interceptConfirmation;
+    }
 
     public string $name { get { return 'slack'; } }
 
@@ -81,7 +83,7 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsC
         $basePath = config('laraclaw.filesystem.attachments_path', 'attachments').'/slack';
 
         return collect($event['files'] ?? [])
-            ->map(fn (array $file): ?\LaraClaw\DTOs\Attachment => self::downloadFile($file, $disk, $basePath))
+            ->map(fn (array $file): ?Attachment => self::downloadFile($file, $disk, $basePath))
             ->filter()
             ->values();
     }
@@ -126,6 +128,23 @@ class SlackChannel extends Channel implements SupportsAcknowledgement, SupportsC
     private static function token(): string
     {
         return config('laraclaw.channels.slack.bot_token');
+    }
+
+    /**
+     * For channel messages, only respond when the bot is mentioned.
+     * Falls through to the confirmation intercept for everything else.
+     */
+    public function intercept(Message $message): bool
+    {
+        if (! $message->conversationIsDirectMessage) {
+            $botUserId = config('laraclaw.channels.slack.bot_user_id');
+
+            if (! $botUserId || ! str_contains($message->text ?? '', "<@{$botUserId}>")) {
+                return true;
+            }
+        }
+
+        return $this->interceptConfirmation($message);
     }
 
     /**

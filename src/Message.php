@@ -11,7 +11,6 @@ use Laravel\Ai\Files\Document;
 use Laravel\Ai\Files\Image;
 use Laravel\Ai\Files\StoredDocument;
 use Laravel\Ai\Files\StoredImage;
-use Laravel\Ai\Transcription;
 
 /**
  * Domain object representing an inbound message from any channel.
@@ -59,12 +58,13 @@ class Message
     }
 
     /**
-     * Get the message text for the agent, transcribing any audio if no text was provided.
+     * Get the message text for the agent.
      * Appends file metadata at the end so the agent knows where to find the attachments.
+     * Audio transcription is handled separately by the TranscribeAudio middleware.
      */
     public function agentText(): string
     {
-        return $this->transcribedText() . $this->attachmentMetadataBlock();
+        return ($this->text ?? '') . $this->attachmentMetadataBlock();
     }
 
     /**
@@ -83,37 +83,6 @@ class Message
             ->filter()
             ->values()
             ->all();
-    }
-
-    /**
-     * Determine whether this DM originated from an unregistered account.
-     * Always returns false for group/open channel messages.
-     */
-    public function isFromUnrecognizedAccount(): bool
-    {
-        if (! $this->conversationIsDirectMessage) {
-            return false;
-        }
-
-        return ! UserAccount::where('channel', $this->channel->name)
-            ->where('account', $this->conversationKey)
-            ->exists();
-    }
-
-    /**
-     * Return the message text, transcribing the first audio attachment if text is absent.
-     */
-    private function transcribedText(): string
-    {
-        if (filled($this->text)) {
-            return $this->text;
-        }
-
-        $audio = $this->attachments->first(fn (Attachment $a): bool => $a->isAudio());
-
-        return $audio
-            ? Transcription::fromStorage($audio->path, $audio->disk)->generate()->text
-            : '';
     }
 
     /**

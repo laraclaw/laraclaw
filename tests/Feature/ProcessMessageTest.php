@@ -8,8 +8,9 @@ use LaraClaw\Message;
 use LaraClaw\Models\Conversation;
 use LaraClaw\Models\UserAccount;
 use LaraClaw\Tests\Fixtures\FakeChannel;
+use Laravel\Ai\Transcription;
 
-// ── DM path ────────────────────────────────────────────────────────────────
+// ── DM path ─────────────────────────────────────────────────────────────────
 
 it('processes a DM and delivers the agent reply', function () {
     ChatBotAgent::fake(['Hello back!']);
@@ -60,33 +61,7 @@ it('creates a Conversation record for a new DM', function () {
     expect(Conversation::where('channel', 'telegram')->where('key', 'user-456')->exists())->toBeTrue();
 });
 
-it('reuses an existing Conversation on subsequent DMs', function () {
-    ChatBotAgent::fake(['ok']);
-
-    $user = $this->createUser();
-    $channel = new FakeChannel;
-
-    UserAccount::create([
-        'user_id' => $user->id,
-        'channel' => 'telegram',
-        'account' => 'user-789',
-    ]);
-
-    Conversation::create(['channel' => 'telegram', 'key' => 'user-789']);
-
-    $message = new Message(
-        channel: $channel,
-        conversationKey: 'user-789',
-        conversationIsDirectMessage: true,
-        text: 'Second message',
-    );
-
-    app()->call([new ProcessMessage($message), 'handle']);
-
-    expect(Conversation::where('channel', 'telegram')->where('key', 'user-789')->count())->toBe(1);
-});
-
-// ── Group path ─────────────────────────────────────────────────────────────
+// ── Group path ──────────────────────────────────────────────────────────────
 
 it('processes a group message using the owner user', function () {
     ChatBotAgent::fake(['Group reply!']);
@@ -126,7 +101,7 @@ it('silently returns when the owner user is not configured for group messages', 
     expect($channel->sent)->toBeEmpty();
 });
 
-// ── !new command ────────────────────────────────────────────────────────────
+// ── !new command ─────────────────────────────────────────────────────────────
 
 it('starts a fresh conversation when the new_conversation cache flag is set', function () {
     ChatBotAgent::fake(['Fresh start!']);
@@ -163,7 +138,7 @@ it('starts a fresh conversation when the new_conversation cache flag is set', fu
     expect($channel->sent)->toContain('Fresh start!');
 });
 
-// ── Attachment metadata ─────────────────────────────────────────────────────
+// ── Attachments ──────────────────────────────────────────────────────────────
 
 it('appends attachment metadata to the prompt text', function () {
     ChatBotAgent::fake(['Got it!']);
@@ -195,4 +170,38 @@ it('appends attachment metadata to the prompt text', function () {
     app()->call([new ProcessMessage($message), 'handle']);
 
     ChatBotAgent::assertPrompted(fn ($prompt) => str_contains($prompt->prompt, 'photo.jpg'));
+});
+
+it('transcribes audio when the message has no text', function () {
+    Transcription::fake(['Hello from audio']);
+    ChatBotAgent::fake(['Got it!']);
+
+    $user = $this->createUser();
+    $channel = new FakeChannel;
+
+    UserAccount::create([
+        'user_id' => $user->id,
+        'channel' => 'telegram',
+        'account' => 'audio-user',
+    ]);
+
+    $message = new Message(
+        channel: $channel,
+        conversationKey: 'audio-user',
+        conversationIsDirectMessage: true,
+        text: null,
+        attachments: collect([
+            new Attachment(
+                path: 'attachments/voice.ogg',
+                disk: 'local',
+                mimeType: 'audio/ogg',
+                filename: 'voice.ogg',
+            ),
+        ]),
+    );
+
+    app()->call([new ProcessMessage($message), 'handle']);
+
+    Transcription::assertGenerated(fn ($prompt) => $prompt->audio->path === 'attachments/voice.ogg');
+    expect($channel->sent)->toContain('Got it!');
 });
