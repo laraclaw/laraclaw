@@ -2,6 +2,7 @@
 
 namespace LaraClaw\Tools;
 
+use DirectoryTree\ImapEngine\Address;
 use DirectoryTree\ImapEngine\FolderInterface;
 use DirectoryTree\ImapEngine\Laravel\Facades\Imap;
 use DirectoryTree\ImapEngine\MessageInterface;
@@ -131,7 +132,7 @@ class EmailManager extends BaseTool
 
         $messages = $query->newest()->limit($limit)->get();
 
-        $result = collect($messages)->map(fn (\DirectoryTree\ImapEngine\MessageInterface $m): array => $this->summarize($m));
+        $result = collect($messages)->map(fn (MessageInterface $m): array => $this->summarize($m));
 
         if ($result->isEmpty()) {
             return 'No messages found.';
@@ -153,7 +154,7 @@ class EmailManager extends BaseTool
         $folder = $this->getFolder($request['folder'] ?? 'INBOX');
         $message = $folder->messages()->withHeaders()->withBody()->find((int) $uid);
 
-        if (! $message instanceof \DirectoryTree\ImapEngine\MessageInterface) {
+        if (! $message instanceof MessageInterface) {
             return "Message with UID {$uid} not found.";
         }
 
@@ -223,12 +224,12 @@ class EmailManager extends BaseTool
         $folder = $this->getFolder($request['folder'] ?? 'INBOX');
         $original = $folder->messages()->withHeaders()->withBody()->find((int) $uid);
 
-        if (! $original instanceof \DirectoryTree\ImapEngine\MessageInterface) {
+        if (! $original instanceof MessageInterface) {
             return "Message with UID {$uid} not found.";
         }
 
         $replyTo = $original->replyTo() ?? $original->from();
-        if (! $replyTo instanceof \DirectoryTree\ImapEngine\Address) {
+        if (! $replyTo instanceof Address) {
             return 'Cannot determine reply address for this message.';
         }
 
@@ -267,7 +268,7 @@ class EmailManager extends BaseTool
 
         return collect($uids)
             ->map(function (int $uid) use ($folder): string {
-                if (! $folder->messages()->find($uid) instanceof \DirectoryTree\ImapEngine\MessageInterface) {
+                if (! $folder->messages()->find($uid) instanceof MessageInterface) {
                     return "UID {$uid}: not found";
                 }
 
@@ -297,7 +298,7 @@ class EmailManager extends BaseTool
         $folder = $this->getFolder($sourceFolder);
         $message = $folder->messages()->find((int) $uid);
 
-        if (! $message instanceof \DirectoryTree\ImapEngine\MessageInterface) {
+        if (! $message instanceof MessageInterface) {
             return "Message with UID {$uid} not found in {$sourceFolder}.";
         }
 
@@ -325,7 +326,7 @@ class EmailManager extends BaseTool
         $folder = $this->getFolder($sourceFolder);
         $message = $folder->messages()->find((int) $uid);
 
-        if (! $message instanceof \DirectoryTree\ImapEngine\MessageInterface) {
+        if (! $message instanceof MessageInterface) {
             return "Message with UID {$uid} not found in {$sourceFolder}.";
         }
 
@@ -347,7 +348,7 @@ class EmailManager extends BaseTool
         $folder = $this->getFolder($request['folder'] ?? 'INBOX');
         $message = $folder->messages()->find((int) $uid);
 
-        if (! $message instanceof \DirectoryTree\ImapEngine\MessageInterface) {
+        if (! $message instanceof MessageInterface) {
             return "Message with UID {$uid} not found.";
         }
 
@@ -369,7 +370,7 @@ class EmailManager extends BaseTool
         $folder = $this->getFolder($request['folder'] ?? 'INBOX');
         $message = $folder->messages()->find((int) $uid);
 
-        if (! $message instanceof \DirectoryTree\ImapEngine\MessageInterface) {
+        if (! $message instanceof MessageInterface) {
             return "Message with UID {$uid} not found.";
         }
 

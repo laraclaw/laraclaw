@@ -11,6 +11,7 @@ return RectorConfig::configure()
     ->withPaths([
         __DIR__ . '/src',
     ])
+    ->withImportNames(importDocBlockNames: true, importShortClasses: false)
     ->withSets([
         LevelSetList::UP_TO_PHP_84,
         SetList::CODE_QUALITY,

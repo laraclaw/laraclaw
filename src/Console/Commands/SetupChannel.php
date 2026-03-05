@@ -132,7 +132,7 @@ class SetupChannel extends Command
     /**
      * Ask which email addresses the bot should accept messages from, defaulting to existing records or the user's own email.
      *
-     * @return \Illuminate\Support\Collection<int, string>
+     * @return Collection<int, string>
      */
     private function askOwnerEmails(mixed $user): Collection
     {

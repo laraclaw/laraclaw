@@ -5,9 +5,12 @@ namespace LaraClaw;
 use Illuminate\Support\Collection;
 use LaraClaw\Channels\Channel;
 use LaraClaw\DTOs\Attachment;
+use LaraClaw\Enums\ChannelType;
 use LaraClaw\Models\UserAccount;
 use Laravel\Ai\Files\Document;
 use Laravel\Ai\Files\Image;
+use Laravel\Ai\Files\StoredDocument;
+use Laravel\Ai\Files\StoredImage;
 use Laravel\Ai\Transcription;
 
 /**
@@ -40,7 +43,7 @@ class Message
     /**
      * Return the UserAccount row for the admin user on the given channel, or null if none is registered.
      *
-     * @return array{0: \LaraClaw\Enums\ChannelType, 1: string}|null
+     * @return array{0: ChannelType, 1: string}|null
      */
     public function adminAccountForChannel(string $channelType): ?array
     {
@@ -72,7 +75,7 @@ class Message
     public function agentAttachments(): array
     {
         return $this->attachments
-            ->map(fn (Attachment $a): \Laravel\Ai\Files\StoredImage|\Laravel\Ai\Files\StoredDocument|null => match (true) {
+            ->map(fn (Attachment $a): StoredImage|StoredDocument|null => match (true) {
                 $a->isImage() => Image::fromStorage($a->path, $a->disk),
                 $a->isDocument() => Document::fromStorage($a->path, $a->disk),
                 default => null,

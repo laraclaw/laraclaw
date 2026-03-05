@@ -152,16 +152,16 @@ class LaraclawServiceProvider extends ServiceProvider
      */
     private function registerCoreSingletons(): void
     {
-        $this->app->singleton(function (): \LaraClaw\Commands\CommandRegistry {
+        $this->app->singleton(function (): CommandRegistry {
             $registry = new CommandRegistry;
             $registry->register(new NewConversation);
 
             return $registry;
         });
 
-        $this->app->singleton(fn (): \LaraClaw\SkillRegistry => new SkillRegistry(config('laraclaw.skills.path', base_path('laraclaw/skills'))));
+        $this->app->singleton(fn (): SkillRegistry => new SkillRegistry(config('laraclaw.skills.path', base_path('laraclaw/skills'))));
 
-        $this->app->singleton(ToolRegistry::class, fn (): \LaraClaw\Tools\ToolRegistry => new ToolRegistry);
+        $this->app->singleton(ToolRegistry::class, fn (): ToolRegistry => new ToolRegistry);
     }
 
     /**
@@ -229,7 +229,7 @@ class LaraclawServiceProvider extends ServiceProvider
             ]);
         }
 
-        $this->app->singleton(fn (): ?\LaraClaw\Calendar\Contracts\CalendarDriver => match (config('laraclaw.tools.calendar_manager.driver')) {
+        $this->app->singleton(fn (): ?CalendarDriver => match (config('laraclaw.tools.calendar_manager.driver')) {
             'google' => new GoogleCalendarDriver,
             'apple' => new AppleCalendarDriver(
                 server: config('laraclaw.tools.calendar_manager.apple.server'),
@@ -298,7 +298,7 @@ class LaraclawServiceProvider extends ServiceProvider
             return;
         }
 
-        $this->app->extend(GoogleCalendar::class, function (GoogleCalendar $calendar): \Spatie\GoogleCalendar\GoogleCalendar {
+        $this->app->extend(GoogleCalendar::class, function (GoogleCalendar $calendar): GoogleCalendar {
             $client = $calendar->getService()->getClient();
             $tokenPath = config('laraclaw.tools.calendar_manager.google.token_json');
 

@@ -35,7 +35,7 @@ class Bash implements Tool
     {
         $command = $request['command'] ?? '';
 
-        if (trim($command) === '') {
+        if (trim((string) $command) === '') {
             return 'The "command" parameter is required and cannot be empty.';
         }
 
