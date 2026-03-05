@@ -33,7 +33,6 @@ use Laravel\Ai\Contracts\HasTools;
 use Laravel\Ai\Contracts\Providers\SupportsWebSearch;
 use Laravel\Ai\Promptable;
 use Laravel\Ai\Providers\Tools\WebSearch;
-use Laravel\Ai\Responses\StreamableAgentResponse;
 
 class ChatBotAgent implements Agent, Conversational, HasTools
 {
@@ -105,14 +104,6 @@ class ChatBotAgent implements Agent, Conversational, HasTools
     public function send(): string
     {
         return (string) $this->prompt($this->inputText, $this->inputAttachments);
-    }
-
-    /**
-     * Stream the prepared message, yielding events as they arrive from the AI.
-     */
-    public function run(): StreamableAgentResponse
-    {
-        return $this->stream($this->inputText, $this->inputAttachments);
     }
 
     /**
@@ -275,7 +266,7 @@ class ChatBotAgent implements Agent, Conversational, HasTools
 
         $result = $command->handle($this->message);
 
-        if (! $result instanceof \LaraClaw\Message) {
+        if (! $result instanceof Message) {
             return null;
         }
 

@@ -10,9 +10,7 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use LaraClaw\Agents\ChatBotAgent;
 use LaraClaw\Channels\Contracts\SupportsAcknowledgement;
-use LaraClaw\Channels\Contracts\SupportsStreaming;
 use LaraClaw\Message;
-use Laravel\Ai\Streaming\Events\TextDelta;
 use Throwable;
 
 /**
@@ -49,15 +47,7 @@ class ProcessMessage implements ShouldQueue
             return;
         }
 
-        $stream = $agent->run();
-
-        $stream->each(function (object $event) use ($channel): void {
-            if ($channel instanceof SupportsStreaming && $event instanceof TextDelta) {
-                $channel->chunk($event->delta);
-            }
-        });
-
-        $response = $stream->text ?? '';
+        $response = $agent->send();
 
         if (blank($response)) {
             return;
