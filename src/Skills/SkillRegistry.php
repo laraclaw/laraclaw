@@ -1,6 +1,6 @@
 <?php
 
-namespace LaraClaw;
+namespace LaraClaw\Skills;
 
 use Illuminate\Support\Facades\File;
 use League\CommonMark\Extension\FrontMatter\Data\SymfonyYamlFrontMatterParser;

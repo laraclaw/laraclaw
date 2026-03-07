@@ -4,9 +4,9 @@ namespace LaraClaw\Agents;
 
 use LaraClaw\Calendar\Contracts\CalendarDriver;
 use LaraClaw\DTOs\IncomingMessage;
-use LaraClaw\Middleware\TranscribeAudio;
+use LaraClaw\Agents\Middleware\TranscribeAudio;
 use LaraClaw\Models\Thread;
-use LaraClaw\SkillRegistry;
+use LaraClaw\Skills\SkillRegistry;
 use LaraClaw\Tools\BaseTool;
 use LaraClaw\Tools\Bash;
 use LaraClaw\Tools\CalendarManager;

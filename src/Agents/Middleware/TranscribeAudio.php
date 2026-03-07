@@ -1,6 +1,6 @@
 <?php
 
-namespace LaraClaw\Middleware;
+namespace LaraClaw\Agents\Middleware;
 
 use Closure;
 use LaraClaw\DTOs\Attachment;

@@ -31,6 +31,7 @@ use LaraClaw\Http\Middleware\VerifySlackSignature;
 use LaraClaw\Listeners\EmailListener;
 use LaraClaw\Listeners\LogAgentRequest;
 use LaraClaw\Listeners\TelegramListener;
+use LaraClaw\Skills\SkillRegistry;
 use LaraClaw\Tools\ToolRegistry;
 use Laravel\Ai\Events\AgentPrompted;
 use Override;
