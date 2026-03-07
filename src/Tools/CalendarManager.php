@@ -8,7 +8,7 @@ use Exception;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use LaraClaw\Calendar\Contracts\CalendarDriver;
 use LaraClaw\DTOs\CalendarEvent;
-use LaraClaw\Message;
+use LaraClaw\DTOs\IncomingMessage;
 use Laravel\Ai\Tools\Request;
 use Override;
 use Stringable;
@@ -20,11 +20,11 @@ use Throwable;
 class CalendarManager extends BaseTool
 {
     protected array $requiresConfirmation = [
-        'delete' => 'Delete event "{id}"?',
+        'delete' => 'Delete event "{title}"?',
     ];
 
     public function __construct(
-        protected Message $message,
+        protected IncomingMessage $message,
         private readonly CalendarDriver $driver,
     ) {}
 
@@ -38,7 +38,7 @@ class CalendarManager extends BaseTool
         return [
             'operation' => $schema->string()->required()->description('The operation to perform: ' . implode(', ', $this->operations())),
             'id' => $schema->string()->description('Event ID (required for update/delete)'),
-            'title' => $schema->string()->description('Event title (required for create)'),
+            'title' => $schema->string()->description('Event title (required for create and delete)'),
             'start' => $schema->string()->description('Start date/time (required for list and create)'),
             'end' => $schema->string()->description('End date/time (required for list, optional for create — defaults to start + 1h)'),
             'description' => $schema->string()->description('Event description'),
@@ -201,9 +201,11 @@ class CalendarManager extends BaseTool
             return 'The "id" parameter is required for the delete operation.';
         }
 
+        $title = $request['title'] ?? $id;
+
         $this->driver->delete($id);
 
-        return "Event {$id} deleted.";
+        return "Event '{$title}' deleted.";
     }
 
     /**

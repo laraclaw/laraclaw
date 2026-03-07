@@ -11,7 +11,7 @@ use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
-use LaraClaw\Message;
+use LaraClaw\DTOs\IncomingMessage;
 use Laravel\Ai\Tools\Request;
 use Override;
 use Stringable;
@@ -30,7 +30,7 @@ class EmailManager extends BaseTool
     protected array $requiresConfirmation = [];
 
     public function __construct(
-        protected Message $message,
+        protected IncomingMessage $message,
         private readonly string $mailbox,
     ) {
         $this->requiresConfirmation['delete'] = function (Request $request): string {

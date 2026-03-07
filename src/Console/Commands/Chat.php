@@ -2,25 +2,22 @@
 
 namespace LaraClaw\Console\Commands;
 
+use Exception;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Auth\Authenticatable;
+use LaraClaw\Agents\ChatBotAgent;
 use LaraClaw\Channels\TerminalChannel;
-use LaraClaw\Gateway;
-use LaraClaw\Message;
+use LaraClaw\Models\Thread;
 use LaraClaw\Models\UserAccount;
 
-use function LaraClaw\Support\markdownToAnsi;
-use function Laravel\Prompts\error;
 use function Laravel\Prompts\info;
-use function Laravel\Prompts\note;
-use function Laravel\Prompts\spin;
 
 /**
  * Interactive REPL that runs the AI agent directly in the terminal, without going through the queue.
  */
 class Chat extends Command
 {
-    protected $signature = 'laraclaw:chat {user? : User ID or email (defaults to admin_user_id)}';
+    protected $signature = 'laraclaw:chat {userId?}';
 
     protected $description = 'Start an interactive chat session with the AI agent in your terminal';
 
@@ -29,20 +26,14 @@ class Chat extends Command
      */
     public function handle(): int
     {
+        // Resolve the user and register a terminal account if needed
+        $user = $this->resolveUser();
         $channel = new TerminalChannel;
 
-        $user = $this->resolveUser();
-
-        if (! $user) {
-            return self::FAILURE;
-        }
-
-        UserAccount::firstOrCreate([
-            'channel' => $channel->name,
-            'account' => $channel->conversationKey(),
-        ], [
-            'user_id' => $user->getAuthIdentifier(),
-        ]);
+        UserAccount::firstOrCreate(
+            ['channel' => $channel->type, 'account' => $user->getAuthIdentifier()],
+            ['user_id' => $user->getAuthIdentifier()],
+        );
 
         info('Chat session started. Type your message and press Enter. Ctrl+C to exit.');
 
@@ -53,65 +44,37 @@ class Chat extends Command
                 continue;
             }
 
-            $message = new Message(
-                channel: $channel,
-                text: $input,
-                conversationKey: $channel->conversationKey(),
-                conversationIsDirectMessage: true,
-            );
+            // Build the incoming message and find or create the thread
+            $incomingMessage = TerminalChannel::createIncomingMessageFrom(input: $input, user: $user);
+            $thread = Thread::forMessage($incomingMessage);
 
-            $result = spin(
-                callback: function () use ($message): ?array {
-                    $agent = app(Gateway::class)->handle($message);
+            // Prompt the agent synchronously and deliver the reply
+            $agent = resolve(ChatBotAgent::class, [
+                'message' => $incomingMessage,
+                'thread' => $thread,
+            ]);
 
-                    if ($agent === null) {
-                        return null;
-                    }
+            $response = $agent->prompt(...$incomingMessage->toAgentInput());
 
-                    return [$agent->run(), $agent->replyAttachments];
-                },
-                message: 'Fetching response...',
-            );
+            $thread->update(['conversation_id' => $response->conversationId]);
 
-            if ($result === null) {
-                continue;
-            }
-
-            [$response, $attachments] = $result;
-
-            $channel->handleAttachments($attachments);
-            note(markdownToAnsi($response));
+            $channel->reply(thread: $thread, text: $response->text);
         }
-
-        return self::SUCCESS;
     }
 
     /**
-     * Find the user by ID or email, falling back to the configured admin user.
-     * Returns null and prints an error if the user cannot be found.
+     * Find the user by ID, falling back to the configured admin user.
      */
-    private function resolveUser(): ?Authenticatable
+    private function resolveUser(): Authenticatable
     {
-        $userInput = $this->argument('user') ?? config('laraclaw.auth.admin_user_id');
+        $userId = $this->argument('userId') ?? config('laraclaw.auth.admin_user_id');
 
-        if (! $userInput) {
-            error('No user specified and LARACLAW_ADMIN_USER_ID is not set.');
-
-            return null;
+        if (! $userId) {
+            throw new Exception('No user specified and no default admin user set.');
         }
 
         $userModel = config('laraclaw.auth.user_model');
 
-        $user = is_numeric($userInput)
-            ? $userModel::find((int) $userInput)
-            : $userModel::where('email', $userInput)->first();
-
-        if (! $user) {
-            error("User not found: {$userInput}");
-
-            return null;
-        }
-
-        return $user;
+        return $userModel::findOrFail((int) $userId);
     }
 }

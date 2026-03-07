@@ -4,9 +4,9 @@ namespace LaraClaw\Tools;
 
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
-use Illuminate\Support\Collection;
-use LaraClaw\DTOs\Attachment;
-use LaraClaw\Message;
+use Illuminate\Support\Facades\Storage;
+use LaraClaw\DTOs\IncomingMessage;
+use LaraClaw\Services\Attachments;
 use Laravel\Ai\Tools\Request;
 use Override;
 use RuntimeException;
@@ -21,7 +21,7 @@ use Stringable;
  */
 class ImageManager extends BaseTool
 {
-    public function __construct(protected Message $message, private readonly ?Collection $attachments = null) {}
+    public function __construct(protected IncomingMessage $message, private readonly Attachments $attachments) {}
 
     /**
      * Return the tool description shown to the agent.
@@ -306,11 +306,11 @@ class ImageManager extends BaseTool
     }
 
     /**
-     * Add a processed image to the pending reply attachments collection.
+     * Write a processed image to the outgoing attachments table for delivery after the agent finishes.
      */
     private function setPending(string $disk, string $path): void
     {
-        $this->attachments?->push(new Attachment(path: $path, disk: $disk));
+        $this->attachments->outbound($this->message->uuid)->set(basename($path), Storage::disk($disk)->get($path));
     }
 
     /**

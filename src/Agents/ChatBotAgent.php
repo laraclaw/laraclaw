@@ -2,17 +2,16 @@
 
 namespace LaraClaw\Agents;
 
-use Illuminate\Support\Collection;
 use LaraClaw\Calendar\Contracts\CalendarDriver;
-use LaraClaw\DTOs\Attachment;
-use LaraClaw\Message;
+use LaraClaw\DTOs\IncomingMessage;
 use LaraClaw\Middleware\TranscribeAudio;
-use LaraClaw\Models\Conversation;
+use LaraClaw\Models\Thread;
 use LaraClaw\SkillRegistry;
+use LaraClaw\Tools\BaseTool;
 use LaraClaw\Tools\Bash;
 use LaraClaw\Tools\CalendarManager;
 use LaraClaw\Tools\EmailManager;
-use LaraClaw\Tools\Files;
+use LaraClaw\Tools\FileManager;
 use LaraClaw\Tools\HeartbeatManager;
 use LaraClaw\Tools\ImageManager;
 use LaraClaw\Tools\Persona;
@@ -28,39 +27,29 @@ use Laravel\Ai\Contracts\Conversational;
 use Laravel\Ai\Contracts\HasMiddleware;
 use Laravel\Ai\Contracts\HasTools;
 use Laravel\Ai\Contracts\Providers\SupportsWebSearch;
-use Laravel\Ai\Files\Document;
-use Laravel\Ai\Files\Image;
+use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Promptable;
 use Laravel\Ai\Providers\Tools\WebSearch;
+use RuntimeException;
 
 class ChatBotAgent implements Agent, Conversational, HasMiddleware, HasTools
 {
     use Promptable, RemembersConversations;
 
-    /** @var Collection<int, Attachment> */
-    public Collection $replyAttachments;
-
-    public string $inputText = '';
-
-    /** @var array<int, Image|Document> */
-    public array $inputAttachments = [];
-
     public function __construct(
-        private Message $message,
+        private IncomingMessage $message,
         private SkillRegistry $skillRegistry,
         private ToolRegistry $toolRegistry,
-        private ?Conversation $conversation = null,
+        private Thread $thread,
         private ?CalendarDriver $calendarDriver = null,
     ) {
-        $this->replyAttachments = collect();
-    }
+        $user = $this->thread->user() ?? throw new RuntimeException('No user found for thread.');
 
-    /**
-     * Prompt the agent using the input text and attachments set by the Gateway.
-     */
-    public function run(): string
-    {
-        return (string) $this->prompt($this->inputText, $this->inputAttachments);
+        if ($thread->conversation_id) {
+            $this->continue($thread->conversation_id, as: $user);
+        } else {
+            $this->forUser($user);
+        }
     }
 
     /**
@@ -81,10 +70,10 @@ class ChatBotAgent implements Agent, Conversational, HasMiddleware, HasTools
     {
         $tools = [
             new UseSkill($this->skillRegistry),
-            new ImageManager($this->message, $this->replyAttachments),
-            new Files($this->message, $this->replyAttachments),
+            resolve(ImageManager::class, ['message' => $this->message]),
+            resolve(FileManager::class, ['message' => $this->message]),
             new WebRequest($this->message),
-            new Persona($this->conversation),
+            new Persona($this->thread),
             new ReminderManager($this->message),
             new HeartbeatManager($this->message),
         ];
@@ -98,7 +87,7 @@ class ChatBotAgent implements Agent, Conversational, HasMiddleware, HasTools
         }
 
         if (config('laraclaw.tools.tts.enabled')) {
-            $tools[] = new TextToSpeech($this->replyAttachments);
+            $tools[] = resolve(TextToSpeech::class, ['message' => $this->message]);
         }
 
         if (config('laraclaw.tools.bash.enabled')) {
@@ -109,11 +98,17 @@ class ChatBotAgent implements Agent, Conversational, HasMiddleware, HasTools
             $tools[] = new CalendarManager($this->message, $this->calendarDriver);
         }
 
-        return array_merge($tools, $this->toolRegistry->resolve(
+        $all = array_merge($tools, $this->toolRegistry->resolve(
             $this->message,
-            $this->replyAttachments,
-            $this->conversation,
+            $this->thread,
         ));
+
+        $channel = $this->thread->channel();
+
+        return array_map(
+            fn ($tool): Tool|WebSearch => $tool instanceof BaseTool ? $tool->withChannel($channel) : $tool,
+            $all,
+        );
     }
 
     /**
@@ -132,7 +127,7 @@ class ChatBotAgent implements Agent, Conversational, HasMiddleware, HasTools
      */
     private function resolvePersona(): string
     {
-        $persona = $this->conversation?->persona ?? config('laraclaw.personas.default');
+        $persona = $this->thread?->persona ?? config('laraclaw.personas.default');
 
         if (! $persona) {
             return '';

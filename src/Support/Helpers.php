@@ -48,7 +48,7 @@ function markdownToMrkdwn(string $text): string
 function markdownToAnsi(string $markdown): string
 {
     $lines = explode("\n", $markdown);
-    $output = "\n";
+    $output = '';
     $inCodeBlock = false;
     $codeLines = [];
 
@@ -113,7 +113,7 @@ function markdownToAnsi(string $markdown): string
         $output .= ansiInline($line) . "\n";
     }
 
-    return $output;
+    return trim($output, "\n");
 }
 
 /**

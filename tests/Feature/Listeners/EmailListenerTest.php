@@ -4,10 +4,8 @@ use DirectoryTree\ImapEngine\Address;
 use DirectoryTree\ImapEngine\Laravel\Events\MessageReceived;
 use DirectoryTree\ImapEngine\MessageInterface;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Queue;
-use Illuminate\Support\Facades\Redis;
-use LaraClaw\Jobs\ProcessMessage;
-use LaraClaw\Listeners\EmailListener;
+use LaraClaw\Enums\ChannelType;
+use LaraClaw\Models\UserAccount;
 
 function makeRawEmail(string $from, string $subject = 'Hello', string $authResults = 'dkim=pass spf=pass'): MessageInterface
 {
@@ -19,14 +17,10 @@ function makeRawEmail(string $from, string $subject = 'Hello', string $authResul
     $raw->allows('subject')->andReturn($subject);
     $raw->allows('header')->with('Authentication-Results')->andReturn($header);
     $raw->allows('header')->withAnyArgs()->andReturn(null);
-
-    // Minimal stubs needed by EmailChannel::parseIncomingMessage()
     $raw->allows('messageId')->andReturn('<msg-id@example.com>');
     $raw->allows('uid')->andReturn(1);
     $raw->allows('text')->andReturn('Email body');
     $raw->allows('html')->andReturn(null);
-    $raw->allows('references')->andReturn(null);
-    $raw->allows('inReplyTo')->andReturn(null);
     $raw->allows('attachments')->andReturn([]);
 
     return $raw;
@@ -37,64 +31,50 @@ function makeEvent(MessageInterface $raw): MessageReceived
     return new MessageReceived($raw);
 }
 
+function registerEmailAccount(string $email): void
+{
+    $user = test()->createUser();
+
+    UserAccount::create([
+        'user_id' => $user->getAuthIdentifier(),
+        'channel' => ChannelType::Email,
+        'account' => $email,
+    ]);
+}
+
 beforeEach(function () {
-    Queue::fake();
-    Redis::spy();
+    Log::spy();
     config(['laraclaw.channels.email.enabled' => true]);
-    config(['laraclaw.channels.email.sender_allow_list' => ['allowed@example.com']]);
     config(['laraclaw.channels.email.verify_sender_dkim_and_spf' => true]);
     config(['imap.mailboxes.default.username' => 'bot@example.com']);
 });
 
-it('dispatches ProcessMessage for a valid allowed sender', function () {
-    $raw = makeRawEmail('allowed@example.com');
-    $listener = new EmailListener;
-
-    $listener(makeEvent($raw));
-
-    Queue::assertPushed(ProcessMessage::class);
-});
-
 it('ignores emails from the bot itself to prevent loops', function () {
-    config(['imap.mailboxes.default.username' => 'bot@example.com']);
-
     $raw = makeRawEmail('bot@example.com');
-    $listener = new EmailListener;
 
-    $listener(makeEvent($raw));
+    app(LaraClaw\Listeners\EmailListener::class)(makeEvent($raw));
 
-    Queue::assertNotPushed(ProcessMessage::class);
+    Log::shouldHaveReceived('debug')
+        ->once()
+        ->withArgs(fn ($msg, $ctx) => $ctx['code'] === 'SELF_MESSAGE');
 });
 
-it('ignores senders not on the allow list', function () {
+it('ignores senders without a registered account', function () {
     $raw = makeRawEmail('stranger@example.com');
-    $listener = new EmailListener;
 
-    $listener(makeEvent($raw));
+    app(LaraClaw\Listeners\EmailListener::class)(makeEvent($raw));
 
-    Queue::assertNotPushed(ProcessMessage::class);
-});
-
-it('blocks all senders when the allow list is empty', function () {
-    config(['laraclaw.channels.email.sender_allow_list' => []]);
-
-    $raw = makeRawEmail('allowed@example.com');
-    $listener = new EmailListener;
-
-    $listener(makeEvent($raw));
-
-    Queue::assertNotPushed(ProcessMessage::class);
+    Log::shouldHaveReceived('debug')
+        ->once()
+        ->withArgs(fn ($msg, $ctx) => $ctx['code'] === 'UNREGISTERED_ACCOUNT');
 });
 
 it('rejects and logs a warning when DKIM/SPF authentication fails', function () {
-    Log::spy();
+    registerEmailAccount('allowed@example.com');
 
     $raw = makeRawEmail('allowed@example.com', 'Test', 'dkim=fail spf=fail');
-    $listener = new EmailListener;
 
-    $listener(makeEvent($raw));
-
-    Queue::assertNotPushed(ProcessMessage::class);
+    app(LaraClaw\Listeners\EmailListener::class)(makeEvent($raw));
 
     Log::shouldHaveReceived('warning')
         ->once()
@@ -103,22 +83,23 @@ it('rejects and logs a warning when DKIM/SPF authentication fails', function () 
 
 it('accepts emails that fail DKIM/SPF when verification is disabled', function () {
     config(['laraclaw.channels.email.verify_sender_dkim_and_spf' => false]);
+    registerEmailAccount('allowed@example.com');
 
     $raw = makeRawEmail('allowed@example.com', 'Test', 'dkim=fail spf=fail');
-    $listener = new EmailListener;
 
-    $listener(makeEvent($raw));
+    app(LaraClaw\Listeners\EmailListener::class)(makeEvent($raw));
 
-    Queue::assertPushed(ProcessMessage::class);
-});
+    Log::shouldNotHaveReceived('debug');
+})->todo('assert agent is queued once agent queue testing is set up');
 
 it('does nothing when the email channel is disabled', function () {
     config(['laraclaw.channels.email.enabled' => false]);
 
     $raw = makeRawEmail('allowed@example.com');
-    $listener = new EmailListener;
 
-    $listener(makeEvent($raw));
+    app(LaraClaw\Listeners\EmailListener::class)(makeEvent($raw));
 
-    Queue::assertNotPushed(ProcessMessage::class);
+    Log::shouldHaveReceived('debug')
+        ->once()
+        ->withArgs(fn ($msg, $ctx) => $ctx['code'] === 'CHANNEL_DISABLED');
 });

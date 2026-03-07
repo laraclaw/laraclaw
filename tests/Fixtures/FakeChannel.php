@@ -4,31 +4,20 @@ namespace LaraClaw\Tests\Fixtures;
 
 use Illuminate\Support\Collection;
 use LaraClaw\Channels\Channel;
-use LaraClaw\Message;
+use LaraClaw\Enums\ChannelType;
+use LaraClaw\Models\Thread;
 
 /**
  * Minimal in-memory channel for testing. Records sent messages for assertion.
  */
 class FakeChannel extends Channel
 {
-    public readonly string $name;
+    public ChannelType $type { get { return ChannelType::Telegram; } }
 
     public array $sent = [];
 
-    public function __construct(string $name = 'telegram')
+    public function reply(?Thread $thread, string $text, ?Collection $attachments = null): void
     {
-        $this->name = $name;
-    }
-
-    public function send(string $message): void
-    {
-        $this->sent[] = $message;
-    }
-
-    public function handleAttachments(Collection $attachments): void {}
-
-    public function intercept(Message $message): bool
-    {
-        return false;
+        $this->sent[] = $text;
     }
 }

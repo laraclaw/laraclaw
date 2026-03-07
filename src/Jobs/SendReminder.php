@@ -8,8 +8,8 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
-use LaraClaw\Channels\ChannelResolver;
 use LaraClaw\Models\Reminder;
+use LaraClaw\Models\Thread;
 use Throwable;
 
 /**
@@ -30,8 +30,8 @@ class SendReminder implements ShouldQueue
      */
     public function handle(): void
     {
-        $channel = ChannelResolver::fromParts($this->reminder->channel, $this->reminder->key);
-        $channel->send($this->reminder->message);
+        $thread = Thread::firstOrCreate(['channel' => $this->reminder->channel, 'key' => $this->reminder->key]);
+        $thread->channel()->reply($thread, $this->reminder->message);
         $this->reminder->update(['sent_at' => now()]);
     }
 

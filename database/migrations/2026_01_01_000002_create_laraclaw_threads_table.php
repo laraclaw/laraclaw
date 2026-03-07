@@ -8,7 +8,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('laraclaw_conversations', function (Blueprint $table) {
+        Schema::create('laraclaw_threads', function (Blueprint $table) {
             $table->id();
             $table->string('channel');
             $table->string('key');
@@ -17,6 +17,7 @@ return new class extends Migration
             // here because agent_conversations belongs to the laravel/ai package, so
             // coupling our migrations to it creates fragile package dependencies.
             $table->uuid('conversation_id')->nullable();
+            $table->boolean('is_direct_message')->default(false);
             $table->string('persona')->nullable();
             $table->timestamps();
 
@@ -26,6 +27,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('laraclaw_conversations');
+        Schema::dropIfExists('laraclaw_threads');
     }
 };

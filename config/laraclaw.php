@@ -14,9 +14,10 @@ return [
         // Disks the bot can access
         'allowed_disks' => array_filter(explode(',', env('LARACLAW_ALLOWED_DISKS', 'local'))),
 
-        // Disk and directory where to store attachments (audios, images, etc.)
+        // Disk and directories where to store attachments (audios, images, etc.)
         'attachments_disk' => env('LARACLAW_ATTACHMENTS_DISK', 'local'),
-        'attachments_path' => env('LARACLAW_ATTACHMENTS_PATH', 'attachments'),
+        'incoming_attachments_path' => env('LARACLAW_INCOMING_ATTACHMENTS_PATH', 'inbound'),
+        'outgoing_attachments_path' => env('LARACLAW_OUTGOING_ATTACHMENTS_PATH', 'outbound'),
     ],
 
     'logging' => [
@@ -28,7 +29,7 @@ return [
 
     'tools' => [
         'tts' => [
-            'enabled' => env('LARACLAW_TTS_ENABLED', false),
+            'enabled' => env('LARACLAW_TTS_ENABLED', true),
             'voice' => env('LARACLAW_TTS_VOICE', 'default-female'),
         ],
 
@@ -88,9 +89,6 @@ return [
         ],
         'email' => [
             'enabled' => env('LARACLAW_EMAIL_ENABLED', false),
-
-            // The bot replies only to email addresses present in this comma-separated list
-            'sender_allow_list' => array_filter(explode(',', env('LARACLAW_EMAIL_SENDER_ALLOW_LIST', ''))),
 
             // By default, the bot rejects emails that fail DKIM or SPF authentication checks
             'verify_sender_dkim_and_spf' => env('LARACLAW_EMAIL_VERIFY_SENDER_DKIM_AND_SPF', true),

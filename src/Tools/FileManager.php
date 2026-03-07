@@ -4,12 +4,11 @@ namespace LaraClaw\Tools;
 
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use LaraClaw\DTOs\Attachment;
-use LaraClaw\Message;
+use LaraClaw\DTOs\IncomingMessage;
+use LaraClaw\Services\Attachments;
 use Laravel\Ai\Tools\Request;
 use Override;
 use Stringable;
@@ -17,18 +16,18 @@ use Stringable;
 /**
  * Agent tool for managing files on Laravel storage disks (list, read, write, move, etc.).
  */
-class Files extends BaseTool
+class FileManager extends BaseTool
 {
     private const MAX_READ_BYTES = 100 * 1024;
 
     protected array $requiresConfirmation = [];
 
-    public function __construct(protected Message $message, private readonly Collection $attachments)
+    public function __construct(protected IncomingMessage $message, private readonly Attachments $attachments)
     {
         $this->requiresConfirmation['delete'] = function (Request $request): string {
             $paths = collect($request['paths'] ?: [$request['path']])->filter();
 
-            return "Delete {$paths->implode(', ')} from disk \"{$request['disk']}\"?";
+            return "Delete {$paths->map(fn ($p): string => "`{$p}`")->implode(', ')} from disk \"{$request['disk']}\"?";
         };
     }
 
@@ -297,7 +296,7 @@ class Files extends BaseTool
             return "File not found: {$path}";
         }
 
-        $this->attachments->push(new Attachment(path: $path, disk: $request['disk']));
+        $this->attachments->outbound($this->message->uuid)->set(basename((string) $path), $storage->get($path));
 
         return "'{$path}' will be attached to your reply.";
     }

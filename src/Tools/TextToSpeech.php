@@ -4,10 +4,8 @@ namespace LaraClaw\Tools;
 
 use Exception;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
-use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
-use LaraClaw\DTOs\Attachment;
+use LaraClaw\DTOs\IncomingMessage;
+use LaraClaw\Services\Attachments;
 use Laravel\Ai\Audio;
 use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Tools\Request;
@@ -18,7 +16,7 @@ use Stringable;
  */
 class TextToSpeech implements Tool
 {
-    public function __construct(private readonly Collection $attachments) {}
+    public function __construct(private readonly IncomingMessage $message, private readonly Attachments $attachments) {}
 
     /**
      * Return the tool description shown to the agent.
@@ -63,17 +61,7 @@ class TextToSpeech implements Tool
 
             $response = $pending->generate();
 
-            $disk = config('laraclaw.filesystem.attachments_disk', 'local');
-            $path = config('laraclaw.filesystem.attachments_path', 'attachments') . '/tts/' . Str::uuid() . '.mp3';
-
-            Storage::disk($disk)->put($path, $response->content());
-
-            $this->attachments->push(new Attachment(
-                path: $path,
-                disk: $disk,
-                mimeType: 'audio/mpeg',
-                filename: 'voice.mp3',
-            ));
+            $this->attachments->outbound($this->message->uuid)->set('voice.mp3', $response->content());
 
             return 'Audio generated. Reply to the user normally — the audio will be attached automatically.';
         } catch (Exception $e) {

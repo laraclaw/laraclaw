@@ -2,6 +2,13 @@
 
 namespace LaraClaw\Enums;
 
+use LaraClaw\Channels\Channel;
+use LaraClaw\Channels\EmailChannel;
+use LaraClaw\Channels\SlackChannel;
+use LaraClaw\Channels\TelegramChannel;
+use LaraClaw\Channels\TerminalChannel;
+use SergiX44\Nutgram\Nutgram;
+
 /**
  * Supported communication channel types.
  */
@@ -11,4 +18,17 @@ enum ChannelType: string
     case Slack = 'slack';
     case Email = 'email';
     case Terminal = 'terminal';
+
+    /**
+     * Instantiate the outbound channel for this type and key.
+     */
+    public function forKey(string $key): Channel
+    {
+        return match ($this) {
+            self::Telegram => new TelegramChannel((int) $key, resolve(Nutgram::class)),
+            self::Slack => SlackChannel::forKey($key),
+            self::Terminal => new TerminalChannel,
+            self::Email => EmailChannel::forKey($key),
+        };
+    }
 }

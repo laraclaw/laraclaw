@@ -1,8 +1,8 @@
 <?php
 
-use LaraClaw\Message;
+use LaraClaw\DTOs\IncomingMessage;
+use LaraClaw\Enums\ChannelType;
 use LaraClaw\Models\Heartbeat;
-use LaraClaw\Tests\Fixtures\FakeChannel;
 use LaraClaw\Tools\HeartbeatManager;
 use Laravel\Ai\Tools\Request;
 
@@ -17,12 +17,11 @@ function heartbeatRequest(array $data): Request
 
 function heartbeatTool(): HeartbeatManager
 {
-    $channel = new FakeChannel;
-    $message = new Message(
-        channel: $channel,
-        conversationKey: 'user-123',
-        conversationIsDirectMessage: true,
+    $message = new IncomingMessage(
         text: 'test',
+        channel: ChannelType::Telegram,
+        key: 'user-123',
+        isDirectMessage: true,
     );
 
     return new HeartbeatManager($message);

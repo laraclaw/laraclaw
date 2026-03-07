@@ -3,7 +3,8 @@
 namespace LaraClaw\Channels\Concerns;
 
 use Illuminate\Support\Facades\Redis;
-use LaraClaw\Message;
+use LaraClaw\DTOs\IncomingMessage;
+use LaraClaw\Models\Thread;
 
 trait ChecksRedisForConfirmations
 {
@@ -16,13 +17,13 @@ trait ChecksRedisForConfirmations
      *
      * Returns true if the message was consumed and should not be processed further.
      */
-    public function intercept(Message $message): bool
+    public function resolvePendingConfirmation(IncomingMessage $message): bool
     {
-        $key = $this->name . ':' . $message->conversationKey;
+        $key = $this->type->value . ':' . $message->key;
 
         // If no confirmation is pending for this conversation, the incoming message
-        // is not a reply to a pending confirm prompt and we should not intercept
-        // it. Returning false signals that the message can proceed as normal.
+        // is not a reply to a pending confirm prompt and we should not intercept it.
+        // Returning false signals that the message can proceed as normal.
         if (! Redis::exists(self::AWAITING_KEY . $key)) {
             return false;
         }
@@ -40,9 +41,9 @@ trait ChecksRedisForConfirmations
     /**
      * Prompt the user for confirmation via Redis and block until a reply arrives.
      */
-    public function confirm(Message $context, string $prompt, int $timeout = 120): bool
+    public function askForConfirmation(IncomingMessage $message, string $prompt, int $timeout = 120): bool
     {
-        $key = $this->name . ':' . $context->conversationKey;
+        $key = $this->type->value . ':' . $message->key;
         $awaitingKey = self::AWAITING_KEY . $key;
         $confirmKey = self::CONFIRM_KEY . $key;
 
@@ -52,8 +53,9 @@ trait ChecksRedisForConfirmations
         // Clear any stale replies
         Redis::del($confirmKey);
 
-        // Prompt the user
-        $this->send("⚠️ {$prompt} Reply 'Yes' to confirm.");
+        // Prompt the user via the thread's outbound channel.
+        $thread = Thread::forMessage($message);
+        $thread->channel()->reply($thread, "⚠️ {$prompt} Reply 'Yes' to confirm.");
 
         // This dedicated connection is declared in the service provider with
         // read_write_timeout = -1, overriding the default Redis socket timeout.
@@ -64,7 +66,11 @@ trait ChecksRedisForConfirmations
             // into the key or $timeout seconds pass, whichever comes first.
             $reply = $connection->blpop($confirmKey, $timeout);
 
-            return $reply && strtolower((string) $reply[1]) === 'yes';
+            // Extract the first non-empty line so email replies with quoted
+            // content below ("On Mar 6, Bot wrote: …") still match.
+            $firstLine = trim(strtok(trim((string) $reply[1]), "\n"));
+
+            return $reply && strtolower($firstLine) === 'yes';
         } finally {
             // Always clean up both keys so they never leak, even if the job is
             // killed, the connection drops, or an exception is thrown while we wait.
