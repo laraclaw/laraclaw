@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Storage;
 use LaraClaw\Channels\Channel;
 use LaraClaw\Channels\Contracts\SupportsConfirmation;
 use LaraClaw\DTOs\IncomingMessage;
+use LaraClaw\Models\UserAccount;
 use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Tools\Request;
 use Stringable;
@@ -152,10 +153,12 @@ abstract class BaseTool implements Tool
     protected function resolveChannel(?string $channelType): array
     {
         if ($channelType) {
-            $account = $this->message->adminAccountForChannel($channelType);
+            $account = UserAccount::where('user_id', config('laraclaw.auth.admin_user_id'))
+                ->where('channel', $channelType)
+                ->first();
 
             if ($account) {
-                return $account;
+                return [$account->channel, $account->account];
             }
         }
 
