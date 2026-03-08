@@ -13,6 +13,8 @@ use LaraClaw\Services\Attachments;
 use Laravel\Ai\Responses\AgentResponse;
 use Throwable;
 
+use function LaraClaw\Support\logAgentUsage;
+
 /**
  * Handles incoming Telegram messages, validates them and queues the agent.
  */
@@ -65,6 +67,7 @@ class TelegramListener
         resolve(ChatBotAgent::class, ['message' => $incomingMessage, 'thread' => $thread])
             ->queue(...$incomingMessage->toAgentInput())
             ->then(function (AgentResponse $response) use ($thread, $incomingMessage, $attachments): void {
+                logAgentUsage('telegram', $response->usage);
                 $thread->update(['conversation_id' => $response->conversationId]);
 
                 $thread->channel()->reply(
