@@ -14,6 +14,7 @@ use Laravel\Ai\Providers\Tools\ProviderTool;
 use Laravel\Ai\Responses\Data\Meta;
 use Laravel\Ai\Responses\StructuredTextResponse;
 use Laravel\Ai\Responses\TextResponse;
+use Override;
 use Prism\Prism\Enums\ToolChoice;
 use Prism\Prism\Exceptions\PrismException as PrismVendorException;
 use Prism\Prism\Providers\Anthropic\Enums\AnthropicCacheType;
@@ -41,6 +42,7 @@ class CachedPrismGateway extends PrismGateway
      * Only applied for the Anthropic provider. Other providers pass through
      * to the parent unchanged.
      */
+    #[Override]
     public function generateText(
         TextProvider $provider,
         string $model,
@@ -51,7 +53,7 @@ class CachedPrismGateway extends PrismGateway
         ?TextGenerationOptions $options = null,
         ?int $timeout = null,
     ): TextResponse {
-        if (! $provider instanceof AnthropicProvider || empty($instructions)) {
+        if (! $provider instanceof AnthropicProvider || in_array($instructions, [null, '', '0'], true)) {
             return parent::generateText($provider, $model, $instructions, $messages, $tools, $schema, $options, $timeout);
         }
 
@@ -59,17 +61,17 @@ class CachedPrismGateway extends PrismGateway
         // so we can attach cache_control to the system prompt ourselves.
         [$request, $structured] = [
             $this->createPrismTextRequest($provider, $model, $schema, $options, $timeout),
-            ! empty($schema),
+            $schema !== null && $schema !== [],
         ];
 
-        $systemMessage = (new SystemMessage($instructions))
+        $systemMessage = new SystemMessage($instructions)
             ->withProviderOptions(['cacheType' => AnthropicCacheType::Ephemeral]);
 
         $request->withSystemPrompt($systemMessage);
 
         if (count($tools) > 0) {
             $this->addTools($request, $tools, $options);
-            $this->addProviderTools($provider, $request, $tools, $options);
+            $this->addProviderTools($provider, $request, $tools);
         }
 
         try {
@@ -105,11 +107,10 @@ class CachedPrismGateway extends PrismGateway
      * Tool definitions are identical across requests but can easily consume
      * 10,000+ input tokens. Caching them drops that cost by 90%.
      */
+    #[Override]
     protected function addTools($request, array $tools, ?TextGenerationOptions $options = null)
     {
-        $prismTools = (new Collection($tools))->map(function ($tool) {
-            return ! $tool instanceof ProviderTool ? $this->createPrismTool($tool) : null;
-        })->filter()->values();
+        $prismTools = new Collection($tools)->map(fn ($tool) => $tool instanceof ProviderTool ? null : $this->createPrismTool($tool))->filter()->values();
 
         // Place the cache breakpoint on the last tool so all tool
         // definitions before it are included in the cached prefix.

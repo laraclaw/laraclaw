@@ -2,9 +2,7 @@
 
 namespace LaraClaw;
 
-use Override;
-use RuntimeException;
-
+use DirectoryTree\ImapEngine\Laravel\Events\MessageReceived;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Events\Dispatcher;
@@ -13,7 +11,6 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
-
 use LaraClaw\Calendar\AppleCalendarDriver;
 use LaraClaw\Calendar\Contracts\CalendarDriver;
 use LaraClaw\Calendar\GoogleCalendarDriver;
@@ -38,12 +35,11 @@ use LaraClaw\Listeners\LogAgentRequest;
 use LaraClaw\Listeners\TelegramListener;
 use LaraClaw\Skills\SkillRegistry;
 use LaraClaw\Tools\ToolRegistry;
-
 use Laravel\Ai\AiManager;
 use Laravel\Ai\Events\AgentPrompted;
 use Laravel\Ai\Providers\AnthropicProvider;
-
-use DirectoryTree\ImapEngine\Laravel\Events\MessageReceived;
+use Override;
+use RuntimeException;
 use Spatie\GoogleCalendar\GoogleCalendar;
 
 /**
@@ -154,7 +150,7 @@ class LaraclawServiceProvider extends ServiceProvider
      */
     private function registerCachedGateway(): void
     {
-        $this->app->scoped(AiManager::class, fn ($app) => new class($app) extends AiManager
+        $this->app->scoped(AiManager::class, fn ($app): AiManager => new class($app) extends AiManager
         {
             public function createAnthropicDriver(array $config): AnthropicProvider
             {
