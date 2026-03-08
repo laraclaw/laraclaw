@@ -42,14 +42,13 @@ class SendHeartbeat implements ShouldQueue
     public function handle(): void
     {
         $isSlackChannel = $this->isSlackChannel();
+        $isDirectMessage = $this->isDirectMessage();
 
         // For Slack channels, strip the threadTs from the key so the reply
         // posts a new top level message instead of replying to the old thread.
         $key = $isSlackChannel
             ? explode(':', $this->heartbeat->key, 2)[0]
             : $this->heartbeat->key;
-
-        $isDirectMessage = ! $isSlackChannel;
 
         $message = new IncomingMessage(
             text: $this->heartbeat->prompt,
@@ -58,12 +57,16 @@ class SendHeartbeat implements ShouldQueue
             isDirectMessage: $isDirectMessage,
         );
 
-        $thread = $isSlackChannel
-            ? $this->freshSlackThread($key)
-            : Thread::firstOrCreate(
-                ['channel' => $this->heartbeat->channel, 'key' => $key],
-                ['is_direct_message' => $isDirectMessage],
-            );
+        $thread = Thread::firstOrCreate(
+            ['channel' => $this->heartbeat->channel, 'key' => $key],
+            ['is_direct_message' => $isDirectMessage],
+        );
+
+        // For Slack channels, clear the conversation so each heartbeat run
+        // starts a fresh agent conversation instead of continuing the last one.
+        if ($isSlackChannel && $thread->conversation_id) {
+            $thread->update(['conversation_id' => null]);
+        }
 
         $agent = resolve(ChatBotAgent::class, ['message' => $message, 'thread' => $thread]);
         $response = $agent->prompt(...$message->toAgentInput());
@@ -118,15 +121,17 @@ class SendHeartbeat implements ShouldQueue
     }
 
     /**
-     * Create a new Thread record for a Slack channel heartbeat so each run
-     * gets its own conversation with the agent.
+     * Determine if this heartbeat targets a direct message conversation.
+     * Email is always a DM. Slack DMs use bare user IDs (no colon). Telegram
+     * DMs have positive chat IDs while groups have negative ones.
      */
-    private function freshSlackThread(string $channelId): Thread
+    private function isDirectMessage(): bool
     {
-        return Thread::create([
-            'channel' => ChannelType::Slack,
-            'key' => $channelId,
-            'is_direct_message' => false,
-        ]);
+        return match ($this->heartbeat->channel) {
+            ChannelType::Email => true,
+            ChannelType::Slack => ! str_contains($this->heartbeat->key, ':'),
+            ChannelType::Telegram => (int) $this->heartbeat->key > 0,
+            default => false,
+        };
     }
 }
