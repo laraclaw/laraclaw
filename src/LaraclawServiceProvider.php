@@ -2,14 +2,18 @@
 
 namespace LaraClaw;
 
-use DirectoryTree\ImapEngine\Laravel\Events\MessageReceived;
+use Override;
+use RuntimeException;
+
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+
 use LaraClaw\Calendar\AppleCalendarDriver;
 use LaraClaw\Calendar\Contracts\CalendarDriver;
 use LaraClaw\Calendar\GoogleCalendarDriver;
@@ -27,15 +31,19 @@ use LaraClaw\Console\Commands\SetupChannel;
 use LaraClaw\Console\Commands\SetupFiles;
 use LaraClaw\Console\Commands\SetupWizard;
 use LaraClaw\Events\TelegramMessageReceived;
+use LaraClaw\Gateway\Prism\CachedPrismGateway;
 use LaraClaw\Http\Middleware\VerifySlackSignature;
 use LaraClaw\Listeners\EmailListener;
 use LaraClaw\Listeners\LogAgentRequest;
 use LaraClaw\Listeners\TelegramListener;
 use LaraClaw\Skills\SkillRegistry;
 use LaraClaw\Tools\ToolRegistry;
+
+use Laravel\Ai\AiManager;
 use Laravel\Ai\Events\AgentPrompted;
-use Override;
-use RuntimeException;
+use Laravel\Ai\Providers\AnthropicProvider;
+
+use DirectoryTree\ImapEngine\Laravel\Events\MessageReceived;
 use Spatie\GoogleCalendar\GoogleCalendar;
 
 /**
@@ -63,6 +71,8 @@ class LaraclawServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $this->registerCachedGateway();
+
         if (! $this->app->runningInConsole()) {
             $this->validateConfiguration();
         }
@@ -132,6 +142,29 @@ class LaraclawServiceProvider extends ServiceProvider
                 'LaraClaw: LARACLAW_SLACK_SIGNING_SECRET must be set when the Slack channel is enabled.'
             );
         }
+    }
+
+    /**
+     * Override the Anthropic driver in AiManager to use CachedPrismGateway.
+     *
+     * Laravel AI hardcodes `new PrismGateway` inside each driver factory method,
+     * so the only way to swap in our caching gateway is to re-register AiManager
+     * with the Anthropic driver overridden. Other providers are unaffected because
+     * prompt caching with cache_control is an Anthropic specific feature.
+     */
+    private function registerCachedGateway(): void
+    {
+        $this->app->scoped(AiManager::class, fn ($app) => new class($app) extends AiManager
+        {
+            public function createAnthropicDriver(array $config): AnthropicProvider
+            {
+                return new AnthropicProvider(
+                    new CachedPrismGateway($this->app['events']),
+                    $config,
+                    $this->app->make(Dispatcher::class),
+                );
+            }
+        });
     }
 
     /**
