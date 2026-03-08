@@ -170,10 +170,8 @@ class LaraclawServiceProvider extends ServiceProvider
      */
     private function configureTelegramChannel(): void
     {
-        $this->app->booting(function (): void {
-            config()->set('nutgram.token', config('laraclaw.channels.telegram.token'));
-            config()->set('nutgram.config.timeout', 120);
-        });
+        config()->set('nutgram.token', config('laraclaw.channels.telegram.token'));
+        config()->set('nutgram.config.timeout', 120);
 
         $this->app->resolving(Nutgram::class, function (Nutgram $bot): void {
             $bot->onMessage(fn (Nutgram $bot) => event(new TelegramMessageReceived($bot->message(), $bot)));

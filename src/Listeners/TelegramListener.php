@@ -2,6 +2,7 @@
 
 namespace LaraClaw\Listeners;
 
+use Illuminate\Encryption\Encrypter;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Laravel\SerializableClosure\SerializableClosure;
@@ -65,10 +66,7 @@ class TelegramListener
         // Nutgram overrides the SerializableClosure signing key with the bot token
         // in its constructor. Restore the app key so queued closures are signed
         // with the same key the queue worker uses.
-        $appKey = config('app.key');
-        SerializableClosure::setSecretKey(
-            str_starts_with($appKey, 'base64:') ? base64_decode(substr($appKey, 7)) : $appKey
-        );
+        SerializableClosure::setSecretKey(Encrypter::parseKey(config('app.key')));
 
         // Queue the agent response, on callback deliver the reply via Telegram
         resolve(ChatBotAgent::class, ['message' => $incomingMessage, 'thread' => $thread])
