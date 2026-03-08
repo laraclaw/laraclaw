@@ -2,8 +2,6 @@
 
 use LaraClaw\Commands\Command;
 use LaraClaw\Commands\CommandRegistry;
-use LaraClaw\DTOs\IncomingMessage;
-use LaraClaw\Models\Thread;
 
 it('matches a registered command case-insensitively', function () {
     $registry = new CommandRegistry;
