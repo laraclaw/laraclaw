@@ -31,4 +31,17 @@ enum ChannelType: string
             self::Email => EmailChannel::forKey($key),
         };
     }
+
+    /**
+     * Check if the given key represents a direct message for this channel type.
+     */
+    public function isDirectMessage(string $key): bool
+    {
+        return match ($this) {
+            self::Telegram => TelegramChannel::isDirectMessage($key),
+            self::Slack => SlackChannel::isDirectMessage($key),
+            self::Email => EmailChannel::isDirectMessage($key),
+            self::Terminal => TerminalChannel::isDirectMessage($key),
+        };
+    }
 }

@@ -36,16 +36,26 @@ class SendHeartbeat implements ShouldQueue
      * Build an incoming message from the heartbeat prompt, run it through the agent,
      * and deliver the response via the channel.
      *
-     * For DMs and Telegram groups the heartbeat continues the user's existing conversation.
-     * For Slack channels each run starts a fresh thread so the channel is not cluttered.
+     * Conversation behavior depends on the channel:
+     *
+     * DMs (Slack, Telegram, Email) and Telegram groups:
+     *   Continue the user's existing conversation so the agent has full context
+     *   of prior interactions. The Thread row is reused and conversation_id is
+     *   persisted after each run.
+     *
+     * Slack channels (non DM):
+     *   Each run posts a new top level message and starts a fresh agent
+     *   conversation. The threadTs is stripped from the key so the reply does
+     *   not land inside the old Slack thread, and conversation_id is nulled in
+     *   memory without writing it back so no state carries over between runs.
      */
     public function handle(): void
     {
         $isSlackChannel = $this->isSlackChannel();
-        $isDirectMessage = $this->isDirectMessage();
+        $isDirectMessage = $this->heartbeat->channel->isDirectMessage($this->heartbeat->key);
 
-        // For Slack channels, strip the threadTs from the key so the reply
-        // posts a new top level message instead of replying to the old thread.
+        // Slack channel keys are stored as "channelId:threadTs". Strip the
+        // threadTs so the channel posts a new top level message each time.
         $key = $isSlackChannel
             ? explode(':', $this->heartbeat->key, 2)[0]
             : $this->heartbeat->key;
@@ -57,22 +67,30 @@ class SendHeartbeat implements ShouldQueue
             isDirectMessage: $isDirectMessage,
         );
 
+        // For DMs and groups this finds the existing thread so the agent can
+        // continue its conversation. For Slack channels the thread row is
+        // reused but conversation_id is cleared below.
         $thread = Thread::firstOrCreate(
             ['channel' => $this->heartbeat->channel, 'key' => $key],
             ['is_direct_message' => $isDirectMessage],
         );
 
-        // For Slack channels, clear the conversation so each heartbeat run
-        // starts a fresh agent conversation instead of continuing the last one.
-        if ($isSlackChannel && $thread->conversation_id) {
-            $thread->update(['conversation_id' => null]);
+        // Null the conversation in memory so the agent starts fresh. We
+        // deliberately do not persist this; see the note after prompt().
+        if ($isSlackChannel) {
+            $thread->conversation_id = null;
         }
 
         $agent = resolve(ChatBotAgent::class, ['message' => $message, 'thread' => $thread]);
         $response = $agent->prompt(...$message->toAgentInput());
 
-        $thread->update(['conversation_id' => $response->conversationId]);
+        // Persist conversation_id only for channels that benefit from
+        // continuity. Slack channels discard it so the next run starts clean.
+        if (! $isSlackChannel) {
+            $thread->update(['conversation_id' => $response->conversationId]);
+        }
 
+        // Collect any files the agent wrote during tool use.
         $outboundPath = config('laraclaw.filesystem.outgoing_attachments_path', 'outbound') . '/' . $message->uuid;
         $disk = config('laraclaw.filesystem.attachments_disk', 'local');
         $attachments = collect(Storage::disk($disk)->files($outboundPath))
@@ -120,18 +138,4 @@ class SendHeartbeat implements ShouldQueue
             && str_contains($this->heartbeat->key, ':');
     }
 
-    /**
-     * Determine if this heartbeat targets a direct message conversation.
-     * Email is always a DM. Slack DMs use bare user IDs (no colon). Telegram
-     * DMs have positive chat IDs while groups have negative ones.
-     */
-    private function isDirectMessage(): bool
-    {
-        return match ($this->heartbeat->channel) {
-            ChannelType::Email => true,
-            ChannelType::Slack => ! str_contains($this->heartbeat->key, ':'),
-            ChannelType::Telegram => (int) $this->heartbeat->key > 0,
-            default => false,
-        };
-    }
 }

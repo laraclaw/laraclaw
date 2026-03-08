@@ -36,6 +36,14 @@ class TerminalChannel extends Channel implements SupportsConfirmation
     }
 
     /**
+     * Terminal sessions are always direct messages.
+     */
+    public static function isDirectMessage(string $key): bool
+    {
+        return true;
+    }
+
+    /**
      * Render the response to the terminal with ANSI formatting.
      */
     public function reply(?Thread $thread, string $text, ?Collection $attachments = null)

@@ -20,4 +20,9 @@ class FakeChannel extends Channel
     {
         $this->sent[] = $text;
     }
+
+    public static function isDirectMessage(string $key): bool
+    {
+        return true;
+    }
 }

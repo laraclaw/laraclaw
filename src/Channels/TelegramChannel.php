@@ -103,6 +103,14 @@ class TelegramChannel extends Channel implements SupportsConfirmation
     }
 
     /**
+     * Positive chat IDs are DMs, negative are groups.
+     */
+    public static function isDirectMessage(string $key): bool
+    {
+        return (int) $key > 0;
+    }
+
+    /**
      * Return true if the message has no photo, audio, voice, video, or document.
      */
     private static function hasNoMedia(TelegramMessage $message): bool

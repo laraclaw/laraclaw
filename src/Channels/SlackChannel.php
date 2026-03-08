@@ -124,6 +124,15 @@ class SlackChannel extends Channel implements SupportsConfirmation
     }
 
     /**
+     * Bare keys (no colon) are user IDs for DMs. Keys with a colon are
+     * channel:threadTs pairs from public channels.
+     */
+    public static function isDirectMessage(string $key): bool
+    {
+        return ! str_contains($key, ':');
+    }
+
+    /**
      * Parse a thread key into channelId and threadTs on this instance.
      * Keys with ':' are channel:threadTs pairs; bare keys are user IDs for DMs.
      */
