@@ -9,7 +9,7 @@ use LaraClaw\Tables;
 use Override;
 
 /**
- * Eloquent model representing a recurring message that fires on a cron schedule.
+ * Eloquent model representing a recurring prompt that fires on a cron schedule.
  */
 class Heartbeat extends Model
 {
@@ -19,7 +19,7 @@ class Heartbeat extends Model
         'user_id',
         'channel',
         'key',
-        'message',
+        'prompt',
         'cron',
         'is_active',
         'last_run_at',

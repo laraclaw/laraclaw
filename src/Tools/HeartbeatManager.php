@@ -18,8 +18,9 @@ class HeartbeatManager extends BaseTool
      */
     public function description(): Stringable|string
     {
-        return 'Manage recurring scheduled messages (heartbeats). Operations: create, list, cancel. '
-            . 'Use create to schedule a recurring message on a cron schedule. '
+        return 'Manage recurring scheduled prompts (heartbeats). Operations: create, list, cancel. '
+            . 'Use create to schedule a recurring prompt on a cron schedule. '
+            . 'Each time the heartbeat fires, the prompt is sent to the agent for processing and the response is delivered. '
             . 'The cron field accepts standard 5-field cron expressions (e.g. "0 9 * * 1" for every Monday at 9am). '
             . 'Translate human-friendly schedules ("every weekday at 9am") into cron format using the current timezone. '
             . 'Use list to see active heartbeats. '
@@ -34,7 +35,7 @@ class HeartbeatManager extends BaseTool
         return [
             'operation' => $schema->string()->required()->description('Operation: create, list, or cancel'),
             'id' => $schema->string()->description('Heartbeat ID (required for cancel)'),
-            'message' => $schema->string()->description('Message to send on each occurrence (required for create)'),
+            'prompt' => $schema->string()->description('Prompt for the agent to process on each occurrence (required for create)'),
             'cron' => $schema->string()->description('5-field cron expression, e.g. "0 9 * * 1" (required for create)'),
             'channel' => $schema->string()->description('Channel type to send on: telegram, slack, or email. Defaults to the current channel.'),
         ];
@@ -49,15 +50,15 @@ class HeartbeatManager extends BaseTool
     }
 
     /**
-     * Validate the cron expression and message, then persist a new active Heartbeat record.
+     * Validate the cron expression and prompt, then persist a new active Heartbeat record.
      */
     protected function create(Request $request): string
     {
-        $message = $request['message'] ?? null;
+        $prompt = $request['prompt'] ?? null;
         $cron = $request['cron'] ?? null;
 
-        if (! $message) {
-            return 'The "message" parameter is required for create.';
+        if (! $prompt) {
+            return 'The "prompt" parameter is required for create.';
         }
         if (! $cron) {
             return 'The "cron" parameter is required for create.';
@@ -73,12 +74,12 @@ class HeartbeatManager extends BaseTool
             'user_id' => config('laraclaw.auth.admin_user_id'),
             'channel' => $channel,
             'key' => $key,
-            'message' => $message,
+            'prompt' => $prompt,
             'cron' => $cron,
             'is_active' => true,
         ]);
 
-        return "Heartbeat created with cron \"{$cron}\": {$message}";
+        return "Heartbeat created with cron \"{$cron}\": {$prompt}";
     }
 
     /**
@@ -89,7 +90,7 @@ class HeartbeatManager extends BaseTool
         $heartbeats = Heartbeat::where('user_id', config('laraclaw.auth.admin_user_id'))
             ->where('is_active', true)
             ->orderBy('id')
-            ->get(['id', 'channel', 'key', 'message', 'cron', 'last_run_at']);
+            ->get(['id', 'channel', 'key', 'prompt', 'cron', 'last_run_at']);
 
         if ($heartbeats->isEmpty()) {
             return 'No active heartbeats.';

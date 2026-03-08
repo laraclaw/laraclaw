@@ -13,7 +13,7 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->string('channel');
             $table->string('key');
-            $table->text('message');
+            $table->text('prompt');
 
             // Stores a 5-field cron expression that controls when the heartbeat message
             // fires. Accepts standard cron syntax, e.g. "0 9 * * 1" for every Monday
