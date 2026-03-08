@@ -7,7 +7,7 @@ use LaraClaw\Channels\EmailChannel;
 use LaraClaw\Channels\SlackChannel;
 use LaraClaw\Channels\TelegramChannel;
 use LaraClaw\Channels\TerminalChannel;
-use SergiX44\Nutgram\Nutgram;
+use Telegram\Bot\Api;
 
 /**
  * Supported communication channel types.
@@ -25,7 +25,7 @@ enum ChannelType: string
     public function forKey(string $key): Channel
     {
         return match ($this) {
-            self::Telegram => new TelegramChannel((int) $key, resolve(Nutgram::class)),
+            self::Telegram => new TelegramChannel((int) $key, resolve(Api::class)),
             self::Slack => SlackChannel::forKey($key),
             self::Terminal => new TerminalChannel,
             self::Email => EmailChannel::forKey($key),

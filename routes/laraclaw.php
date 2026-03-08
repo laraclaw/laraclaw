@@ -1,12 +1,19 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use LaraClaw\Events\TelegramMessageReceived;
 use LaraClaw\Http\Controllers\SlackController;
-use SergiX44\Nutgram\Nutgram;
+use Telegram\Bot\Api;
 
 if (config('laraclaw.channels.telegram.enabled')) {
-    Route::post('telegram/webhook', fn (Nutgram $bot) => $bot->run())
-        ->middleware('throttle:laraclaw-telegram');
+    Route::post('telegram/webhook', function (Api $bot) {
+        $update = $bot->getWebhookUpdate();
+        $message = $update->getMessage();
+
+        if ($message) {
+            event(new TelegramMessageReceived($message, $bot));
+        }
+    })->middleware('throttle:laraclaw-telegram');
 }
 
 if (config('laraclaw.channels.slack.enabled')) {

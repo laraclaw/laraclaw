@@ -4,7 +4,6 @@ namespace LaraClaw\Listeners;
 
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
-use Laravel\SerializableClosure\SerializableClosure;
 use LaraClaw\Agents\ChatBotAgent;
 use LaraClaw\Channels\TelegramChannel;
 use LaraClaw\Commands\CommandRegistry;
@@ -40,7 +39,7 @@ class TelegramListener
             return;
         }
 
-        $channel = new TelegramChannel($raw->chat->id, $event->bot);
+        $channel = new TelegramChannel($raw->getChat()->getId(), $event->bot);
         $incomingMessage = TelegramChannel::createIncomingMessageFrom($raw, $event->bot, $this->attachments);
         $thread = Thread::forMessage($incomingMessage);
 
@@ -61,14 +60,6 @@ class TelegramListener
 
         // We need a reference to pass to the callback
         $attachments = $this->attachments;
-
-        // Nutgram overrides the SerializableClosure signing key with the bot token
-        // in its constructor. Restore the app key so queued closures are signed
-        // with the same key the queue worker uses.
-        $appKey = config('app.key');
-        SerializableClosure::setSecretKey(
-            str_starts_with($appKey, 'base64:') ? base64_decode(substr($appKey, 7)) : $appKey
-        );
 
         // Queue the agent response, on callback deliver the reply via Telegram
         resolve(ChatBotAgent::class, ['message' => $incomingMessage, 'thread' => $thread])

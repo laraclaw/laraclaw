@@ -36,7 +36,6 @@ use LaraClaw\Tools\ToolRegistry;
 use Laravel\Ai\Events\AgentPrompted;
 use Override;
 use RuntimeException;
-use SergiX44\Nutgram\Nutgram;
 use Spatie\GoogleCalendar\GoogleCalendar;
 
 /**
@@ -166,17 +165,15 @@ class LaraclawServiceProvider extends ServiceProvider
     }
 
     /**
-     * Push the Telegram token into the Nutgram config and wire up the message event.
+     * Push the Telegram token into the telegram-bot-sdk config.
      */
     private function configureTelegramChannel(): void
     {
         $this->app->booting(function (): void {
-            config()->set('nutgram.token', config('laraclaw.channels.telegram.token'));
-            config()->set('nutgram.config.timeout', 120);
-        });
-
-        $this->app->resolving(Nutgram::class, function (Nutgram $bot): void {
-            $bot->onMessage(fn (Nutgram $bot) => event(new TelegramMessageReceived($bot->message(), $bot)));
+            config()->set('telegram.bots.laraclaw', [
+                'token' => config('laraclaw.channels.telegram.token'),
+            ]);
+            config()->set('telegram.default', 'laraclaw');
         });
     }
 
