@@ -12,8 +12,8 @@ use LaraClaw\Agents\ChatBotAgent;
 use LaraClaw\DTOs\IncomingMessage;
 use LaraClaw\Enums\ChannelType;
 use LaraClaw\Models\Heartbeat;
-use LaraClaw\Services\Attachments;
 use LaraClaw\Models\Thread;
+use LaraClaw\Services\Attachments;
 use Throwable;
 
 use function LaraClaw\Support\logAgentUsage;
@@ -122,5 +122,4 @@ class SendHeartbeat implements ShouldQueue
         return $this->heartbeat->channel === ChannelType::Slack
             && str_contains($this->heartbeat->key, ':');
     }
-
 }
