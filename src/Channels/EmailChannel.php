@@ -144,6 +144,14 @@ class EmailChannel extends Channel implements SupportsConfirmation
     }
 
     /**
+     * Email conversations are always direct messages.
+     */
+    public static function isDirectMessage(string $key): bool
+    {
+        return true;
+    }
+
+    /**
      * Return true if both DKIM and SPF pass in the Authentication-Results header.
      */
     private static function passesAuthCheck(MessageInterface $message): bool

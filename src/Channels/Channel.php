@@ -21,4 +21,8 @@ abstract class Channel
      */
     abstract public function reply(?Thread $thread, string $text, ?Collection $attachments = null);
 
+    /**
+     * Determine if the given key represents a direct message conversation.
+     */
+    abstract public static function isDirectMessage(string $key): bool;
 }

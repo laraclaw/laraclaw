@@ -17,7 +17,7 @@ it('dispatches SendHeartbeat immediately when last_run_at is null', function () 
         'user_id' => $this->user->id,
         'channel' => 'telegram',
         'key' => 'user-123',
-        'message' => 'Good morning!',
+        'prompt' => 'Good morning!',
         'cron' => '0 9 * * *',
         'is_active' => true,
         'last_run_at' => null,
@@ -36,7 +36,7 @@ it('dispatches SendHeartbeat when the next scheduled time has passed', function 
         'user_id' => $this->user->id,
         'channel' => 'telegram',
         'key' => 'user-123',
-        'message' => 'Weekly check-in',
+        'prompt' => 'Weekly check-in',
         'cron' => '0 9 * * 1',  // Every Monday at 9am
         'is_active' => true,
         'last_run_at' => Carbon::create(2024, 1, 1, 9, 0, 0),  // Previous Monday at 9am
@@ -55,7 +55,7 @@ it('does not dispatch when the next scheduled time has not yet passed', function
         'user_id' => $this->user->id,
         'channel' => 'telegram',
         'key' => 'user-123',
-        'message' => 'Daily digest',
+        'prompt' => 'Daily digest',
         'cron' => '0 9 * * *',  // Every day at 9am
         'is_active' => true,
         'last_run_at' => Carbon::create(2024, 1, 7, 9, 0, 0),  // Yesterday at 9am; next run is today at 9am
@@ -71,7 +71,7 @@ it('does not dispatch for inactive heartbeats', function () {
         'user_id' => $this->user->id,
         'channel' => 'telegram',
         'key' => 'user-123',
-        'message' => 'Disabled',
+        'prompt' => 'Disabled',
         'cron' => '* * * * *',
         'is_active' => false,
         'last_run_at' => null,
@@ -87,7 +87,7 @@ it('only dispatches active heartbeats when mixed with inactive ones', function (
         'user_id' => $this->user->id,
         'channel' => 'telegram',
         'key' => 'user-123',
-        'message' => 'Active',
+        'prompt' => 'Active',
         'cron' => '* * * * *',
         'is_active' => true,
         'last_run_at' => null,
@@ -97,7 +97,7 @@ it('only dispatches active heartbeats when mixed with inactive ones', function (
         'user_id' => $this->user->id,
         'channel' => 'telegram',
         'key' => 'user-456',
-        'message' => 'Inactive',
+        'prompt' => 'Inactive',
         'cron' => '* * * * *',
         'is_active' => false,
         'last_run_at' => null,
