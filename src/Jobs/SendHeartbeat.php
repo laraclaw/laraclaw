@@ -90,18 +90,13 @@ class SendHeartbeat implements ShouldQueue
         }
 
         // Collect any files the agent wrote during tool use.
-        $outbound = resolve(Attachments::class)->outbound($message->uuid);
-        $files = $outbound->getAll();
+        $attachments = resolve(Attachments::class)->outbound($message->uuid)->getAll();
 
-        try {
-            $thread->channel()->reply(
-                thread: $thread,
-                text: $response->text,
-                attachments: $files->isNotEmpty() ? $files : null,
-            );
-        } finally {
-            $outbound->deleteAll();
-        }
+        $thread->channel()->reply(
+            thread: $thread,
+            text: $response->text,
+            attachments: $attachments->isNotEmpty() ? $attachments : null,
+        );
 
         logAgentUsage('heartbeat', $response->usage);
         $this->heartbeat->update(['last_run_at' => now()]);

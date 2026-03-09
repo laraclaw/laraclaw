@@ -65,14 +65,6 @@ class Attachments
             ));
     }
 
-    /**
-     * Delete the entire directory for the current scope.
-     */
-    public function deleteAll(): void
-    {
-        Storage::disk($this->disk())->deleteDirectory("{$this->base}/{$this->uuid}");
-    }
-
     private function disk(): string
     {
         return config('laraclaw.filesystem.attachments_disk', 'local');
