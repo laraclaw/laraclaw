@@ -60,4 +60,5 @@ it('returns a note when code produces no output', function () {
     $decoded = json_decode($result, true);
 
     expect($decoded['exit_code'])->toBe(0);
+    expect($decoded['note'])->toContain('no output');
 })->skip(fn () => ! tinkerAvailable(), 'Tinker command not registered');
