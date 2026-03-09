@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Support\Facades\Artisan;
 use LaraClaw\Tools\Tinker;
 use Laravel\Ai\Tools\Request;
 
@@ -12,6 +13,11 @@ function tinkerRequest(array $data): Request
     return $mock;
 }
 
+function tinkerAvailable(): bool
+{
+    return collect(Artisan::all())->has('tinker');
+}
+
 it('evaluates simple PHP code and returns output', function () {
     $result = (new Tinker)->handle(tinkerRequest([
         'code' => 'echo "hello world";',
@@ -21,7 +27,7 @@ it('evaluates simple PHP code and returns output', function () {
 
     expect($decoded['exit_code'])->toBe(0);
     expect($decoded['output'])->toContain('hello world');
-});
+})->skip(fn () => ! tinkerAvailable(), 'Tinker command not registered');
 
 it('can access Laravel helpers', function () {
     $result = (new Tinker)->handle(tinkerRequest([
@@ -32,7 +38,7 @@ it('can access Laravel helpers', function () {
 
     expect($decoded['exit_code'])->toBe(0);
     expect($decoded['output'])->not->toBeEmpty();
-});
+})->skip(fn () => ! tinkerAvailable(), 'Tinker command not registered');
 
 it('returns an error when code is empty', function () {
     $result = (new Tinker)->handle(tinkerRequest(['code' => '']));
@@ -54,4 +60,4 @@ it('returns a note when code produces no output', function () {
     $decoded = json_decode($result, true);
 
     expect($decoded['exit_code'])->toBe(0);
-});
+})->skip(fn () => ! tinkerAvailable(), 'Tinker command not registered');
