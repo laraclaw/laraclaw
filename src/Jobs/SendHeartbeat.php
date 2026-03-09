@@ -8,12 +8,11 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 use LaraClaw\Agents\ChatBotAgent;
-use LaraClaw\DTOs\Attachment;
 use LaraClaw\DTOs\IncomingMessage;
 use LaraClaw\Enums\ChannelType;
 use LaraClaw\Models\Heartbeat;
+use LaraClaw\Services\Attachments;
 use LaraClaw\Models\Thread;
 use Throwable;
 
@@ -91,24 +90,17 @@ class SendHeartbeat implements ShouldQueue
         }
 
         // Collect any files the agent wrote during tool use.
-        $outboundPath = config('laraclaw.filesystem.outgoing_attachments_path', 'outbound') . '/' . $message->uuid;
-        $disk = config('laraclaw.filesystem.attachments_disk', 'local');
-        $attachments = collect(Storage::disk($disk)->files($outboundPath))
-            ->map(fn (string $path): Attachment => new Attachment(
-                filename: basename($path),
-                path: $path,
-                disk: $disk,
-                mimeType: Storage::disk($disk)->mimeType($path) ?: 'application/octet-stream',
-            ));
+        $outbound = resolve(Attachments::class)->outbound($message->uuid);
+        $files = $outbound->getAll();
 
-        $thread->channel()->reply(
-            thread: $thread,
-            text: $response->text,
-            attachments: $attachments->isNotEmpty() ? $attachments : null,
-        );
-
-        if ($attachments->isNotEmpty()) {
-            Storage::disk($disk)->deleteDirectory($outboundPath);
+        try {
+            $thread->channel()->reply(
+                thread: $thread,
+                text: $response->text,
+                attachments: $files->isNotEmpty() ? $files : null,
+            );
+        } finally {
+            $outbound->deleteAll();
         }
 
         logAgentUsage('heartbeat', $response->usage);
