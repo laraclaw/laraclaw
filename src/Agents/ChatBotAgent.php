@@ -17,6 +17,7 @@ use LaraClaw\Tools\ImageManager;
 use LaraClaw\Tools\Persona;
 use LaraClaw\Tools\ReminderManager;
 use LaraClaw\Tools\TextToSpeech;
+use LaraClaw\Tools\Tinker;
 use LaraClaw\Tools\ToolRegistry;
 use LaraClaw\Tools\UseSkill;
 use LaraClaw\Tools\WebRequest;
@@ -92,6 +93,10 @@ class ChatBotAgent implements Agent, Conversational, HasMiddleware, HasTools
 
         if (config('laraclaw.tools.bash.enabled')) {
             $tools[] = new Bash;
+        }
+
+        if (config('laraclaw.tools.tinker.enabled')) {
+            $tools[] = new Tinker;
         }
 
         if ($this->calendarDriver) {

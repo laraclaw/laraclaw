@@ -42,6 +42,10 @@ return [
             'enabled' => env('LARACLAW_BASH_ENABLED', false),
         ],
 
+        'tinker' => [
+            'enabled' => env('LARACLAW_TINKER_ENABLED', false),
+        ],
+
         'calendar_manager' => [
             // Driver to use for calendar processing ('google' or 'apple', null for disabling calendar support)
             'driver' => env('LARACLAW_CALENDAR_DRIVER'),
