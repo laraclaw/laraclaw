@@ -83,22 +83,20 @@ class SendHeartbeat implements ShouldQueue
         $agent = resolve(ChatBotAgent::class, ['message' => $message, 'thread' => $thread]);
         $response = $agent->prompt(...$message->toAgentInput());
 
+        logAgentUsage('heartbeat', $response->usage);
+
         // Persist conversation_id only for channels that benefit from
         // continuity. Slack channels discard it so the next run starts clean.
         if (! $isSlackChannel) {
             $thread->update(['conversation_id' => $response->conversationId]);
         }
 
-        // Collect any files the agent wrote during tool use.
-        $attachments = resolve(Attachments::class)->outbound($message->uuid)->getAll();
-
         $thread->channel()->reply(
             thread: $thread,
             text: $response->text,
-            attachments: $attachments->isNotEmpty() ? $attachments : null,
+            attachments: resolve(Attachments::class)->outbound($message->uuid)->getAll(),
         );
 
-        logAgentUsage('heartbeat', $response->usage);
         $this->heartbeat->update(['last_run_at' => now()]);
     }
 
