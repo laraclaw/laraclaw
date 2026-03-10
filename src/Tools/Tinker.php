@@ -44,7 +44,7 @@ class Tinker implements Tool
 
         $buffer = new BufferedOutput;
         $exitCode = Artisan::call('tinker', ['--execute' => $code], new OutputStyle(new ArrayInput([]), $buffer));
-        $output = trim($buffer->fetch());
+        $output = rtrim($buffer->fetch(), "\n");
 
         if (strlen($output) > self::MAX_OUTPUT_BYTES) {
             $output = substr($output, 0, self::MAX_OUTPUT_BYTES) . "\n\n[Truncated: output exceeds 100KB]";
