@@ -65,6 +65,14 @@ class ApiChannel extends Channel
     }
 
     /**
+     * API conversations are always direct messages.
+     */
+    public static function isDirectMessage(string $key): bool
+    {
+        return true;
+    }
+
+    /**
      * Build an ApiChannel instance for outbound replies.
      */
     public static function forKey(string $key): self
