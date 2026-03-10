@@ -36,9 +36,10 @@ LaraClaw has a single owner — one user who controls the bot. All channels rout
 | Slack DM | Owner only | No | Per user |
 | Slack channel | Anyone (@mentioned) | Always threads | Per thread |
 | Email | Owner only | — | Per email thread |
+| API | Any Sanctum user | Via `key` param | Per key |
 | Terminal | Owner | — | Per session |
 
-**DM channels** (Telegram DM, Slack DM, Email) ignore anyone who isn't registered as the owner. **Group/open channels** always respond using the owner user.
+**DM channels** (Telegram DM, Slack DM, Email) ignore anyone who isn't registered as the owner. **Group/open channels** always respond using the owner user. The **API channel** authenticates via Laravel Sanctum and is open to any user with a valid token.
 
 ### Telegram
 
@@ -63,6 +64,44 @@ https://your-app.com/slack/webhook
 ```
 
 Subscribe to `message.channels` and `message.im`.
+
+### API
+
+The API channel exposes a Sanctum-authenticated endpoint for programmatic access. Enable it in your `.env`:
+
+```env
+LARACLAW_API_ENABLED=true
+```
+
+Requires [Laravel Sanctum](https://laravel.com/docs/sanctum). Send a `POST` request with a Bearer token:
+
+```bash
+curl -X POST https://your-app.com/api/message \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Hello"}'
+```
+
+**Request parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `text` | string | Yes (unless attachments sent) | The message text |
+| `key` | string | No | Pass a key from a previous response to continue that conversation. Omit to start a new one. |
+| `attachments` | file[] | No | Uploaded files |
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "text": "Agent reply here",
+  "key": "550e8400-e29b-41d4-a716-446655440000",
+  "attachments": []
+}
+```
+
+Pass the returned `key` in your next request to continue the conversation.
 
 ### Email
 
