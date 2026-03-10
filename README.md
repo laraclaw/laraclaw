@@ -67,13 +67,13 @@ Subscribe to `message.channels` and `message.im`.
 
 ### API
 
-The API channel exposes a token authenticated endpoint for programmatic access. Run the setup wizard or configure it directly:
+The API channel exposes a token authenticated endpoint for programmatic access. Run the setup wizard or the standalone channel command to generate a token:
 
-```env
-LARACLAW_API_ENABLED=true
+```bash
+php artisan laraclaw:setup-channel api
 ```
 
-The setup wizard generates a token for you. Send a `POST` request with your Bearer token:
+Send a `POST` request with the Bearer token from setup:
 
 ```bash
 curl -X POST https://your-app.com/api/message \

@@ -37,18 +37,19 @@ class SetupChannel extends Command
             return self::FAILURE;
         }
 
-        if (! in_array($channel, ['telegram', 'slack', 'email', 'api'])) {
+        $handled = match ($channel) {
+            'telegram' => $this->setupTelegram($user) ?? true,
+            'slack' => $this->setupSlack($user) ?? true,
+            'email' => $this->setupEmail($user) ?? true,
+            'api' => $this->setupApi($user) ?? true,
+            default => false,
+        };
+
+        if (! $handled) {
             $this->error("Unknown channel '{$channel}'. Valid options: telegram, slack, email, api.");
 
             return self::FAILURE;
         }
-
-        match ($channel) {
-            'telegram' => $this->setupTelegram($user),
-            'slack' => $this->setupSlack($user),
-            'email' => $this->setupEmail($user),
-            'api' => $this->setupApi($user),
-        };
 
         return self::SUCCESS;
     }
