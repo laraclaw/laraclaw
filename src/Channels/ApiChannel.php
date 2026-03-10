@@ -51,8 +51,8 @@ class ApiChannel extends Channel
 
         return collect($files)
             ->map(function (UploadedFile $file) use ($attachments, $disk): Attachment {
-                $filename = $file->getClientOriginalName();
-                $path = $attachments->set($filename, $file->get());
+                $filename = basename($file->getClientOriginalName());
+                $path = $attachments->putFile($filename, $file);
 
                 return new Attachment(
                     path: $path,

@@ -2,6 +2,7 @@
 
 namespace LaraClaw\Services;
 
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use LaraClaw\DTOs\Attachment;
@@ -39,6 +40,17 @@ class Attachments
         Storage::disk($this->disk())->put($path, $content);
 
         return $path;
+    }
+
+    /**
+     * Stream an uploaded file to storage and return its full path.
+     */
+    public function putFile(string $filename, UploadedFile $file): string
+    {
+        $directory = "{$this->base}/{$this->uuid}";
+        Storage::disk($this->disk())->putFileAs($directory, $file, $filename);
+
+        return "{$directory}/{$filename}";
     }
 
     /**

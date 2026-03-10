@@ -119,7 +119,7 @@ class LaraclawServiceProvider extends ServiceProvider
         });
 
         RateLimiter::for('laraclaw-api', function (Request $request) use ($perMinute) {
-            return Limit::perMinute($perMinute)->by('api:' . ($request->user()?->id ?? 'unknown'));
+            return Limit::perMinute($perMinute)->by('api:' . ($request->user()?->getAuthIdentifier() ?? 'unknown'));
         });
     }
 
