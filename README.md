@@ -36,10 +36,10 @@ LaraClaw has a single owner — one user who controls the bot. All channels rout
 | Slack DM | Owner only | No | Per user |
 | Slack channel | Anyone (@mentioned) | Always threads | Per thread |
 | Email | Owner only | — | Per email thread |
-| API | Any Sanctum user | Via `key` param | Per key |
+| API | Any token holder | Via `key` param | Per key |
 | Terminal | Owner | — | Per session |
 
-**DM channels** (Telegram DM, Slack DM, Email) ignore anyone who isn't registered as the owner. **Group/open channels** always respond using the owner user. The **API channel** authenticates via Laravel Sanctum and is open to any user with a valid token.
+**DM channels** (Telegram DM, Slack DM, Email) ignore anyone who isn't registered as the owner. **Group/open channels** always respond using the owner user. The **API channel** authenticates via a hashed Bearer token and is open to any user with a valid token.
 
 ### Telegram
 
@@ -67,13 +67,13 @@ Subscribe to `message.channels` and `message.im`.
 
 ### API
 
-The API channel exposes a Sanctum-authenticated endpoint for programmatic access. Enable it in your `.env`:
+The API channel exposes a token authenticated endpoint for programmatic access. Run the setup wizard or configure it directly:
 
 ```env
 LARACLAW_API_ENABLED=true
 ```
 
-Requires [Laravel Sanctum](https://laravel.com/docs/sanctum). Send a `POST` request with a Bearer token:
+The setup wizard generates a token for you. Send a `POST` request with your Bearer token:
 
 ```bash
 curl -X POST https://your-app.com/api/message \

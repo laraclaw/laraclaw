@@ -29,6 +29,7 @@ use LaraClaw\Console\Commands\SetupFiles;
 use LaraClaw\Console\Commands\SetupWizard;
 use LaraClaw\Events\TelegramMessageReceived;
 use LaraClaw\Gateway\Prism\CachedPrismGateway;
+use LaraClaw\Http\Middleware\VerifyApiToken;
 use LaraClaw\Http\Middleware\VerifySlackSignature;
 use LaraClaw\Listeners\EmailListener;
 use LaraClaw\Listeners\LogAgentRequest;
@@ -79,6 +80,7 @@ class LaraclawServiceProvider extends ServiceProvider
         $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
 
         $this->app['router']->aliasMiddleware('slack.signature', VerifySlackSignature::class);
+        $this->app['router']->aliasMiddleware('laraclaw.api', VerifyApiToken::class);
 
         $this->publishes([
             __DIR__ . '/../config/laraclaw.php' => config_path('laraclaw.php'),
@@ -140,12 +142,6 @@ class LaraclawServiceProvider extends ServiceProvider
         if (config('laraclaw.channels.slack.enabled') && empty(config('laraclaw.channels.slack.signing_secret'))) {
             throw new RuntimeException(
                 'LaraClaw: LARACLAW_SLACK_SIGNING_SECRET must be set when the Slack channel is enabled.'
-            );
-        }
-
-        if (config('laraclaw.channels.api.enabled') && ! class_exists(\Laravel\Sanctum\Sanctum::class)) {
-            throw new RuntimeException(
-                'LaraClaw: Laravel Sanctum must be installed when the API channel is enabled. Run: composer require laravel/sanctum'
             );
         }
     }

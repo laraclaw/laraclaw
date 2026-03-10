@@ -24,5 +24,5 @@ if (config('laraclaw.channels.slack.enabled')) {
 
 if (config('laraclaw.channels.api.enabled')) {
     Route::post('api/message', ApiController::class)
-        ->middleware(['auth:sanctum', 'throttle:laraclaw-api']);
+        ->middleware(['laraclaw.api', 'throttle:laraclaw-api']);
 }
