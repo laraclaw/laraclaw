@@ -56,7 +56,7 @@ it('validates that text or attachments must be present', function () {
     $response->assertJsonValidationErrors('text');
 });
 
-it('accepts a text message and returns the agent response', function () {
+it('accepts a text message and returns the agent response with a key', function () {
     $user = authenticatedUser();
     mockAgent('Agent reply', 'conv-abc');
 
@@ -66,8 +66,8 @@ it('accepts a text message and returns the agent response', function () {
     $response->assertJson([
         'success' => true,
         'text' => 'Agent reply',
-        'conversation_id' => 'conv-abc',
     ]);
+    expect($response->json('key'))->toBeString()->not->toBeEmpty();
 });
 
 it('creates a user account record for the authenticated user', function () {
@@ -95,28 +95,42 @@ it('does not duplicate the user account on subsequent requests', function () {
     )->toBe(1);
 });
 
-it('creates a thread record for the message', function () {
+it('creates a new thread for each request without a key', function () {
     $user = authenticatedUser();
     mockAgent();
 
-    $this->actingAs($user)->postJson('/api/message', ['text' => 'Hello']);
+    $first = $this->actingAs($user)->postJson('/api/message', ['text' => 'Hello']);
+    $second = $this->actingAs($user)->postJson('/api/message', ['text' => 'Hi again']);
 
-    expect(Thread::where('channel', ChannelType::Api)
-        ->where('key', (string) $user->getAuthIdentifier())
-        ->exists()
-    )->toBeTrue();
+    expect($first->json('key'))->not->toBe($second->json('key'));
+    expect(Thread::where('channel', ChannelType::Api)->count())->toBe(2);
+});
+
+it('continues an existing thread when key is provided', function () {
+    $user = authenticatedUser();
+    mockAgent();
+
+    $first = $this->actingAs($user)->postJson('/api/message', ['text' => 'Hello']);
+    $key = $first->json('key');
+
+    $second = $this->actingAs($user)->postJson('/api/message', [
+        'text' => 'Follow up',
+        'key' => $key,
+    ]);
+
+    $second->assertOk();
+    expect($second->json('key'))->toBe($key);
+    expect(Thread::where('channel', ChannelType::Api)->count())->toBe(1);
 });
 
 it('stores the conversation id on the thread', function () {
     $user = authenticatedUser();
     mockAgent('Reply', 'conv-xyz');
 
-    $this->actingAs($user)->postJson('/api/message', ['text' => 'Hello']);
+    $response = $this->actingAs($user)->postJson('/api/message', ['text' => 'Hello']);
+    $key = $response->json('key');
 
-    $thread = Thread::where('channel', ChannelType::Api)
-        ->where('key', (string) $user->getAuthIdentifier())
-        ->first();
-
+    $thread = Thread::where('channel', ChannelType::Api)->where('key', $key)->first();
     expect($thread->conversation_id)->toBe('conv-xyz');
 });
 
@@ -171,7 +185,7 @@ it('accepts file attachments', function () {
     $response->assertJsonStructure([
         'success',
         'text',
-        'conversation_id',
+        'key',
         'attachments',
     ]);
 });

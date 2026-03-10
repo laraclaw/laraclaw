@@ -2,19 +2,20 @@
 
 namespace LaraClaw\Http\Controllers;
 
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Str;
 use LaraClaw\Agents\ChatBotAgent;
 use LaraClaw\Channels\ApiChannel;
 use LaraClaw\Commands\CommandRegistry;
 use LaraClaw\DTOs\Attachment;
+use LaraClaw\Enums\ChannelType;
 use LaraClaw\Models\Thread;
 use LaraClaw\Models\UserAccount;
-use LaraClaw\Enums\ChannelType;
 use LaraClaw\Services\Attachments;
-
-use function LaraClaw\Support\logAgentUsage;
+use Laravel\Ai\Responses\AgentResponse;
 
 /**
  * Handle incoming API requests authenticated via Sanctum.
@@ -26,24 +27,27 @@ class ApiController extends Controller
         private readonly CommandRegistry $commands,
     ) {}
 
+    /**
+     * Validate the request, resolve the thread, prompt the agent and return its response.
+     */
     public function __invoke(Request $request): JsonResponse
     {
         $request->validate([
             'text' => ['required_without:attachments', 'nullable', 'string'],
+            'key' => ['nullable', 'string'],
             'attachments' => ['nullable', 'array'],
             'attachments.*' => ['file'],
         ]);
 
         $user = $request->user();
+        $key = $request->input('key', (string) Str::uuid());
 
-        UserAccount::firstOrCreate(
-            ['channel' => ChannelType::Api, 'account' => $user->getAuthIdentifier()],
-            ['user_id' => $user->getAuthIdentifier()],
-        );
+        // Register the Sanctum user so Thread::user() can resolve the owner
+        $this->ensureUserAccount($user);
 
         $incomingMessage = ApiChannel::createIncomingMessageFrom(
             text: $request->input('text'),
-            userId: $user->getAuthIdentifier(),
+            key: $key,
             files: $request->file('attachments', []),
             attachments: $this->attachments,
         );
@@ -57,19 +61,36 @@ class ApiController extends Controller
             return response()->json(['success' => true]);
         }
 
+        // Prompt the agent synchronously and return the response inline
         $agent = resolve(ChatBotAgent::class, ['message' => $incomingMessage, 'thread' => $thread]);
         $response = $agent->prompt(...$incomingMessage->toAgentInput());
 
-        logAgentUsage('api', $response->usage);
         $thread->update(['conversation_id' => $response->conversationId]);
 
-        $outboundAttachments = $this->attachments->outbound($incomingMessage->uuid)->getAll();
+        return $this->buildResponse($response, $thread, $incomingMessage->uuid);
+    }
 
+    /**
+     * Ensure a UserAccount row exists so Thread::user() can resolve the owner.
+     */
+    private function ensureUserAccount(Authenticatable $user): void
+    {
+        UserAccount::firstOrCreate(
+            ['channel' => ChannelType::Api, 'account' => $user->getAuthIdentifier()],
+            ['user_id' => $user->getAuthIdentifier()],
+        );
+    }
+
+    /**
+     * Build the JSON response with the agent reply and any outbound attachments.
+     */
+    private function buildResponse(AgentResponse $response, Thread $thread, string $uuid): JsonResponse
+    {
         return response()->json([
             'success' => true,
             'text' => $response->text,
-            'conversation_id' => $response->conversationId,
-            'attachments' => $outboundAttachments
+            'key' => $thread->key,
+            'attachments' => $this->attachments->outbound($uuid)->getAll()
                 ->map(fn (Attachment $a) => [
                     'filename' => $a->filename,
                     'mime_type' => $a->mimeType,

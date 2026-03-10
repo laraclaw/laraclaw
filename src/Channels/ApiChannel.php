@@ -23,7 +23,7 @@ class ApiChannel extends Channel
      */
     public static function createIncomingMessageFrom(
         ?string $text,
-        int|string $userId,
+        string $key,
         array $files,
         Attachments $attachments,
     ): IncomingMessage {
@@ -32,7 +32,7 @@ class ApiChannel extends Channel
         return new IncomingMessage(
             text: $text,
             channel: ChannelType::Api,
-            key: (string) $userId,
+            key: $key,
             isDirectMessage: true,
             attachments: self::saveAttachments($files, $attachments->inbound($uuid)),
             uuid: $uuid,
