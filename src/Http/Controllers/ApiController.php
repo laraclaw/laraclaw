@@ -54,7 +54,7 @@ class ApiController extends Controller
         if ($command = $this->commands->match($incomingMessage->text ?? '')) {
             $command->handle($incomingMessage, $thread);
 
-            return response()->json(['success' => true, 'text' => null]);
+            return response()->json(['success' => true]);
         }
 
         $agent = resolve(ChatBotAgent::class, ['message' => $incomingMessage, 'thread' => $thread]);
