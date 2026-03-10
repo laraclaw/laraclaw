@@ -38,6 +38,7 @@ class SetupWizard extends Command
         }
 
         $this->selectTools();
+        $this->selectSuperpowers();
         $this->finish($channels);
 
         return self::SUCCESS;
@@ -103,6 +104,35 @@ class SetupWizard extends Command
         if (in_array('calendar', $tools)) {
             $this->call('laraclaw:setup-calendar');
         }
+    }
+
+    private function selectSuperpowers(): void
+    {
+        $this->heading('⚡ Superpowers');
+
+        $powers = implode(PHP_EOL, [
+            '  🎛️  Execute Bash commands',
+            '  📟  Use Tinker to interact with your Laravel app',
+        ]);
+        info('With superpowers, I can:' . PHP_EOL . PHP_EOL . $powers);
+        info('However, granting an agent the power to execute these commands could in some cases result in unintended negative consequences.');
+
+        $defaults = collect([
+            'bash' => $this->readEnv('LARACLAW_BASH_ENABLED') === 'true',
+            'tinker' => $this->readEnv('LARACLAW_TINKER_ENABLED') === 'true',
+        ])->filter()->keys()->all();
+
+        $selected = multiselect(
+            label: '⚡ Which superpowers do you want to enable?',
+            options: ['bash' => 'Bash', 'tinker' => 'Tinker'],
+            default: $defaults,
+            required: false,
+        );
+
+        $this->saveEnv([
+            'LARACLAW_BASH_ENABLED' => in_array('bash', $selected) ? 'true' : 'false',
+            'LARACLAW_TINKER_ENABLED' => in_array('tinker', $selected) ? 'true' : 'false',
+        ]);
     }
 
     private function finish(array $channels): void
