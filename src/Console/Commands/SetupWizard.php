@@ -52,6 +52,7 @@ class SetupWizard extends Command
             '  - Telegram: a Telegram bot',
             '  - Slack: a Slack bot',
             '  - Email: SMTP and IMAP details',
+            '  - API: a REST endpoint with a Bearer token',
         ]);
         info('I can receive your messages from multiple channels.');
         info('This is what we need to configure each:' . PHP_EOL . PHP_EOL . $texts);
@@ -60,11 +61,12 @@ class SetupWizard extends Command
             'telegram' => $this->readEnv('LARACLAW_TELEGRAM_TOKEN'),
             'slack' => $this->readEnv('LARACLAW_SLACK_BOT_TOKEN'),
             'email' => $this->readEnv('LARACLAW_SMTP_HOST'),
+            'api' => $this->readEnv('LARACLAW_API_ENABLED') === 'true',
         ])->filter()->keys()->all();
 
         return multiselect(
             label: '📫 Which channels would you like to set up?',
-            options: ['telegram' => 'Telegram', 'slack' => 'Slack', 'email' => 'Email'],
+            options: ['telegram' => 'Telegram', 'slack' => 'Slack', 'email' => 'Email', 'api' => 'API'],
             default: $defaults,
             required: false,
         );
@@ -139,15 +141,16 @@ class SetupWizard extends Command
     {
         $appUrl = config('app.url', 'https://your-app.com');
 
-        $webhooks = collect([
+        $steps = collect([
             'telegram' => "  - Telegram: set your webhook URL to {$appUrl}/telegram/webhook",
             'slack' => "  - Slack: set your event subscription URL to {$appUrl}/slack/webhook",
+            'api' => "  - API: send POST requests to {$appUrl}/api/message",
         ])->only($channels)->values()->implode(PHP_EOL);
 
         $message = 'Setup complete!';
 
-        if ($webhooks) {
-            $message .= PHP_EOL . PHP_EOL . 'Next steps:' . PHP_EOL . $webhooks;
+        if ($steps) {
+            $message .= PHP_EOL . PHP_EOL . 'Next steps:' . PHP_EOL . $steps;
         }
 
         info($message);

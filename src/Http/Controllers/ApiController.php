@@ -2,7 +2,6 @@
 
 namespace LaraClaw\Http\Controllers;
 
-use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -11,14 +10,12 @@ use LaraClaw\Agents\ChatBotAgent;
 use LaraClaw\Channels\ApiChannel;
 use LaraClaw\Commands\CommandRegistry;
 use LaraClaw\DTOs\Attachment;
-use LaraClaw\Enums\ChannelType;
 use LaraClaw\Models\Thread;
-use LaraClaw\Models\UserAccount;
 use LaraClaw\Services\Attachments;
 use Laravel\Ai\Responses\AgentResponse;
 
 /**
- * Handle incoming API requests authenticated via Sanctum.
+ * Handle incoming API requests authenticated via a hashed Bearer token.
  */
 class ApiController extends Controller
 {
@@ -39,11 +36,7 @@ class ApiController extends Controller
             'attachments.*' => ['file'],
         ]);
 
-        $user = $request->user();
         $key = $request->input('key', (string) Str::uuid());
-
-        // Register the Sanctum user so Thread::user() can resolve the owner
-        $this->ensureUserAccount($user);
 
         $incomingMessage = ApiChannel::createIncomingMessageFrom(
             text: $request->input('text'),
@@ -68,17 +61,6 @@ class ApiController extends Controller
         $thread->update(['conversation_id' => $response->conversationId]);
 
         return $this->buildResponse($response, $thread, $incomingMessage->uuid);
-    }
-
-    /**
-     * Ensure a UserAccount row exists so Thread::user() can resolve the owner.
-     */
-    private function ensureUserAccount(Authenticatable $user): void
-    {
-        UserAccount::firstOrCreate(
-            ['channel' => ChannelType::Api, 'account' => $user->getAuthIdentifier()],
-            ['user_id' => $user->getAuthIdentifier()],
-        );
     }
 
     /**

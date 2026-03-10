@@ -9,16 +9,33 @@ use LaraClaw\Commands\CommandRegistry;
 use LaraClaw\DTOs\IncomingMessage;
 use LaraClaw\Enums\ChannelType;
 use LaraClaw\Http\Controllers\ApiController;
+use LaraClaw\Http\Middleware\VerifyApiToken;
 use LaraClaw\Models\Thread;
 use LaraClaw\Models\UserAccount;
-use LaraClaw\Services\Attachments;
 use Laravel\Ai\Responses\AgentResponse;
 use Laravel\Ai\Responses\Data\Meta;
 use Laravel\Ai\Responses\Data\Usage;
 
+function apiToken(): string
+{
+    return 'test-api-token-for-laraclaw';
+}
+
+function apiHeaders(): array
+{
+    return ['Authorization' => 'Bearer ' . apiToken()];
+}
+
 function authenticatedUser(): \Illuminate\Foundation\Auth\User
 {
-    return test()->createUser();
+    $user = test()->createUser();
+
+    UserAccount::updateOrCreate(
+        ['user_id' => $user->getAuthIdentifier(), 'channel' => ChannelType::Api],
+        ['account' => hash('sha256', apiToken())],
+    );
+
+    return $user;
 }
 
 function mockAgent(string $text = 'Hello from agent', ?string $conversationId = 'conv-123'): void
@@ -35,10 +52,8 @@ function mockAgent(string $text = 'Hello from agent', ?string $conversationId = 
 beforeEach(function () {
     Storage::fake(config('laraclaw.filesystem.attachments_disk', 'local'));
 
-    // Register the API route with the web auth guard since Sanctum is not
-    // available in the package test environment. The real route uses auth:sanctum.
     Route::post('api/message', ApiController::class)
-        ->middleware(['auth']);
+        ->middleware([VerifyApiToken::class]);
 });
 
 it('requires authentication', function () {
@@ -47,20 +62,30 @@ it('requires authentication', function () {
     $response->assertUnauthorized();
 });
 
-it('validates that text or attachments must be present', function () {
-    $user = authenticatedUser();
+it('rejects an invalid token', function () {
+    authenticatedUser();
 
-    $response = $this->actingAs($user)->postJson('/api/message', []);
+    $response = $this->postJson('/api/message', ['text' => 'hello'], [
+        'Authorization' => 'Bearer wrong-token',
+    ]);
+
+    $response->assertUnauthorized();
+});
+
+it('validates that text or attachments must be present', function () {
+    authenticatedUser();
+
+    $response = $this->postJson('/api/message', [], apiHeaders());
 
     $response->assertUnprocessable();
     $response->assertJsonValidationErrors('text');
 });
 
 it('accepts a text message and returns the agent response with a key', function () {
-    $user = authenticatedUser();
+    authenticatedUser();
     mockAgent('Agent reply', 'conv-abc');
 
-    $response = $this->actingAs($user)->postJson('/api/message', ['text' => 'Hello']);
+    $response = $this->postJson('/api/message', ['text' => 'Hello'], apiHeaders());
 
     $response->assertOk();
     $response->assertJson([
@@ -70,53 +95,28 @@ it('accepts a text message and returns the agent response with a key', function 
     expect($response->json('key'))->toBeString()->not->toBeEmpty();
 });
 
-it('creates a user account record for the authenticated user', function () {
-    $user = authenticatedUser();
-    mockAgent();
-
-    $this->actingAs($user)->postJson('/api/message', ['text' => 'Hi']);
-
-    expect(UserAccount::where('channel', ChannelType::Api)
-        ->where('account', $user->getAuthIdentifier())
-        ->exists()
-    )->toBeTrue();
-});
-
-it('does not duplicate the user account on subsequent requests', function () {
-    $user = authenticatedUser();
-    mockAgent();
-
-    $this->actingAs($user)->postJson('/api/message', ['text' => 'First']);
-    $this->actingAs($user)->postJson('/api/message', ['text' => 'Second']);
-
-    expect(UserAccount::where('channel', ChannelType::Api)
-        ->where('account', $user->getAuthIdentifier())
-        ->count()
-    )->toBe(1);
-});
-
 it('creates a new thread for each request without a key', function () {
-    $user = authenticatedUser();
+    authenticatedUser();
     mockAgent();
 
-    $first = $this->actingAs($user)->postJson('/api/message', ['text' => 'Hello']);
-    $second = $this->actingAs($user)->postJson('/api/message', ['text' => 'Hi again']);
+    $first = $this->postJson('/api/message', ['text' => 'Hello'], apiHeaders());
+    $second = $this->postJson('/api/message', ['text' => 'Hi again'], apiHeaders());
 
     expect($first->json('key'))->not->toBe($second->json('key'));
     expect(Thread::where('channel', ChannelType::Api)->count())->toBe(2);
 });
 
 it('continues an existing thread when key is provided', function () {
-    $user = authenticatedUser();
+    authenticatedUser();
     mockAgent();
 
-    $first = $this->actingAs($user)->postJson('/api/message', ['text' => 'Hello']);
+    $first = $this->postJson('/api/message', ['text' => 'Hello'], apiHeaders());
     $key = $first->json('key');
 
-    $second = $this->actingAs($user)->postJson('/api/message', [
+    $second = $this->postJson('/api/message', [
         'text' => 'Follow up',
         'key' => $key,
-    ]);
+    ], apiHeaders());
 
     $second->assertOk();
     expect($second->json('key'))->toBe($key);
@@ -124,10 +124,10 @@ it('continues an existing thread when key is provided', function () {
 });
 
 it('stores the conversation id on the thread', function () {
-    $user = authenticatedUser();
+    authenticatedUser();
     mockAgent('Reply', 'conv-xyz');
 
-    $response = $this->actingAs($user)->postJson('/api/message', ['text' => 'Hello']);
+    $response = $this->postJson('/api/message', ['text' => 'Hello'], apiHeaders());
     $key = $response->json('key');
 
     $thread = Thread::where('channel', ChannelType::Api)->where('key', $key)->first();
@@ -135,7 +135,7 @@ it('stores the conversation id on the thread', function () {
 });
 
 it('handles commands and returns success without text', function () {
-    $user = authenticatedUser();
+    authenticatedUser();
 
     $command = Mockery::mock(Command::class);
     $command->allows('trigger')->andReturn('!test');
@@ -146,14 +146,14 @@ it('handles commands and returns success without text', function () {
 
     app(CommandRegistry::class)->register($command);
 
-    $response = $this->actingAs($user)->postJson('/api/message', ['text' => '!test']);
+    $response = $this->postJson('/api/message', ['text' => '!test'], apiHeaders());
 
     $response->assertOk();
     $response->assertExactJson(['success' => true]);
 });
 
 it('does not call the agent when a command matches', function () {
-    $user = authenticatedUser();
+    authenticatedUser();
 
     $command = Mockery::mock(Command::class);
     $command->allows('trigger')->andReturn('!reset');
@@ -165,21 +165,21 @@ it('does not call the agent when a command matches', function () {
     $agent->shouldNotReceive('prompt');
     app()->bind(ChatBotAgent::class, fn () => $agent);
 
-    $response = $this->actingAs($user)->postJson('/api/message', ['text' => '!reset']);
+    $response = $this->postJson('/api/message', ['text' => '!reset'], apiHeaders());
 
     $response->assertOk();
 });
 
 it('accepts file attachments', function () {
-    $user = authenticatedUser();
+    authenticatedUser();
     mockAgent();
 
     $file = UploadedFile::fake()->image('photo.jpg');
 
-    $response = $this->actingAs($user)->postJson('/api/message', [
+    $response = $this->postJson('/api/message', [
         'text' => 'See this image',
         'attachments' => [$file],
-    ]);
+    ], apiHeaders());
 
     $response->assertOk();
     $response->assertJsonStructure([
@@ -191,28 +191,28 @@ it('accepts file attachments', function () {
 });
 
 it('accepts attachments without text', function () {
-    $user = authenticatedUser();
+    authenticatedUser();
     mockAgent();
 
     $file = UploadedFile::fake()->create('document.pdf', 100);
 
-    $response = $this->actingAs($user)->postJson('/api/message', [
+    $response = $this->postJson('/api/message', [
         'attachments' => [$file],
-    ]);
+    ], apiHeaders());
 
     $response->assertOk();
 });
 
 it('saves uploaded files to inbound storage', function () {
-    $user = authenticatedUser();
+    authenticatedUser();
     mockAgent();
 
     $file = UploadedFile::fake()->image('photo.jpg');
 
-    $this->actingAs($user)->postJson('/api/message', [
+    $this->postJson('/api/message', [
         'text' => 'Check this',
         'attachments' => [$file],
-    ]);
+    ], apiHeaders());
 
     $disk = config('laraclaw.filesystem.attachments_disk', 'local');
     $inboundPath = config('laraclaw.filesystem.incoming_attachments_path', 'inbound');
@@ -223,15 +223,15 @@ it('saves uploaded files to inbound storage', function () {
 });
 
 it('sanitizes uploaded filenames with path traversal attempts', function () {
-    $user = authenticatedUser();
+    authenticatedUser();
     mockAgent();
 
     $file = UploadedFile::fake()->create('../../etc/passwd', 10);
 
-    $this->actingAs($user)->postJson('/api/message', [
+    $this->postJson('/api/message', [
         'text' => 'malicious',
         'attachments' => [$file],
-    ]);
+    ], apiHeaders());
 
     $disk = config('laraclaw.filesystem.attachments_disk', 'local');
     $inboundPath = config('laraclaw.filesystem.incoming_attachments_path', 'inbound');
@@ -245,7 +245,7 @@ it('sanitizes uploaded filenames with path traversal attempts', function () {
 });
 
 it('returns outbound attachments in the response', function () {
-    $user = authenticatedUser();
+    authenticatedUser();
 
     $response = new AgentResponse('inv-1', 'Here is your file', new Usage, new Meta);
     $response->conversationId = 'conv-1';
@@ -277,10 +277,10 @@ it('returns outbound attachments in the response', function () {
 
     $file = UploadedFile::fake()->create('input.txt', 10);
 
-    $result = $this->actingAs($user)->postJson('/api/message', [
+    $result = $this->postJson('/api/message', [
         'text' => 'Process this',
         'attachments' => [$file],
-    ]);
+    ], apiHeaders());
 
     $result->assertOk();
     $result->assertJsonCount(1, 'attachments');

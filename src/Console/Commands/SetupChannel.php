@@ -4,7 +4,9 @@ namespace LaraClaw\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use LaraClaw\Console\Concerns\ConfiguresEnv;
+use LaraClaw\Enums\ChannelType;
 use LaraClaw\Models\UserAccount;
 
 use function Laravel\Prompts\confirm;
@@ -12,13 +14,13 @@ use function Laravel\Prompts\info;
 use function Laravel\Prompts\text;
 
 /**
- * Configure a single LaraClaw channel: telegram, slack, or email.
+ * Configure a single LaraClaw channel: telegram, slack, email, or api.
  */
 class SetupChannel extends Command
 {
     use ConfiguresEnv;
 
-    protected $signature = 'laraclaw:setup-channel {channel : The channel to configure (telegram, slack, email)}';
+    protected $signature = 'laraclaw:setup-channel {channel : The channel to configure (telegram, slack, email, api)}';
 
     protected $description = 'Configure a LaraClaw channel';
 
@@ -35,12 +37,19 @@ class SetupChannel extends Command
             return self::FAILURE;
         }
 
-        match ($channel) {
-            'telegram' => $this->setupTelegram($user),
-            'slack' => $this->setupSlack($user),
-            'email' => $this->setupEmail($user),
-            default => $this->error("Unknown channel '{$channel}'. Valid options: telegram, slack, email."),
+        $handled = match ($channel) {
+            'telegram' => $this->setupTelegram($user) ?? true,
+            'slack' => $this->setupSlack($user) ?? true,
+            'email' => $this->setupEmail($user) ?? true,
+            'api' => $this->setupApi($user) ?? true,
+            default => false,
         };
+
+        if (! $handled) {
+            $this->error("Unknown channel '{$channel}'. Valid options: telegram, slack, email, api.");
+
+            return self::FAILURE;
+        }
 
         return self::SUCCESS;
     }
@@ -127,6 +136,29 @@ class SetupChannel extends Command
             'channel' => 'email',
             'account' => $email,
         ]));
+    }
+
+    private function setupApi(mixed $user): void
+    {
+        $this->heading('✨ API');
+
+        $existing = UserAccount::where('user_id', $user->getAuthIdentifier())
+            ->where('channel', ChannelType::Api)
+            ->exists();
+
+        if (! $existing || confirm('An API token already exists. Generate a new one? This will replace the current token.', default: false)) {
+            $plaintext = Str::random(64);
+
+            UserAccount::updateOrCreate(
+                ['user_id' => $user->getAuthIdentifier(), 'channel' => ChannelType::Api],
+                ['account' => hash('sha256', $plaintext)],
+            );
+
+            info('Your API token (save this somewhere safe, it will not be shown again):');
+            info($plaintext);
+        }
+
+        $this->saveEnv(['LARACLAW_API_ENABLED' => 'true']);
     }
 
     /**
