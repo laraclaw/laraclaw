@@ -117,6 +117,10 @@ class LaraclawServiceProvider extends ServiceProvider
 
             return Limit::perMinute($perMinute)->by('telegram:' . $chatId);
         });
+
+        RateLimiter::for('laraclaw-api', function (Request $request) use ($perMinute) {
+            return Limit::perMinute($perMinute)->by('api:' . ($request->user()?->getAuthIdentifier() ?? 'unknown'));
+        });
     }
 
     /**
@@ -136,6 +140,12 @@ class LaraclawServiceProvider extends ServiceProvider
         if (config('laraclaw.channels.slack.enabled') && empty(config('laraclaw.channels.slack.signing_secret'))) {
             throw new RuntimeException(
                 'LaraClaw: LARACLAW_SLACK_SIGNING_SECRET must be set when the Slack channel is enabled.'
+            );
+        }
+
+        if (config('laraclaw.channels.api.enabled') && ! class_exists(\Laravel\Sanctum\Sanctum::class)) {
+            throw new RuntimeException(
+                'LaraClaw: Laravel Sanctum must be installed when the API channel is enabled. Run: composer require laravel/sanctum'
             );
         }
     }

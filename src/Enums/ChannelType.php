@@ -2,6 +2,7 @@
 
 namespace LaraClaw\Enums;
 
+use LaraClaw\Channels\ApiChannel;
 use LaraClaw\Channels\Channel;
 use LaraClaw\Channels\EmailChannel;
 use LaraClaw\Channels\SlackChannel;
@@ -18,6 +19,7 @@ enum ChannelType: string
     case Slack = 'slack';
     case Email = 'email';
     case Terminal = 'terminal';
+    case Api = 'api';
 
     /**
      * Instantiate the outbound channel for this type and key.
@@ -29,6 +31,7 @@ enum ChannelType: string
             self::Slack => SlackChannel::forKey($key),
             self::Terminal => new TerminalChannel,
             self::Email => EmailChannel::forKey($key),
+            self::Api => ApiChannel::forKey($key),
         };
     }
 

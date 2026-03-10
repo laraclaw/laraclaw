@@ -118,5 +118,8 @@ return [
                 'mailbox' => env('LARACLAW_IMAP_MAILBOX', 'default'),
             ],
         ],
+        'api' => [
+            'enabled' => env('LARACLAW_API_ENABLED', false),
+        ],
     ],
 ];
