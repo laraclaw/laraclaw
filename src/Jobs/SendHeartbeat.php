@@ -16,8 +16,6 @@ use LaraClaw\Models\Thread;
 use LaraClaw\Services\Attachments;
 use Throwable;
 
-use function LaraClaw\Support\logAgentUsage;
-
 /**
  * Queued job that sends a heartbeat prompt to the agent and delivers its response.
  */
@@ -82,8 +80,6 @@ class SendHeartbeat implements ShouldQueue
 
         $agent = resolve(ChatBotAgent::class, ['message' => $message, 'thread' => $thread]);
         $response = $agent->prompt(...$message->toAgentInput());
-
-        logAgentUsage('heartbeat', $response->usage);
 
         // Persist conversation_id only for channels that benefit from
         // continuity. Slack channels discard it so the next run starts clean.

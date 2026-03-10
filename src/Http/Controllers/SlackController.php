@@ -15,8 +15,6 @@ use LaraClaw\Services\Attachments;
 use Laravel\Ai\Responses\AgentResponse;
 use Throwable;
 
-use function LaraClaw\Support\logAgentUsage;
-
 /**
  * Handles incoming Slack event webhook requests.
  */
@@ -74,7 +72,6 @@ class SlackController extends Controller
         resolve(ChatBotAgent::class, ['message' => $incomingMessage, 'thread' => $thread])
             ->queue(...$incomingMessage->toAgentInput())
             ->then(function (AgentResponse $response) use ($thread, $incomingMessage, $attachments): void {
-                logAgentUsage('slack', $response->usage);
                 $thread->update(['conversation_id' => $response->conversationId]);
 
                 $thread->channel()->reply(

@@ -3,22 +3,58 @@
 namespace LaraClaw\Listeners;
 
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
 use Laravel\Ai\Events\AgentPrompted;
+use Laravel\Ai\Responses\Data\Usage;
 
 /**
- * Logs AI agent prompts and responses to disk when agent request logging is enabled.
+ * Log token usage and cost, and optionally write full request/response payloads to disk.
  */
 class LogAgentRequest
 {
     /**
-     * Write the prompt and response payloads to JSON files, one pair per agent invocation.
+     * Log token usage and, when enabled, write request/response payloads to disk.
      */
     public function handle(AgentPrompted $event): void
     {
-        if (! config('laraclaw.logging.agent_requests')) {
-            return;
-        }
+        $this->logUsage($event->response->usage);
 
+        if (config('laraclaw.logging.agent_requests')) {
+            $this->logRequestToDisk($event);
+        }
+    }
+
+    /**
+     * Log token counts and estimated USD cost.
+     */
+    private function logUsage(Usage $usage): void
+    {
+        // Sonnet 4.6 pricing per million tokens (USD)
+        $inputRate = 3.00;
+        $outputRate = 15.00;
+        $cacheWriteRate = 3.75;
+        $cacheReadRate = 0.30;
+
+        $cost = ($usage->promptTokens * $inputRate / 1_000_000)
+            + ($usage->completionTokens * $outputRate / 1_000_000)
+            + ($usage->cacheWriteInputTokens * $cacheWriteRate / 1_000_000)
+            + ($usage->cacheReadInputTokens * $cacheReadRate / 1_000_000);
+
+        Log::info('Agent usage', [
+            'input_tokens' => $usage->promptTokens,
+            'output_tokens' => $usage->completionTokens,
+            'cache_write_tokens' => $usage->cacheWriteInputTokens,
+            'cache_read_tokens' => $usage->cacheReadInputTokens,
+            'total_tokens' => $usage->promptTokens + $usage->completionTokens + $usage->cacheWriteInputTokens + $usage->cacheReadInputTokens,
+            'cost_usd' => round($cost, 6),
+        ]);
+    }
+
+    /**
+     * Write the prompt and response payloads to JSON files, one pair per agent invocation.
+     */
+    private function logRequestToDisk(AgentPrompted $event): void
+    {
         $provider = $event->response->meta->provider ?? class_basename($event->prompt->provider);
         $folder = storage_path('logs/laraclaw/api/' . $provider . '/' . now()->format('Y-m-d') . '/' . now()->format('His') . '_' . $event->invocationId);
 

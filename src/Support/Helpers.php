@@ -2,8 +2,6 @@
 
 namespace LaraClaw\Support;
 
-use Illuminate\Support\Facades\Log;
-use Laravel\Ai\Responses\Data\Usage;
 use League\CommonMark\Environment\Environment;
 use League\CommonMark\Extension\CommonMark\CommonMarkCoreExtension;
 use League\CommonMark\Extension\Strikethrough\StrikethroughExtension;
@@ -172,33 +170,6 @@ function interpolate(string $template, array $values): string
 
         return is_array($value) ? implode(', ', $value) : $value;
     }, $template);
-}
-
-/**
- * Log token usage and estimated USD cost for an agent response.
- */
-function logAgentUsage(string $channel, Usage $usage): void
-{
-    // Sonnet 4.6 pricing per million tokens (USD)
-    $inputRate = 3.00;
-    $outputRate = 15.00;
-    $cacheWriteRate = 3.75;
-    $cacheReadRate = 0.30;
-
-    $cost = ($usage->promptTokens * $inputRate / 1_000_000)
-        + ($usage->completionTokens * $outputRate / 1_000_000)
-        + ($usage->cacheWriteInputTokens * $cacheWriteRate / 1_000_000)
-        + ($usage->cacheReadInputTokens * $cacheReadRate / 1_000_000);
-
-    Log::info('Agent usage', [
-        'channel' => $channel,
-        'input_tokens' => $usage->promptTokens,
-        'output_tokens' => $usage->completionTokens,
-        'cache_write_tokens' => $usage->cacheWriteInputTokens,
-        'cache_read_tokens' => $usage->cacheReadInputTokens,
-        'total_tokens' => $usage->promptTokens + $usage->completionTokens + $usage->cacheWriteInputTokens + $usage->cacheReadInputTokens,
-        'cost_usd' => round($cost, 6),
-    ]);
 }
 
 /**

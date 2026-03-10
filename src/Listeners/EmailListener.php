@@ -13,8 +13,6 @@ use LaraClaw\Services\Attachments;
 use Laravel\Ai\Responses\AgentResponse;
 use Throwable;
 
-use function LaraClaw\Support\logAgentUsage;
-
 /**
  * Handles incoming IMAP messages, validates them and queues the agent.
  */
@@ -67,7 +65,6 @@ class EmailListener
         resolve(ChatBotAgent::class, ['message' => $incomingMessage, 'thread' => $thread])
             ->queue(...$incomingMessage->toAgentInput())
             ->then(function (AgentResponse $response) use ($thread, $channel, $incomingMessage, $attachments): void {
-                logAgentUsage('email', $response->usage);
                 $thread->update(['conversation_id' => $response->conversationId]);
 
                 $channel->reply(
