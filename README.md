@@ -1,5 +1,12 @@
 # LaraClaw
 
+[![Latest Version on Packagist](https://img.shields.io/packagist/v/laraclaw/laraclaw.svg)](https://packagist.org/packages/laraclaw/laraclaw)
+[![Laravel](https://img.shields.io/badge/Laravel-12-red.svg)](https://laravel.com)
+[![Code Style](https://img.shields.io/badge/code%20style-Laravel%20Pint-blue.svg)](https://github.com/laravel/pint)
+[![PHP Version](https://img.shields.io/packagist/php-v/laraclaw/laraclaw.svg)](https://packagist.org/packages/laraclaw/laraclaw)
+[![Tests](https://img.shields.io/github/actions/workflow/status/laraclaw/laraclaw/tests.yml?branch=main)](https://github.com/laraclaw/laraclaw/actions)
+[![License](https://img.shields.io/github/license/laraclaw/laraclaw)](https://github.com/laraclaw/laraclaw/blob/main/LICENSE)
+
 What if your Laravel app could talk back? LaraClaw is an AI chatbot package that connects your agent to **Telegram, Slack, Email, and the terminal** — with persistent memory, file handling, calendar access, reminders, and more.
 
 Built on [laravel/ai](https://github.com/laravel/ai).
