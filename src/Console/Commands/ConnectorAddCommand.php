@@ -4,20 +4,20 @@ namespace LaraClaw\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Database\UniqueConstraintViolationException;
-use LaraClaw\Enums\ChannelType;
+use LaraClaw\Enums\ConnectorType;
 use LaraClaw\Models\UserAccount;
 
 use function Laravel\Prompts\error;
 use function Laravel\Prompts\info;
 
 /**
- * Artisan command that links an existing user to a channel account identifier.
+ * Artisan command that links an existing user to a connector account identifier.
  */
-class ChannelAddCommand extends Command
+class ConnectorAddCommand extends Command
 {
-    protected $signature = 'laraclaw:channel-add {user} {channel} {identifier}';
+    protected $signature = 'laraclaw:connector-add {user} {connector} {identifier}';
 
-    protected $description = 'Link a user to a channel identifier (telegram, slack, email)';
+    protected $description = 'Link a user to a connector identifier (telegram, slack, email)';
 
     /**
      * Resolve the user by ID or email, create the UserAccount record, and report the result.
@@ -25,14 +25,14 @@ class ChannelAddCommand extends Command
     public function handle(): int
     {
         $userInput = $this->argument('user');
-        $channelValue = $this->argument('channel');
+        $connectorValue = $this->argument('connector');
         $identifier = $this->argument('identifier');
 
-        $channel = ChannelType::tryFrom($channelValue);
+        $connector = ConnectorType::tryFrom($connectorValue);
 
-        if (! $channel) {
-            $valid = implode(', ', array_column(ChannelType::cases(), 'value'));
-            error("Invalid channel '{$channelValue}'. Valid options: {$valid}");
+        if (! $connector) {
+            $valid = implode(', ', array_column(ConnectorType::cases(), 'value'));
+            error("Invalid connector '{$connectorValue}'. Valid options: {$valid}");
 
             return self::FAILURE;
         }
@@ -52,16 +52,16 @@ class ChannelAddCommand extends Command
         try {
             UserAccount::create([
                 'user_id' => $user->getAuthIdentifier(),
-                'channel' => $channel,
+                'connector' => $connector,
                 'account' => $identifier,
             ]);
         } catch (UniqueConstraintViolationException) {
-            error("Account already registered: {$channel->value}:{$identifier}");
+            error("Account already registered: {$connector->value}:{$identifier}");
 
             return self::FAILURE;
         }
 
-        info("Linked {$channel->value}:{$identifier} → user #{$user->getAuthIdentifier()} ({$user->email})");
+        info("Linked {$connector->value}:{$identifier} → user #{$user->getAuthIdentifier()} ({$user->email})");
 
         return self::SUCCESS;
     }

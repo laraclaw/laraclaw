@@ -1,6 +1,6 @@
 <?php
 
-namespace LaraClaw\Channels;
+namespace LaraClaw\Connectors;
 
 use DirectoryTree\ImapEngine\Attachment as ImapAttachment;
 use DirectoryTree\ImapEngine\Enums\ImapFlag;
@@ -12,12 +12,12 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
-use LaraClaw\Channels\Concerns\ChecksRedisForConfirmations;
-use LaraClaw\Channels\Contracts\SupportsConfirmation;
+use LaraClaw\Connectors\Concerns\ChecksRedisForConfirmations;
+use LaraClaw\Connectors\Contracts\SupportsConfirmation;
 use LaraClaw\DTOs\Attachment;
 use LaraClaw\DTOs\IncomingMessage;
-use LaraClaw\Enums\ChannelType;
-use LaraClaw\Mail\ChannelReply;
+use LaraClaw\Enums\ConnectorType;
+use LaraClaw\Mail\ConnectorReply;
 use LaraClaw\Models\Thread;
 use LaraClaw\Models\UserAccount;
 use LaraClaw\Services\Attachments;
@@ -25,11 +25,11 @@ use League\CommonMark\CommonMarkConverter;
 
 use function LaraClaw\Support\stripHtml;
 
-class EmailChannel extends Channel implements SupportsConfirmation
+class EmailConnector extends Connector implements SupportsConfirmation
 {
     use ChecksRedisForConfirmations;
 
-    public ChannelType $type { get { return ChannelType::Email; } }
+    public ConnectorType $type { get { return ConnectorType::Email; } }
 
     /** @var Attachment[] */
     private array $attachments = [];
@@ -46,22 +46,22 @@ class EmailChannel extends Channel implements SupportsConfirmation
      */
     public static function validateEvent(MessageInterface $message): void
     {
-        if (! config('laraclaw.channels.email.enabled')) {
+        if (! config('laraclaw.connectors.email.enabled')) {
             throw ValidationException::withMessages(['email' => 'CHANNEL_DISABLED']);
         }
 
-        $botEmail = config('imap.mailboxes.' . config('laraclaw.channels.email.imap.mailbox', 'default') . '.username');
+        $botEmail = config('imap.mailboxes.' . config('laraclaw.connectors.email.imap.mailbox', 'default') . '.username');
         $fromEmail = $message->from()?->email() ?? 'unknown';
 
         if ($fromEmail === $botEmail) {
             throw ValidationException::withMessages(['email' => 'SELF_MESSAGE']);
         }
 
-        if (! UserAccount::query()->forChannel($fromEmail, ChannelType::Email)->exists()) {
+        if (! UserAccount::query()->forConnector($fromEmail, ConnectorType::Email)->exists()) {
             throw ValidationException::withMessages(['email' => 'UNREGISTERED_ACCOUNT']);
         }
 
-        if (config('laraclaw.channels.email.verify_sender_dkim_and_spf') && ! self::passesAuthCheck($message)) {
+        if (config('laraclaw.connectors.email.verify_sender_dkim_and_spf') && ! self::passesAuthCheck($message)) {
             Log::warning('LaraClaw: email rejected due to failed DKIM or SPF authentication', [
                 'from' => $fromEmail,
                 'subject' => $message->subject() ?? '(no subject)',
@@ -76,7 +76,7 @@ class EmailChannel extends Channel implements SupportsConfirmation
     }
 
     /**
-     * Build the reply channel from a raw IMAP message.
+     * Build the reply connector from a raw IMAP message.
      */
     public static function fromRawMessage(MessageInterface $message): self
     {
@@ -100,7 +100,7 @@ class EmailChannel extends Channel implements SupportsConfirmation
 
         return new IncomingMessage(
             text: $message->text() ?? stripHtml($message->html()),
-            channel: ChannelType::Email,
+            connector: ConnectorType::Email,
             key: $message->from()?->email() ?? 'unknown',
             isDirectMessage: true,
             attachments: self::saveAttachments($message, $attachments->inbound($uuid)),
@@ -109,7 +109,7 @@ class EmailChannel extends Channel implements SupportsConfirmation
     }
 
     /**
-     * Build a minimal EmailChannel from just the sender email address.
+     * Build a minimal EmailConnector from just the sender email address.
      * Used for outbound messages that do not need threading headers.
      */
     public static function forKey(string $key): self
@@ -122,7 +122,7 @@ class EmailChannel extends Channel implements SupportsConfirmation
      */
     public static function markSeen(int $uid, ?string $mailbox = null): void
     {
-        $mailbox ??= config('laraclaw.channels.email.imap.mailbox', 'default');
+        $mailbox ??= config('laraclaw.connectors.email.imap.mailbox', 'default');
 
         Imap::mailbox($mailbox)
             ->inbox()
@@ -203,7 +203,7 @@ class EmailChannel extends Channel implements SupportsConfirmation
      */
     private function send(string $message): void
     {
-        $mailable = new ChannelReply(
+        $mailable = new ConnectorReply(
             body: $this->renderMarkdown($message),
             inReplyTo: $this->messageId,
         );

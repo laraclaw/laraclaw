@@ -4,7 +4,7 @@ use DirectoryTree\ImapEngine\Address;
 use DirectoryTree\ImapEngine\Laravel\Events\MessageReceived;
 use DirectoryTree\ImapEngine\MessageInterface;
 use Illuminate\Support\Facades\Log;
-use LaraClaw\Enums\ChannelType;
+use LaraClaw\Enums\ConnectorType;
 use LaraClaw\Models\UserAccount;
 
 function makeRawEmail(string $from, string $subject = 'Hello', string $authResults = 'dkim=pass spf=pass'): MessageInterface
@@ -37,15 +37,15 @@ function registerEmailAccount(string $email): void
 
     UserAccount::create([
         'user_id' => $user->getAuthIdentifier(),
-        'channel' => ChannelType::Email,
+        'connector' => ConnectorType::Email,
         'account' => $email,
     ]);
 }
 
 beforeEach(function () {
     Log::spy();
-    config(['laraclaw.channels.email.enabled' => true]);
-    config(['laraclaw.channels.email.verify_sender_dkim_and_spf' => true]);
+    config(['laraclaw.connectors.email.enabled' => true]);
+    config(['laraclaw.connectors.email.verify_sender_dkim_and_spf' => true]);
     config(['imap.mailboxes.default.username' => 'bot@example.com']);
 });
 
@@ -82,7 +82,7 @@ it('rejects and logs a warning when DKIM/SPF authentication fails', function () 
 });
 
 it('accepts emails that fail DKIM/SPF when verification is disabled', function () {
-    config(['laraclaw.channels.email.verify_sender_dkim_and_spf' => false]);
+    config(['laraclaw.connectors.email.verify_sender_dkim_and_spf' => false]);
     registerEmailAccount('allowed@example.com');
 
     $raw = makeRawEmail('allowed@example.com', 'Test', 'dkim=fail spf=fail');
@@ -92,8 +92,8 @@ it('accepts emails that fail DKIM/SPF when verification is disabled', function (
     Log::shouldNotHaveReceived('debug');
 })->todo('assert agent is queued once agent queue testing is set up');
 
-it('does nothing when the email channel is disabled', function () {
-    config(['laraclaw.channels.email.enabled' => false]);
+it('does nothing when the email connector is disabled', function () {
+    config(['laraclaw.connectors.email.enabled' => false]);
 
     $raw = makeRawEmail('allowed@example.com');
 

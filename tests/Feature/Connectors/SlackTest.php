@@ -2,8 +2,8 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
-use LaraClaw\Channels\SlackChannel;
-use LaraClaw\Enums\ChannelType;
+use LaraClaw\Connectors\SlackConnector;
+use LaraClaw\Enums\ConnectorType;
 use LaraClaw\Models\UserAccount;
 
 function slackRequest(array $payload): Request
@@ -31,7 +31,7 @@ function validPayload(array $overrides = []): array
 function expectValidationCode(Request $request, string $code): void
 {
     try {
-        SlackChannel::validateEvent($request);
+        SlackConnector::validateEvent($request);
         test()->fail("Expected ValidationException with code '{$code}' but none was thrown.");
     } catch (ValidationException $e) {
         expect($e->validator->errors()->first())->toBe($code);
@@ -44,22 +44,22 @@ function registerSlackAccount(string $slackUserId): void
 
     UserAccount::create([
         'user_id' => $user->getAuthIdentifier(),
-        'channel' => ChannelType::Slack,
+        'connector' => ConnectorType::Slack,
         'account' => $slackUserId,
     ]);
 }
 
 beforeEach(function () {
     config([
-        'laraclaw.channels.slack.enabled' => true,
-        'laraclaw.channels.slack.bot_user_id' => 'UBOT',
+        'laraclaw.connectors.slack.enabled' => true,
+        'laraclaw.connectors.slack.bot_user_id' => 'UBOT',
     ]);
 });
 
-it('accepts a valid channel message with bot mention', function () {
+it('accepts a valid Slack channel message with bot mention', function () {
     $request = slackRequest(validPayload(['event' => ['type' => 'message', 'channel' => 'C123', 'text' => '<@UBOT> hello']]));
 
-    SlackChannel::validateEvent($request);
+    SlackConnector::validateEvent($request);
 })->throwsNoExceptions();
 
 it('accepts a valid DM from a registered account', function () {
@@ -67,11 +67,11 @@ it('accepts a valid DM from a registered account', function () {
 
     $request = slackRequest(validPayload(['event' => ['type' => 'message', 'channel' => 'D123', 'user' => 'U123', 'text' => 'hello']]));
 
-    SlackChannel::validateEvent($request);
+    SlackConnector::validateEvent($request);
 })->throwsNoExceptions();
 
-it('rejects when the channel is disabled', function () {
-    config(['laraclaw.channels.slack.enabled' => false]);
+it('rejects when the connector is disabled', function () {
+    config(['laraclaw.connectors.slack.enabled' => false]);
 
     expectValidationCode(
         slackRequest(validPayload()),
@@ -80,7 +80,7 @@ it('rejects when the channel is disabled', function () {
 });
 
 it('rejects when bot user id is not configured', function () {
-    config(['laraclaw.channels.slack.bot_user_id' => null]);
+    config(['laraclaw.connectors.slack.bot_user_id' => null]);
 
     expectValidationCode(
         slackRequest(validPayload()),
@@ -88,7 +88,7 @@ it('rejects when bot user id is not configured', function () {
     );
 });
 
-it('rejects when bot is not mentioned in a channel message', function () {
+it('rejects when bot is not mentioned in a Slack channel message', function () {
     expectValidationCode(
         slackRequest(validPayload(['event' => ['type' => 'message', 'channel' => 'C123', 'text' => 'hello']])),
         'BOT_NOT_MENTIONED',
@@ -126,10 +126,10 @@ it('rejects unsupported subtypes', function () {
 it('accepts file_share subtype', function () {
     $request = slackRequest(validPayload(['event' => ['type' => 'message', 'channel' => 'C123', 'text' => '<@UBOT> hello', 'subtype' => 'file_share']]));
 
-    SlackChannel::validateEvent($request);
+    SlackConnector::validateEvent($request);
 })->throwsNoExceptions();
 
-it('rejects when channel is missing', function () {
+it('rejects when Slack channel is missing', function () {
     expectValidationCode(
         slackRequest(validPayload(['event' => ['type' => 'message', 'text' => '<@UBOT> hello']])),
         'NO_CHANNEL',
@@ -164,5 +164,5 @@ it('accepts empty text with files', function () {
 
     $request = slackRequest(validPayload(['event' => ['type' => 'message', 'channel' => 'D123', 'user' => 'U123', 'files' => [['name' => 'file.jpg']]]]));
 
-    SlackChannel::validateEvent($request);
+    SlackConnector::validateEvent($request);
 })->throwsNoExceptions();

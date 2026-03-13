@@ -10,7 +10,7 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use LaraClaw\Agents\ChatBotAgent;
 use LaraClaw\DTOs\IncomingMessage;
-use LaraClaw\Enums\ChannelType;
+use LaraClaw\Enums\ConnectorType;
 use LaraClaw\Models\Heartbeat;
 use LaraClaw\Models\Thread;
 use LaraClaw\Services\Attachments;
@@ -31,9 +31,9 @@ class SendHeartbeat implements ShouldQueue
 
     /**
      * Build an incoming message from the heartbeat prompt, run it through the agent,
-     * and deliver the response via the channel.
+     * and deliver the response via the connector.
      *
-     * Conversation behavior depends on the channel:
+     * Conversation behavior depends on the connector:
      *
      * DMs (Slack, Telegram, Email) and Telegram groups:
      *   Continue the user's existing conversation so the agent has full context
@@ -48,18 +48,18 @@ class SendHeartbeat implements ShouldQueue
      */
     public function handle(): void
     {
-        $isSlackChannel = $this->isSlackChannel();
-        $isDirectMessage = $this->heartbeat->channel->isDirectMessage($this->heartbeat->key);
+        $isSlackConnector = $this->isSlackConnector();
+        $isDirectMessage = $this->heartbeat->connector->isDirectMessage($this->heartbeat->key);
 
         // Slack channel keys are stored as "channelId:threadTs". Strip the
-        // threadTs so the channel posts a new top level message each time.
-        $key = $isSlackChannel
+        // threadTs so the connector posts a new top level message each time.
+        $key = $isSlackConnector
             ? explode(':', $this->heartbeat->key, 2)[0]
             : $this->heartbeat->key;
 
         $message = new IncomingMessage(
             text: $this->heartbeat->prompt,
-            channel: $this->heartbeat->channel,
+            connector: $this->heartbeat->connector,
             key: $key,
             isDirectMessage: $isDirectMessage,
         );
@@ -68,13 +68,13 @@ class SendHeartbeat implements ShouldQueue
         // continue its conversation. For Slack channels the thread row is
         // reused but conversation_id is cleared below.
         $thread = Thread::firstOrCreate(
-            ['channel' => $this->heartbeat->channel, 'key' => $key],
+            ['connector' => $this->heartbeat->connector, 'key' => $key],
             ['is_direct_message' => $isDirectMessage],
         );
 
         // Null the conversation in memory so the agent starts fresh. We
         // deliberately do not persist this; see the note after prompt().
-        if ($isSlackChannel) {
+        if ($isSlackConnector) {
             $thread->conversation_id = null;
         }
 
@@ -83,11 +83,11 @@ class SendHeartbeat implements ShouldQueue
 
         // Persist conversation_id only for channels that benefit from
         // continuity. Slack channels discard it so the next run starts clean.
-        if (! $isSlackChannel) {
+        if (! $isSlackConnector) {
             $thread->update(['conversation_id' => $response->conversationId]);
         }
 
-        $thread->channel()->reply(
+        $thread->connector()->reply(
             thread: $thread,
             text: $response->text,
             attachments: resolve(Attachments::class)->outbound($message->uuid)->getAll(),
@@ -103,7 +103,7 @@ class SendHeartbeat implements ShouldQueue
     {
         Log::error('SendHeartbeat failed', [
             'heartbeat_id' => $this->heartbeat->id,
-            'channel' => $this->heartbeat->channel->value,
+            'connector' => $this->heartbeat->connector->value,
             'key' => $this->heartbeat->key,
             'error' => $exception->getMessage(),
         ]);
@@ -113,9 +113,9 @@ class SendHeartbeat implements ShouldQueue
      * Check if this heartbeat targets a Slack channel (not a DM).
      * Slack DM keys are bare user IDs, while channel keys contain a colon separator.
      */
-    private function isSlackChannel(): bool
+    private function isSlackConnector(): bool
     {
-        return $this->heartbeat->channel === ChannelType::Slack
+        return $this->heartbeat->connector === ConnectorType::Slack
             && str_contains($this->heartbeat->key, ':');
     }
 }

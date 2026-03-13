@@ -37,7 +37,7 @@ class HeartbeatManager extends BaseTool
             'id' => $schema->string()->description('Heartbeat ID (required for cancel)'),
             'prompt' => $schema->string()->description('Prompt for the agent to process on each occurrence (required for create)'),
             'cron' => $schema->string()->description('5-field cron expression, e.g. "0 9 * * 1" (required for create)'),
-            'channel' => $schema->string()->description('Channel type to send on: telegram, slack, or email. Defaults to the current channel.'),
+            'connector' => $schema->string()->description('Connector type to send on: telegram, slack, or email. Defaults to the current connector.'),
         ];
     }
 
@@ -68,11 +68,11 @@ class HeartbeatManager extends BaseTool
             return "Invalid cron expression \"{$cron}\". Use standard 5-field syntax, e.g. \"0 9 * * 1\".";
         }
 
-        [$channel, $key] = $this->resolveChannel($request['channel'] ?? null);
+        [$connector, $key] = $this->resolveConnector($request['connector'] ?? null);
 
         Heartbeat::create([
             'user_id' => config('laraclaw.auth.admin_user_id'),
-            'channel' => $channel,
+            'connector' => $connector,
             'key' => $key,
             'prompt' => $prompt,
             'cron' => $cron,
@@ -90,7 +90,7 @@ class HeartbeatManager extends BaseTool
         $heartbeats = Heartbeat::where('user_id', config('laraclaw.auth.admin_user_id'))
             ->where('is_active', true)
             ->orderBy('id')
-            ->get(['id', 'channel', 'key', 'prompt', 'cron', 'last_run_at']);
+            ->get(['id', 'connector', 'key', 'prompt', 'cron', 'last_run_at']);
 
         if ($heartbeats->isEmpty()) {
             return 'No active heartbeats.';

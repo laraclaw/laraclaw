@@ -1,6 +1,6 @@
 <?php
 
-namespace LaraClaw\Channels;
+namespace LaraClaw\Connectors;
 
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
@@ -8,11 +8,11 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
-use LaraClaw\Channels\Concerns\ChecksRedisForConfirmations;
-use LaraClaw\Channels\Contracts\SupportsConfirmation;
+use LaraClaw\Connectors\Concerns\ChecksRedisForConfirmations;
+use LaraClaw\Connectors\Contracts\SupportsConfirmation;
 use LaraClaw\DTOs\Attachment;
 use LaraClaw\DTOs\IncomingMessage;
-use LaraClaw\Enums\ChannelType;
+use LaraClaw\Enums\ConnectorType;
 use LaraClaw\Models\Thread;
 use LaraClaw\Models\UserAccount;
 use LaraClaw\Services\Attachments;
@@ -24,11 +24,11 @@ use Telegram\Bot\Objects\Message as TelegramMessage;
 use Telegram\Bot\Objects\PhotoSize;
 use Throwable;
 
-class TelegramChannel extends Channel implements SupportsConfirmation
+class TelegramConnector extends Connector implements SupportsConfirmation
 {
     use ChecksRedisForConfirmations;
 
-    public ChannelType $type { get { return ChannelType::Telegram; } }
+    public ConnectorType $type { get { return ConnectorType::Telegram; } }
 
     public function __construct(
         private int|string $chatId,
@@ -40,14 +40,14 @@ class TelegramChannel extends Channel implements SupportsConfirmation
      */
     public static function validateEvent(TelegramMessage $message): void
     {
-        if (! config('laraclaw.channels.telegram.enabled')) {
+        if (! config('laraclaw.connectors.telegram.enabled')) {
             throw ValidationException::withMessages(['telegram' => 'CHANNEL_DISABLED']);
         }
 
         $chatId = $message->getChat()->getId();
         $isDirectMessage = $chatId > 0;
 
-        if ($isDirectMessage && ! UserAccount::query()->forChannel((string) $chatId, ChannelType::Telegram)->exists()) {
+        if ($isDirectMessage && ! UserAccount::query()->forConnector((string) $chatId, ConnectorType::Telegram)->exists()) {
             throw ValidationException::withMessages(['telegram' => 'UNREGISTERED_ACCOUNT']);
         }
 
@@ -67,7 +67,7 @@ class TelegramChannel extends Channel implements SupportsConfirmation
 
         return new IncomingMessage(
             text: $message->getText() ?? $message->getCaption() ?? null,
-            channel: ChannelType::Telegram,
+            connector: ConnectorType::Telegram,
             key: (string) $chatId,
             isDirectMessage: $chatId > 0,
             attachments: self::saveAttachments($message, $bot, $attachments->inbound($uuid)),

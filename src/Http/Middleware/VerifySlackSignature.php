@@ -28,7 +28,7 @@ class VerifySlackSignature
             abort(403, 'Slack request timestamp is too old.');
         }
 
-        $signingSecret = config('laraclaw.channels.slack.signing_secret');
+        $signingSecret = config('laraclaw.connectors.slack.signing_secret');
         $baseString = "v0:{$timestamp}:{$request->getContent()}";
         $computedSignature = 'v0=' . hash_hmac('sha256', $baseString, (string) $signingSecret);
 

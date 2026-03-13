@@ -5,7 +5,7 @@ namespace LaraClaw\Listeners;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use LaraClaw\Agents\ChatBotAgent;
-use LaraClaw\Channels\TelegramChannel;
+use LaraClaw\Connectors\TelegramConnector;
 use LaraClaw\Commands\CommandRegistry;
 use LaraClaw\Events\TelegramMessageReceived;
 use LaraClaw\Models\Thread;
@@ -32,24 +32,24 @@ class TelegramListener
 
         // Validate the incoming Telegram message
         try {
-            TelegramChannel::validateEvent($raw);
+            TelegramConnector::validateEvent($raw);
         } catch (ValidationException $e) {
             Log::debug('Telegram event skipped', ['code' => $e->getMessage()]);
 
             return;
         }
 
-        $channel = new TelegramChannel($raw->getChat()->getId(), $event->bot);
-        $incomingMessage = TelegramChannel::createIncomingMessageFrom($raw, $event->bot, $this->attachments);
+        $connector = new TelegramConnector($raw->getChat()->getId(), $event->bot);
+        $incomingMessage = TelegramConnector::createIncomingMessageFrom($raw, $event->bot, $this->attachments);
         $thread = Thread::forMessage($incomingMessage);
 
         // Check if the message is a reply to a pending confirmation
-        if ($channel->resolvePendingConfirmation($incomingMessage)) {
+        if ($connector->resolvePendingConfirmation($incomingMessage)) {
             return;
         }
 
         // Show a typing indicator to acknowledge the incoming message
-        $channel->showTypingIndicator();
+        $connector->showTypingIndicator();
 
         // Handle commands
         if ($command = $this->commands->match($incomingMessage->text ?? '')) {
@@ -67,7 +67,7 @@ class TelegramListener
             ->then(function (AgentResponse $response) use ($thread, $incomingMessage, $attachments): void {
                 $thread->update(['conversation_id' => $response->conversationId]);
 
-                $thread->channel()->reply(
+                $thread->connector()->reply(
                     thread: $thread,
                     text: $response->text,
                     attachments: $attachments->outbound($incomingMessage->uuid)->getAll(),

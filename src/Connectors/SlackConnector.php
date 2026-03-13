@@ -1,6 +1,6 @@
 <?php
 
-namespace LaraClaw\Channels;
+namespace LaraClaw\Connectors;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -10,11 +10,11 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
-use LaraClaw\Channels\Concerns\ChecksRedisForConfirmations;
-use LaraClaw\Channels\Contracts\SupportsConfirmation;
+use LaraClaw\Connectors\Concerns\ChecksRedisForConfirmations;
+use LaraClaw\Connectors\Contracts\SupportsConfirmation;
 use LaraClaw\DTOs\Attachment;
 use LaraClaw\DTOs\IncomingMessage;
-use LaraClaw\Enums\ChannelType;
+use LaraClaw\Enums\ConnectorType;
 use LaraClaw\Models\Thread;
 use LaraClaw\Models\UserAccount;
 use LaraClaw\Services\Attachments;
@@ -24,7 +24,7 @@ use Throwable;
 
 use function LaraClaw\Support\markdownToMrkdwn;
 
-class SlackChannel extends Channel implements SupportsConfirmation
+class SlackConnector extends Connector implements SupportsConfirmation
 {
     public $channelId;
 
@@ -32,15 +32,15 @@ class SlackChannel extends Channel implements SupportsConfirmation
 
     use ChecksRedisForConfirmations;
 
-    public ChannelType $type { get { return ChannelType::Slack; } }
+    public ConnectorType $type { get { return ConnectorType::Slack; } }
 
     /**
      * Validate the incoming Slack event request. Throws if the event should not be processed.
      */
     public static function validateEvent(Request $request): void
     {
-        $botUserId = config('laraclaw.channels.slack.bot_user_id');
-        $isEnabled = config('laraclaw.channels.slack.enabled');
+        $botUserId = config('laraclaw.connectors.slack.bot_user_id');
+        $isEnabled = config('laraclaw.connectors.slack.enabled');
 
         $isDirectMessage = Str::startsWith($request->input('event.channel', ''), 'D');
 
@@ -78,7 +78,7 @@ class SlackChannel extends Channel implements SupportsConfirmation
                 return;
             }
 
-            if ($isDirectMessage && ! UserAccount::query()->forChannel($request->input('event.user'), ChannelType::Slack)->exists()) {
+            if ($isDirectMessage && ! UserAccount::query()->forConnector($request->input('event.user'), ConnectorType::Slack)->exists()) {
                 $validator->errors()->add('event', 'UNREGISTERED_ACCOUNT');
                 return;
             }
@@ -104,7 +104,7 @@ class SlackChannel extends Channel implements SupportsConfirmation
 
         return new IncomingMessage(
             text: $event['text'] ?? null,
-            channel: ChannelType::Slack,
+            connector: ConnectorType::Slack,
             key: self::getThreadKey($event),
             isDirectMessage: $isDirectMessage,
             attachments: self::saveAttachments($event, $attachments->inbound($uuid)),
@@ -113,14 +113,14 @@ class SlackChannel extends Channel implements SupportsConfirmation
     }
 
     /**
-     * Build a SlackChannel instance with channelId and threadTs resolved from a thread key.
+     * Build a SlackConnector instance with channelId and threadTs resolved from a thread key.
      */
     public static function forKey(string $key): self
     {
-        $channel = new self;
-        $channel->applyKey($key);
+        $connector = new self;
+        $connector->applyKey($key);
 
-        return $channel;
+        return $connector;
     }
 
     /**
@@ -158,7 +158,7 @@ class SlackChannel extends Channel implements SupportsConfirmation
             return false;
         }
 
-        return Thread::where('channel', ChannelType::Slack)
+        return Thread::where('connector', ConnectorType::Slack)
             ->where('key', "{$channel}:{$threadTs}")
             ->exists();
     }
@@ -243,7 +243,7 @@ class SlackChannel extends Channel implements SupportsConfirmation
      */
     private static function token(): string
     {
-        return config('laraclaw.channels.slack.bot_token');
+        return config('laraclaw.connectors.slack.bot_token');
     }
 
     /**

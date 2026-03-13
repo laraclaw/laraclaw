@@ -6,7 +6,7 @@ use Exception;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Auth\Authenticatable;
 use LaraClaw\Agents\ChatBotAgent;
-use LaraClaw\Channels\TerminalChannel;
+use LaraClaw\Connectors\TerminalConnector;
 use LaraClaw\Models\Thread;
 use LaraClaw\Models\UserAccount;
 
@@ -28,10 +28,10 @@ class Chat extends Command
     {
         // Resolve the user and register a terminal account if needed
         $user = $this->resolveUser();
-        $channel = new TerminalChannel;
+        $connector = new TerminalConnector;
 
         UserAccount::firstOrCreate(
-            ['channel' => $channel->type, 'account' => $user->getAuthIdentifier()],
+            ['connector' => $connector->type, 'account' => $user->getAuthIdentifier()],
             ['user_id' => $user->getAuthIdentifier()],
         );
 
@@ -45,7 +45,7 @@ class Chat extends Command
             }
 
             // Build the incoming message and find or create the thread
-            $incomingMessage = TerminalChannel::createIncomingMessageFrom(input: $input, user: $user);
+            $incomingMessage = TerminalConnector::createIncomingMessageFrom(input: $input, user: $user);
             $thread = Thread::forMessage($incomingMessage);
 
             // Prompt the agent synchronously and deliver the reply
@@ -58,7 +58,7 @@ class Chat extends Command
 
             $thread->update(['conversation_id' => $response->conversationId]);
 
-            $channel->reply(thread: $thread, text: $response->text);
+            $connector->reply(thread: $thread, text: $response->text);
         }
     }
 

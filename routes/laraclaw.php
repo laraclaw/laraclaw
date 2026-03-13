@@ -6,7 +6,7 @@ use LaraClaw\Http\Controllers\ApiController;
 use LaraClaw\Http\Controllers\SlackController;
 use Telegram\Bot\Api;
 
-if (config('laraclaw.channels.telegram.enabled')) {
+if (config('laraclaw.connectors.telegram.enabled')) {
     Route::post('telegram/webhook', function (Api $bot) {
         $update = $bot->getWebhookUpdate();
         $message = $update->getMessage();
@@ -17,12 +17,12 @@ if (config('laraclaw.channels.telegram.enabled')) {
     })->middleware('throttle:laraclaw-telegram');
 }
 
-if (config('laraclaw.channels.slack.enabled')) {
+if (config('laraclaw.connectors.slack.enabled')) {
     Route::post('slack/webhook', SlackController::class)
         ->middleware(['slack.signature', 'throttle:laraclaw-slack']);
 }
 
-if (config('laraclaw.channels.api.enabled')) {
+if (config('laraclaw.connectors.api.enabled')) {
     Route::post('api/message', ApiController::class)
         ->middleware(['laraclaw.api', 'throttle:laraclaw-api']);
 }

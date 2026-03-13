@@ -7,7 +7,7 @@ use LaraClaw\Agents\ChatBotAgent;
 use LaraClaw\Commands\Command;
 use LaraClaw\Commands\CommandRegistry;
 use LaraClaw\DTOs\IncomingMessage;
-use LaraClaw\Enums\ChannelType;
+use LaraClaw\Enums\ConnectorType;
 use LaraClaw\Http\Controllers\ApiController;
 use LaraClaw\Http\Middleware\VerifyApiToken;
 use LaraClaw\Models\Thread;
@@ -31,7 +31,7 @@ function authenticatedUser(): \Illuminate\Foundation\Auth\User
     $user = test()->createUser();
 
     UserAccount::updateOrCreate(
-        ['user_id' => $user->getAuthIdentifier(), 'channel' => ChannelType::Api],
+        ['user_id' => $user->getAuthIdentifier(), 'connector' => ConnectorType::Api],
         ['account' => hash('sha256', apiToken())],
     );
 
@@ -103,7 +103,7 @@ it('creates a new thread for each request without a key', function () {
     $second = $this->postJson('/api/message', ['text' => 'Hi again'], apiHeaders());
 
     expect($first->json('key'))->not->toBe($second->json('key'));
-    expect(Thread::where('channel', ChannelType::Api)->count())->toBe(2);
+    expect(Thread::where('connector', ConnectorType::Api)->count())->toBe(2);
 });
 
 it('continues an existing thread when key is provided', function () {
@@ -120,7 +120,7 @@ it('continues an existing thread when key is provided', function () {
 
     $second->assertOk();
     expect($second->json('key'))->toBe($key);
-    expect(Thread::where('channel', ChannelType::Api)->count())->toBe(1);
+    expect(Thread::where('connector', ConnectorType::Api)->count())->toBe(1);
 });
 
 it('stores the conversation id on the thread', function () {
@@ -130,7 +130,7 @@ it('stores the conversation id on the thread', function () {
     $response = $this->postJson('/api/message', ['text' => 'Hello'], apiHeaders());
     $key = $response->json('key');
 
-    $thread = Thread::where('channel', ChannelType::Api)->where('key', $key)->first();
+    $thread = Thread::where('connector', ConnectorType::Api)->where('key', $key)->first();
     expect($thread->conversation_id)->toBe('conv-xyz');
 });
 

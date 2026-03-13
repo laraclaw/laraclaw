@@ -30,13 +30,13 @@ php artisan vendor:publish --tag=laraclaw
 php artisan laraclaw:setup
 ```
 
-The wizard will walk you through migrations, owner account creation, channel configuration, and optional tools. That's it!
+The wizard will walk you through migrations, owner account creation, connector configuration, and optional tools. That's it!
 
-## Channels
+## Connectors
 
-LaraClaw has a single owner — one user who controls the bot. All channels route messages through that user.
+LaraClaw has a single owner — one user who controls the bot. All connectors route messages through that user.
 
-| Channel | Who can message | Threading | Conversation scope |
+| Connector | Who can message | Threading | Conversation scope |
 |---|---|---|---|
 | Telegram DM | Owner only | — | Per user |
 | Telegram group | Anyone | — | Per group |
@@ -46,7 +46,7 @@ LaraClaw has a single owner — one user who controls the bot. All channels rout
 | API | Any token holder | Via `key` param | Per key |
 | Terminal | Owner | — | Per session |
 
-**DM channels** (Telegram DM, Slack DM, Email) ignore anyone who isn't registered as the owner. **Group/open channels** always respond using the owner user. The **API channel** authenticates via a hashed Bearer token and is open to any user with a valid token.
+**DM connectors** (Telegram DM, Slack DM, Email) ignore anyone who isn't registered as the owner. **Group/open connectors** always respond using the owner user. The **API connector** authenticates via a hashed Bearer token and is open to any user with a valid token.
 
 ### Telegram
 
@@ -74,10 +74,10 @@ Subscribe to `message.channels` and `message.im`.
 
 ### API
 
-The API channel exposes a token authenticated endpoint for programmatic access. Run the setup wizard or the standalone channel command to generate a token:
+The API connector exposes a token authenticated endpoint for programmatic access. Run the setup wizard or the standalone connector command to generate a token:
 
 ```bash
-php artisan laraclaw:setup-channel api
+php artisan laraclaw:setup-connector api
 ```
 
 Send a `POST` request with the Bearer token from setup:

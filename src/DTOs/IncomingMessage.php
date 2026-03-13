@@ -3,12 +3,12 @@
 namespace LaraClaw\DTOs;
 
 use Illuminate\Support\Str;
-use LaraClaw\Enums\ChannelType;
+use LaraClaw\Enums\ConnectorType;
 use Laravel\Ai\Files\Document;
 use Laravel\Ai\Files\Image;
 
 /**
- * DTO representing an incoming message from any channel before it is handed to the agent.
+ * DTO representing an incoming message from any connector before it is handed to the agent.
  */
 class IncomingMessage
 {
@@ -19,7 +19,7 @@ class IncomingMessage
      */
     public function __construct(
         public readonly ?string $text,
-        public readonly ChannelType $channel,
+        public readonly ConnectorType $connector,
         public readonly string $key,
         public readonly bool $isDirectMessage = false,
         public readonly array $attachments = [],
@@ -61,7 +61,7 @@ class IncomingMessage
         return [
             'uuid' => $this->uuid,
             'text' => $this->text,
-            'channel' => $this->channel,
+            'connector' => $this->connector,
             'key' => $this->key,
             'isDirectMessage' => $this->isDirectMessage,
             'attachments' => $this->attachments,
@@ -72,7 +72,7 @@ class IncomingMessage
     {
         $this->uuid = $data['uuid'];
         $this->text = $data['text'];
-        $this->channel = $data['channel'];
+        $this->connector = $data['connector'];
         $this->key = $data['key'];
         $this->isDirectMessage = $data['isDirectMessage'];
         $this->attachments = $data['attachments'];

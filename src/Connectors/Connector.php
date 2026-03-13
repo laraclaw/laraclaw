@@ -1,20 +1,20 @@
 <?php
 
-namespace LaraClaw\Channels;
+namespace LaraClaw\Connectors;
 
 use Illuminate\Support\Collection;
-use LaraClaw\Enums\ChannelType;
+use LaraClaw\Enums\ConnectorType;
 use LaraClaw\Models\Thread;
 
 /**
- * Base class for all LaraClaw channel implementations.
+ * Base class for all LaraClaw connector implementations.
  */
-abstract class Channel
+abstract class Connector
 {
     /**
-     * The channel type for this implementation.
+     * The connector type for this implementation.
      */
-    abstract public ChannelType $type { get; }
+    abstract public ConnectorType $type { get; }
 
     /**
      * Send a reply to the given thread, optionally with file attachments.

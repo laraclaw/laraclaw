@@ -35,7 +35,7 @@ class ReminderManager extends BaseTool
             'id' => $schema->string()->description('Reminder ID (required for cancel)'),
             'message' => $schema->string()->description('Message to send (required for create)'),
             'remind_at' => $schema->string()->description('When to send — ISO 8601 or natural language, e.g. "tomorrow at 10am" (required for create)'),
-            'channel' => $schema->string()->description('Channel type to send on: telegram, slack, or email. Defaults to the current channel.'),
+            'connector' => $schema->string()->description('Connector type to send on: telegram, slack, or email. Defaults to the current connector.'),
         ];
     }
 
@@ -48,7 +48,7 @@ class ReminderManager extends BaseTool
     }
 
     /**
-     * Parse the remind_at date, resolve the channel, and persist a new Reminder record.
+     * Parse the remind_at date, resolve the connector, and persist a new Reminder record.
      */
     protected function create(Request $request): string
     {
@@ -68,11 +68,11 @@ class ReminderManager extends BaseTool
             return "Could not parse remind_at: {$remindAt}";
         }
 
-        [$channel, $key] = $this->resolveChannel($request['channel'] ?? null);
+        [$connector, $key] = $this->resolveConnector($request['connector'] ?? null);
 
         Reminder::create([
             'user_id' => config('laraclaw.auth.admin_user_id'),
-            'channel' => $channel,
+            'connector' => $connector,
             'key' => $key,
             'message' => $message,
             'remind_at' => $remindAtDate,
@@ -89,7 +89,7 @@ class ReminderManager extends BaseTool
         $reminders = Reminder::where('user_id', config('laraclaw.auth.admin_user_id'))
             ->whereNull('sent_at')
             ->orderBy('remind_at')
-            ->get(['id', 'channel', 'key', 'message', 'remind_at']);
+            ->get(['id', 'connector', 'key', 'message', 'remind_at']);
 
         if ($reminders->isEmpty()) {
             return 'No pending reminders.';

@@ -8,9 +8,9 @@ use Illuminate\Mail\Mailables\Envelope;
 use Symfony\Component\Mime\Email;
 
 /**
- * Mailable that sends an HTML reply from a channel, optionally threading it via In-Reply-To.
+ * Mailable that sends an HTML reply from a connector, optionally threading it via In-Reply-To.
  */
-class ChannelReply extends Mailable
+class ConnectorReply extends Mailable
 {
     public function __construct(public string $body, public ?string $inReplyTo = null) {}
 

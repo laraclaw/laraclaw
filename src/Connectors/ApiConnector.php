@@ -1,19 +1,19 @@
 <?php
 
-namespace LaraClaw\Channels;
+namespace LaraClaw\Connectors;
 
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use LaraClaw\DTOs\Attachment;
 use LaraClaw\DTOs\IncomingMessage;
-use LaraClaw\Enums\ChannelType;
+use LaraClaw\Enums\ConnectorType;
 use LaraClaw\Models\Thread;
 use LaraClaw\Services\Attachments;
 
-class ApiChannel extends Channel
+class ApiConnector extends Connector
 {
-    public ChannelType $type { get { return ChannelType::Api; } }
+    public ConnectorType $type { get { return ConnectorType::Api; } }
 
     /**
      * Build an IncomingMessage from the validated API request data,
@@ -31,7 +31,7 @@ class ApiChannel extends Channel
 
         return new IncomingMessage(
             text: $text,
-            channel: ChannelType::Api,
+            connector: ConnectorType::Api,
             key: $key,
             isDirectMessage: true,
             attachments: self::saveAttachments($files, $attachments->inbound($uuid)),
@@ -73,7 +73,7 @@ class ApiChannel extends Channel
     }
 
     /**
-     * Build an ApiChannel instance for outbound replies.
+     * Build an ApiConnector instance for outbound replies.
      */
     public static function forKey(string $key): self
     {
