@@ -8,7 +8,7 @@ use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use LaraClaw\Agents\ChatBotAgent;
-use LaraClaw\Connectors\SlackConnector;
+use LaraClaw\Connectors\Slack;
 use LaraClaw\Commands\CommandRegistry;
 use LaraClaw\Models\Thread;
 use LaraClaw\Services\Attachments;
@@ -22,7 +22,7 @@ class SlackController extends Controller
 {
     public function __construct(
         private readonly Attachments $attachments,
-        private readonly SlackConnector $connector,
+        private readonly Slack $connector,
         private readonly CommandRegistry $commands,
     ) {}
 
@@ -40,14 +40,14 @@ class SlackController extends Controller
 
         // Validate the incoming Slack event
         try {
-            SlackConnector::validateEvent($request);
+            Slack::validateEvent($request);
         } catch (ValidationException $e) {
             // Return 200 OK so Slack doesn't retry
             return response()->json(['skipped' => true, 'code' => $e->validator->errors()->first()]);
         }
 
         $event = $request->input('event');
-        $incomingMessage = SlackConnector::createIncomingMessageFrom(event: $event, attachments: $this->attachments);
+        $incomingMessage = Slack::createIncomingMessageFrom(event: $event, attachments: $this->attachments);
         $thread = Thread::forMessage($incomingMessage);
 
         // Check if the event is a reply to a pending confirmation

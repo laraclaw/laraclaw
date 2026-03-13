@@ -14,7 +14,7 @@ use function LaraClaw\Support\markdownToAnsi;
 use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\note;
 
-class TerminalConnector extends Connector implements SupportsConfirmation
+class Terminal extends Connector implements SupportsConfirmation
 {
     public ConnectorType $type { get { return ConnectorType::Terminal; } }
 

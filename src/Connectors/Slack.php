@@ -24,7 +24,7 @@ use Throwable;
 
 use function LaraClaw\Support\markdownToMrkdwn;
 
-class SlackConnector extends Connector implements SupportsConfirmation
+class Slack extends Connector implements SupportsConfirmation
 {
     public $channelId;
 
@@ -113,7 +113,7 @@ class SlackConnector extends Connector implements SupportsConfirmation
     }
 
     /**
-     * Build a SlackConnector instance with channelId and threadTs resolved from a thread key.
+     * Build a Slack connector instance with channelId and threadTs resolved from a thread key.
      */
     public static function forKey(string $key): self
     {

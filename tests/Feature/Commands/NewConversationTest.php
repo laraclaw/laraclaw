@@ -4,7 +4,7 @@ use LaraClaw\Commands\NewConversation;
 use LaraClaw\DTOs\IncomingMessage;
 use LaraClaw\Enums\ConnectorType;
 use LaraClaw\Models\Thread;
-use LaraClaw\Tests\Fixtures\FakeConnector;
+use LaraClaw\Tests\Fixtures\Fake;
 
 it('clears the conversation id and returns null', function () {
     $user = $this->createUser();
@@ -15,7 +15,7 @@ it('clears the conversation id and returns null', function () {
     $thread->update(['conversation_id' => 'old-convo-id']);
 
     // Swap the resolved connector so we don't hit Telegram
-    $fake = new FakeConnector;
+    $fake = new Fake;
     $thread->connector = ConnectorType::Telegram;
 
     $command = new NewConversation;

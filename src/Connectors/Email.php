@@ -25,7 +25,7 @@ use League\CommonMark\CommonMarkConverter;
 
 use function LaraClaw\Support\stripHtml;
 
-class EmailConnector extends Connector implements SupportsConfirmation
+class Email extends Connector implements SupportsConfirmation
 {
     use ChecksRedisForConfirmations;
 
@@ -109,7 +109,7 @@ class EmailConnector extends Connector implements SupportsConfirmation
     }
 
     /**
-     * Build a minimal EmailConnector from just the sender email address.
+     * Build a minimal Email connector from just the sender email address.
      * Used for outbound messages that do not need threading headers.
      */
     public static function forKey(string $key): self

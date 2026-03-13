@@ -6,7 +6,7 @@ use DirectoryTree\ImapEngine\Laravel\Events\MessageReceived;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use LaraClaw\Agents\ChatBotAgent;
-use LaraClaw\Connectors\EmailConnector;
+use LaraClaw\Connectors\Email;
 use LaraClaw\Commands\CommandRegistry;
 use LaraClaw\Models\Thread;
 use LaraClaw\Services\Attachments;
@@ -32,19 +32,19 @@ class EmailListener
 
         // Validate the incoming email
         try {
-            EmailConnector::validateEvent($raw);
+            Email::validateEvent($raw);
         } catch (ValidationException $e) {
             Log::debug('Email event skipped', ['code' => $e->getMessage()]);
 
             return;
         }
 
-        $connector = EmailConnector::fromRawMessage($raw);
-        $incomingMessage = EmailConnector::createIncomingMessageFrom($raw, $this->attachments);
+        $connector = Email::fromRawMessage($raw);
+        $incomingMessage = Email::createIncomingMessageFrom($raw, $this->attachments);
         $thread = Thread::forMessage($incomingMessage);
 
         // Mark the email as seen so it is not reprocessed on the next poll
-        EmailConnector::markSeen($raw->uid());
+        Email::markSeen($raw->uid());
 
         // Check if the email is a reply to a pending confirmation
         if ($connector->resolvePendingConfirmation($incomingMessage)) {

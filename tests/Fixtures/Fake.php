@@ -10,7 +10,7 @@ use LaraClaw\Models\Thread;
 /**
  * Minimal in-memory connector for testing. Records sent messages for assertion.
  */
-class FakeConnector extends Connector
+class Fake extends Connector
 {
     public ConnectorType $type { get { return ConnectorType::Telegram; } }
 

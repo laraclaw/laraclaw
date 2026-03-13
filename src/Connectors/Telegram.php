@@ -24,7 +24,7 @@ use Telegram\Bot\Objects\Message as TelegramMessage;
 use Telegram\Bot\Objects\PhotoSize;
 use Throwable;
 
-class TelegramConnector extends Connector implements SupportsConfirmation
+class Telegram extends Connector implements SupportsConfirmation
 {
     use ChecksRedisForConfirmations;
 

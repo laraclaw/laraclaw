@@ -2,13 +2,13 @@
 
 namespace LaraClaw\Enums;
 
-use LaraClaw\Connectors\ApiConnector;
-use LaraClaw\Connectors\Channel;
-use LaraClaw\Connectors\EmailConnector;
-use LaraClaw\Connectors\SlackConnector;
-use LaraClaw\Connectors\TelegramConnector;
-use LaraClaw\Connectors\TerminalConnector;
-use Telegram\Bot\Api;
+use LaraClaw\Connectors\Api;
+use LaraClaw\Connectors\Connector;
+use LaraClaw\Connectors\Email;
+use LaraClaw\Connectors\Slack;
+use LaraClaw\Connectors\Telegram;
+use LaraClaw\Connectors\Terminal;
+use Telegram\Bot\Api as TelegramApi;
 
 /**
  * Supported communication connector types.
@@ -24,14 +24,14 @@ enum ConnectorType: string
     /**
      * Instantiate the outbound connector for this type and key.
      */
-    public function forKey(string $key): Channel
+    public function forKey(string $key): Connector
     {
         return match ($this) {
-            self::Telegram => new TelegramConnector((int) $key, resolve(Api::class)),
-            self::Slack => SlackConnector::forKey($key),
-            self::Terminal => new TerminalConnector,
-            self::Email => EmailConnector::forKey($key),
-            self::Api => ApiConnector::forKey($key),
+            self::Telegram => new Telegram((int) $key, resolve(TelegramApi::class)),
+            self::Slack => Slack::forKey($key),
+            self::Terminal => new Terminal,
+            self::Email => Email::forKey($key),
+            self::Api => Api::forKey($key),
         };
     }
 
@@ -41,10 +41,10 @@ enum ConnectorType: string
     public function isDirectMessage(string $key): bool
     {
         return match ($this) {
-            self::Telegram => TelegramConnector::isDirectMessage($key),
-            self::Slack => SlackConnector::isDirectMessage($key),
-            self::Email => EmailConnector::isDirectMessage($key),
-            self::Terminal => TerminalConnector::isDirectMessage($key),
+            self::Telegram => Telegram::isDirectMessage($key),
+            self::Slack => Slack::isDirectMessage($key),
+            self::Email => Email::isDirectMessage($key),
+            self::Terminal => Terminal::isDirectMessage($key),
         };
     }
 }

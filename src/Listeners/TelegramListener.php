@@ -5,7 +5,7 @@ namespace LaraClaw\Listeners;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use LaraClaw\Agents\ChatBotAgent;
-use LaraClaw\Connectors\TelegramConnector;
+use LaraClaw\Connectors\Telegram;
 use LaraClaw\Commands\CommandRegistry;
 use LaraClaw\Events\TelegramMessageReceived;
 use LaraClaw\Models\Thread;
@@ -32,15 +32,15 @@ class TelegramListener
 
         // Validate the incoming Telegram message
         try {
-            TelegramConnector::validateEvent($raw);
+            Telegram::validateEvent($raw);
         } catch (ValidationException $e) {
             Log::debug('Telegram event skipped', ['code' => $e->getMessage()]);
 
             return;
         }
 
-        $connector = new TelegramConnector($raw->getChat()->getId(), $event->bot);
-        $incomingMessage = TelegramConnector::createIncomingMessageFrom($raw, $event->bot, $this->attachments);
+        $connector = new Telegram($raw->getChat()->getId(), $event->bot);
+        $incomingMessage = Telegram::createIncomingMessageFrom($raw, $event->bot, $this->attachments);
         $thread = Thread::forMessage($incomingMessage);
 
         // Check if the message is a reply to a pending confirmation

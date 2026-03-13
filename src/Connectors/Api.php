@@ -11,7 +11,7 @@ use LaraClaw\Enums\ConnectorType;
 use LaraClaw\Models\Thread;
 use LaraClaw\Services\Attachments;
 
-class ApiConnector extends Connector
+class Api extends Connector
 {
     public ConnectorType $type { get { return ConnectorType::Api; } }
 
@@ -73,7 +73,7 @@ class ApiConnector extends Connector
     }
 
     /**
-     * Build an ApiConnector instance for outbound replies.
+     * Build an Api connector instance for outbound replies.
      */
     public static function forKey(string $key): self
     {
