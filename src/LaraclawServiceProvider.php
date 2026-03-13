@@ -16,7 +16,7 @@ use LaraClaw\Calendar\Contracts\CalendarDriver;
 use LaraClaw\Calendar\GoogleCalendarDriver;
 use LaraClaw\Commands\CommandRegistry;
 use LaraClaw\Commands\NewConversation;
-use LaraClaw\Console\Commands\ChannelAddCommand;
+use LaraClaw\Console\Commands\ConnectorAddCommand;
 use LaraClaw\Console\Commands\Chat;
 use LaraClaw\Console\Commands\GoogleCalendarAuth;
 use LaraClaw\Console\Commands\ProcessHeartbeats;
@@ -24,7 +24,7 @@ use LaraClaw\Console\Commands\SendReminders;
 use LaraClaw\Console\Commands\SetupAdmin;
 use LaraClaw\Console\Commands\SetupAgent;
 use LaraClaw\Console\Commands\SetupCalendar;
-use LaraClaw\Console\Commands\SetupChannel;
+use LaraClaw\Console\Commands\SetupConnector;
 use LaraClaw\Console\Commands\SetupFiles;
 use LaraClaw\Console\Commands\SetupWizard;
 use LaraClaw\Events\TelegramMessageReceived;
@@ -49,7 +49,7 @@ use Spatie\GoogleCalendar\GoogleCalendar;
 class LaraclawServiceProvider extends ServiceProvider
 {
     /**
-     * Bind services, configure channels, and register the calendar driver.
+     * Bind services, configure connectors, and register the calendar driver.
      */
     #[Override]
     public function register(): void
@@ -58,8 +58,8 @@ class LaraclawServiceProvider extends ServiceProvider
 
         $this->registerBlockingRedisConnection();
         $this->registerCoreSingletons();
-        $this->configureTelegramChannel();
-        $this->configureEmailChannel();
+        $this->configureTelegramConnector();
+        $this->configureEmailConnector();
         $this->registerCalendarDriver();
     }
 
@@ -126,22 +126,22 @@ class LaraclawServiceProvider extends ServiceProvider
     }
 
     /**
-     * Throw if required configuration values are missing for the enabled channels.
+     * Throw if required configuration values are missing for the enabled connectors.
      */
     private function validateConfiguration(): void
     {
-        $needsOwner = config('laraclaw.channels.telegram.enabled')
-            || config('laraclaw.channels.slack.enabled');
+        $needsOwner = config('laraclaw.connectors.telegram.enabled')
+            || config('laraclaw.connectors.slack.enabled');
 
         if ($needsOwner && ! config('laraclaw.auth.admin_user_id')) {
             throw new RuntimeException(
-                'LaraClaw: LARACLAW_ADMIN_USER_ID must be set when Telegram or Slack channels are enabled.'
+                'LaraClaw: LARACLAW_ADMIN_USER_ID must be set when Telegram or Slack connectors are enabled.'
             );
         }
 
-        if (config('laraclaw.channels.slack.enabled') && empty(config('laraclaw.channels.slack.signing_secret'))) {
+        if (config('laraclaw.connectors.slack.enabled') && empty(config('laraclaw.connectors.slack.signing_secret'))) {
             throw new RuntimeException(
-                'LaraClaw: LARACLAW_SLACK_SIGNING_SECRET must be set when the Slack channel is enabled.'
+                'LaraClaw: LARACLAW_SLACK_SIGNING_SECRET must be set when the Slack connector is enabled.'
             );
         }
     }
@@ -202,11 +202,11 @@ class LaraclawServiceProvider extends ServiceProvider
     /**
      * Push the Telegram token into the telegram-bot-sdk config.
      */
-    private function configureTelegramChannel(): void
+    private function configureTelegramConnector(): void
     {
         $this->app->booting(function (): void {
             config()->set('telegram.bots.laraclaw', [
-                'token' => config('laraclaw.channels.telegram.token'),
+                'token' => config('laraclaw.connectors.telegram.token'),
             ]);
             config()->set('telegram.default', 'laraclaw');
         });
@@ -215,13 +215,13 @@ class LaraclawServiceProvider extends ServiceProvider
     /**
      * Copy email SMTP and IMAP credentials from the LaraClaw config into Laravel's mail and IMAP configs.
      */
-    private function configureEmailChannel(): void
+    private function configureEmailConnector(): void
     {
-        if (! config('laraclaw.channels.email.enabled')) {
+        if (! config('laraclaw.connectors.email.enabled')) {
             return;
         }
 
-        $smtp = config('laraclaw.channels.email.smtp');
+        $smtp = config('laraclaw.connectors.email.smtp');
         if ($smtp['host']) {
             config([
                 'mail.default' => 'smtp',
@@ -235,8 +235,8 @@ class LaraclawServiceProvider extends ServiceProvider
             ]);
         }
 
-        $imap = config('laraclaw.channels.email.imap');
-        $mailbox = config('laraclaw.channels.email.imap.mailbox', 'default');
+        $imap = config('laraclaw.connectors.email.imap');
+        $mailbox = config('laraclaw.connectors.email.imap.mailbox', 'default');
         if ($imap['host']) {
             config([
                 "imap.mailboxes.{$mailbox}.host" => $imap['host'],
@@ -276,15 +276,15 @@ class LaraclawServiceProvider extends ServiceProvider
     }
 
     /**
-     * Register event listeners for each enabled channel and for agent request logging.
+     * Register event listeners for each enabled connector and for agent request logging.
      */
     private function registerEventListeners(): void
     {
-        if (config('laraclaw.channels.email.enabled')) {
+        if (config('laraclaw.connectors.email.enabled')) {
             Event::listen(MessageReceived::class, EmailListener::class);
         }
 
-        if (config('laraclaw.channels.telegram.enabled')) {
+        if (config('laraclaw.connectors.telegram.enabled')) {
             Event::listen(TelegramMessageReceived::class, TelegramListener::class);
         }
 
@@ -298,14 +298,14 @@ class LaraclawServiceProvider extends ServiceProvider
     {
         $this->commands([
             GoogleCalendarAuth::class,
-            ChannelAddCommand::class,
+            ConnectorAddCommand::class,
             SendReminders::class,
             ProcessHeartbeats::class,
             SetupWizard::class,
             SetupAdmin::class,
             SetupAgent::class,
             SetupCalendar::class,
-            SetupChannel::class,
+            SetupConnector::class,
             SetupFiles::class,
             Chat::class,
         ]);

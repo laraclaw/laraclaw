@@ -1,22 +1,22 @@
 <?php
 
-namespace LaraClaw\Channels;
+namespace LaraClaw\Connectors;
 
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
-use LaraClaw\Channels\Contracts\SupportsConfirmation;
+use LaraClaw\Connectors\Contracts\SupportsConfirmation;
 use LaraClaw\DTOs\IncomingMessage;
-use LaraClaw\Enums\ChannelType;
+use LaraClaw\Enums\ConnectorType;
 use LaraClaw\Models\Thread;
 
 use function LaraClaw\Support\markdownToAnsi;
 use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\note;
 
-class TerminalChannel extends Channel implements SupportsConfirmation
+class Terminal extends Connector implements SupportsConfirmation
 {
-    public ChannelType $type { get { return ChannelType::Terminal; } }
+    public ConnectorType $type { get { return ConnectorType::Terminal; } }
 
     /**
      * Build an IncomingMessage from a raw Slack event payload,
@@ -28,7 +28,7 @@ class TerminalChannel extends Channel implements SupportsConfirmation
 
         return new IncomingMessage(
             text: $input,
-            channel: ChannelType::Terminal,
+            connector: ConnectorType::Terminal,
             key: $user->id,
             isDirectMessage: true,
             uuid: $uuid,

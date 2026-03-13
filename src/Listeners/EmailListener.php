@@ -6,7 +6,7 @@ use DirectoryTree\ImapEngine\Laravel\Events\MessageReceived;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use LaraClaw\Agents\ChatBotAgent;
-use LaraClaw\Channels\EmailChannel;
+use LaraClaw\Connectors\Email;
 use LaraClaw\Commands\CommandRegistry;
 use LaraClaw\Models\Thread;
 use LaraClaw\Services\Attachments;
@@ -32,22 +32,22 @@ class EmailListener
 
         // Validate the incoming email
         try {
-            EmailChannel::validateEvent($raw);
+            Email::validateEvent($raw);
         } catch (ValidationException $e) {
             Log::debug('Email event skipped', ['code' => $e->getMessage()]);
 
             return;
         }
 
-        $channel = EmailChannel::fromRawMessage($raw);
-        $incomingMessage = EmailChannel::createIncomingMessageFrom($raw, $this->attachments);
+        $connector = Email::fromRawMessage($raw);
+        $incomingMessage = Email::createIncomingMessageFrom($raw, $this->attachments);
         $thread = Thread::forMessage($incomingMessage);
 
         // Mark the email as seen so it is not reprocessed on the next poll
-        EmailChannel::markSeen($raw->uid());
+        Email::markSeen($raw->uid());
 
         // Check if the email is a reply to a pending confirmation
-        if ($channel->resolvePendingConfirmation($incomingMessage)) {
+        if ($connector->resolvePendingConfirmation($incomingMessage)) {
             return;
         }
 
@@ -64,10 +64,10 @@ class EmailListener
         // Queue the agent response, on callback deliver the reply via email
         resolve(ChatBotAgent::class, ['message' => $incomingMessage, 'thread' => $thread])
             ->queue(...$incomingMessage->toAgentInput())
-            ->then(function (AgentResponse $response) use ($thread, $channel, $incomingMessage, $attachments): void {
+            ->then(function (AgentResponse $response) use ($thread, $connector, $incomingMessage, $attachments): void {
                 $thread->update(['conversation_id' => $response->conversationId]);
 
-                $channel->reply(
+                $connector->reply(
                     thread: $thread,
                     text: $response->text,
                     attachments: $attachments->outbound($incomingMessage->uuid)->getAll(),

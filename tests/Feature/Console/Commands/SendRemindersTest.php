@@ -14,7 +14,7 @@ beforeEach(function () {
 it('dispatches SendReminder for overdue unsent reminders', function () {
     Reminder::create([
         'user_id' => $this->user->id,
-        'channel' => 'telegram',
+        'connector' => 'telegram',
         'key' => 'user-123',
         'message' => 'Time to go!',
         'remind_at' => now()->subMinute(),
@@ -28,7 +28,7 @@ it('dispatches SendReminder for overdue unsent reminders', function () {
 it('does not dispatch for reminders that already have sent_at', function () {
     Reminder::create([
         'user_id' => $this->user->id,
-        'channel' => 'telegram',
+        'connector' => 'telegram',
         'key' => 'user-123',
         'message' => 'Already done',
         'remind_at' => now()->subMinute(),
@@ -43,7 +43,7 @@ it('does not dispatch for reminders that already have sent_at', function () {
 it('does not dispatch for reminders scheduled in the future', function () {
     Reminder::create([
         'user_id' => $this->user->id,
-        'channel' => 'telegram',
+        'connector' => 'telegram',
         'key' => 'user-123',
         'message' => 'Not yet',
         'remind_at' => now()->addHour(),
@@ -57,7 +57,7 @@ it('does not dispatch for reminders scheduled in the future', function () {
 it('dispatches multiple reminders in one run', function () {
     Reminder::create([
         'user_id' => $this->user->id,
-        'channel' => 'telegram',
+        'connector' => 'telegram',
         'key' => 'user-123',
         'message' => 'First',
         'remind_at' => now()->subMinutes(2),
@@ -65,7 +65,7 @@ it('dispatches multiple reminders in one run', function () {
 
     Reminder::create([
         'user_id' => $this->user->id,
-        'channel' => 'telegram',
+        'connector' => 'telegram',
         'key' => 'user-456',
         'message' => 'Second',
         'remind_at' => now()->subMinute(),

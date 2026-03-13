@@ -1,6 +1,6 @@
 <?php
 
-namespace LaraClaw\Channels\Contracts;
+namespace LaraClaw\Connectors\Contracts;
 
 use LaraClaw\DTOs\IncomingMessage;
 

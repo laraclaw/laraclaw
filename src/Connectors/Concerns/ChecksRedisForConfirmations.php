@@ -1,6 +1,6 @@
 <?php
 
-namespace LaraClaw\Channels\Concerns;
+namespace LaraClaw\Connectors\Concerns;
 
 use Illuminate\Support\Facades\Redis;
 use LaraClaw\DTOs\IncomingMessage;
@@ -13,7 +13,7 @@ trait ChecksRedisForConfirmations
     private const CONFIRM_KEY = 'confirm:';
 
     /**
-     * Intercept an incoming message if a confirmation is pending for this channel.
+     * Intercept an incoming message if a confirmation is pending for this connector.
      *
      * Returns true if the message was consumed and should not be processed further.
      */
@@ -53,9 +53,9 @@ trait ChecksRedisForConfirmations
         // Clear any stale replies
         Redis::del($confirmKey);
 
-        // Prompt the user via the thread's outbound channel.
+        // Prompt the user via the thread's outbound connector.
         $thread = Thread::forMessage($message);
-        $thread->channel()->reply($thread, "⚠️ {$prompt} Reply 'Yes' to confirm.");
+        $thread->connector()->reply($thread, "⚠️ {$prompt} Reply 'Yes' to confirm.");
 
         // This dedicated connection is declared in the service provider with
         // read_write_timeout = -1, overriding the default Redis socket timeout.

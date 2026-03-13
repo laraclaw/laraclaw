@@ -3,16 +3,16 @@
 namespace LaraClaw\Tests\Fixtures;
 
 use Illuminate\Support\Collection;
-use LaraClaw\Channels\Channel;
-use LaraClaw\Enums\ChannelType;
+use LaraClaw\Connectors\Connector;
+use LaraClaw\Enums\ConnectorType;
 use LaraClaw\Models\Thread;
 
 /**
- * Minimal in-memory channel for testing. Records sent messages for assertion.
+ * Minimal in-memory connector for testing. Records sent messages for assertion.
  */
-class FakeChannel extends Channel
+class Fake extends Connector
 {
-    public ChannelType $type { get { return ChannelType::Telegram; } }
+    public ConnectorType $type { get { return ConnectorType::Telegram; } }
 
     public array $sent = [];
 

@@ -83,8 +83,8 @@ class ChatBotAgent implements Agent, Conversational, HasMiddleware, HasTools
             $tools[] = new WebSearch;
         }
 
-        if (config('laraclaw.channels.email.enabled')) {
-            $tools[] = new EmailManager($this->message, config('laraclaw.channels.email.imap.mailbox', 'default'));
+        if (config('laraclaw.connectors.email.enabled')) {
+            $tools[] = new EmailManager($this->message, config('laraclaw.connectors.email.imap.mailbox', 'default'));
         }
 
         if (config('laraclaw.tools.tts.enabled')) {
@@ -108,10 +108,10 @@ class ChatBotAgent implements Agent, Conversational, HasMiddleware, HasTools
             $this->thread,
         ));
 
-        $channel = $this->thread->channel();
+        $connector = $this->thread->connector();
 
         return array_map(
-            fn ($tool): Tool|WebSearch => $tool instanceof BaseTool ? $tool->withChannel($channel) : $tool,
+            fn ($tool): Tool|WebSearch => $tool instanceof BaseTool ? $tool->withConnector($connector) : $tool,
             $all,
         );
     }

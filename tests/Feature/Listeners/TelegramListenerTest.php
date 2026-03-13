@@ -7,7 +7,7 @@ use LaraClaw\Agents\ChatBotAgent;
 use LaraClaw\Commands\Command;
 use LaraClaw\Commands\CommandRegistry;
 use LaraClaw\DTOs\IncomingMessage;
-use LaraClaw\Enums\ChannelType;
+use LaraClaw\Enums\ConnectorType;
 use LaraClaw\Events\TelegramMessageReceived;
 use LaraClaw\Listeners\TelegramListener;
 use LaraClaw\Models\Thread;
@@ -50,7 +50,7 @@ function registerTelegramAccount(int $chatId = 12345): void
 
     UserAccount::create([
         'user_id' => $user->getAuthIdentifier(),
-        'channel' => ChannelType::Telegram,
+        'connector' => ConnectorType::Telegram,
         'account' => (string) $chatId,
     ]);
 }
@@ -72,11 +72,11 @@ function mockAgentQueue(): Mockery\MockInterface
 beforeEach(function () {
     Log::spy();
     Redis::spy();
-    config(['laraclaw.channels.telegram.enabled' => true]);
+    config(['laraclaw.connectors.telegram.enabled' => true]);
 });
 
-it('skips the message when the telegram channel is disabled', function () {
-    config(['laraclaw.channels.telegram.enabled' => false]);
+it('skips the message when the telegram connector is disabled', function () {
+    config(['laraclaw.connectors.telegram.enabled' => false]);
 
     app(TelegramListener::class)(makeTelegramEvent());
 
@@ -167,7 +167,7 @@ it('creates a thread record for incoming messages', function () {
 
     app(TelegramListener::class)(makeTelegramEvent(chatId: 12345));
 
-    expect(Thread::where('channel', ChannelType::Telegram)->where('key', '12345')->exists())->toBeTrue();
+    expect(Thread::where('connector', ConnectorType::Telegram)->where('key', '12345')->exists())->toBeTrue();
 });
 
 it('accepts messages with a caption but no text', function () {

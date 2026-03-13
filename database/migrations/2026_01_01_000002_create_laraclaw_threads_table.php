@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('laraclaw_threads', function (Blueprint $table) {
             $table->id();
-            $table->string('channel');
+            $table->string('connector');
             $table->string('key');
 
             // References a laravel/ai conversation. No foreign key constraint is placed
@@ -21,7 +21,7 @@ return new class extends Migration
             $table->string('persona')->nullable();
             $table->timestamps();
 
-            $table->unique(['channel', 'key']);
+            $table->unique(['connector', 'key']);
         });
     }
 

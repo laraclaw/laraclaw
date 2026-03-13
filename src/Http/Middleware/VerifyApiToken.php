@@ -4,7 +4,7 @@ namespace LaraClaw\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
-use LaraClaw\Enums\ChannelType;
+use LaraClaw\Enums\ConnectorType;
 use LaraClaw\Models\UserAccount;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -25,7 +25,7 @@ class VerifyApiToken
         }
 
         $account = UserAccount::with('user')
-            ->forChannel(hash('sha256', $token), ChannelType::Api)
+            ->forConnector(hash('sha256', $token), ConnectorType::Api)
             ->first();
 
         if (! $account?->user) {

@@ -1,7 +1,7 @@
 <?php
 
 use LaraClaw\DTOs\IncomingMessage;
-use LaraClaw\Enums\ChannelType;
+use LaraClaw\Enums\ConnectorType;
 use LaraClaw\Models\Heartbeat;
 use LaraClaw\Tools\HeartbeatManager;
 use Laravel\Ai\Tools\Request;
@@ -19,7 +19,7 @@ function heartbeatTool(): HeartbeatManager
 {
     $message = new IncomingMessage(
         text: 'test',
-        channel: ChannelType::Telegram,
+        connector: ConnectorType::Telegram,
         key: 'user-123',
         isDirectMessage: true,
     );
@@ -83,7 +83,7 @@ it('returns an error when cron is missing from create', function () {
 it('lists active heartbeats as JSON', function () {
     Heartbeat::create([
         'user_id' => $this->user->id,
-        'channel' => 'telegram',
+        'connector' => 'telegram',
         'key' => 'user-123',
         'prompt' => 'Give me today\'s standup summary',
         'cron' => '0 9 * * 1-5',
@@ -104,7 +104,7 @@ it('returns a no-heartbeats message when none are active', function () {
 it('does not include cancelled heartbeats in the list', function () {
     Heartbeat::create([
         'user_id' => $this->user->id,
-        'channel' => 'telegram',
+        'connector' => 'telegram',
         'key' => 'user-123',
         'prompt' => 'Cancelled',
         'cron' => '0 9 * * *',
@@ -121,7 +121,7 @@ it('does not include cancelled heartbeats in the list', function () {
 it('cancels a heartbeat by setting is_active to false', function () {
     $heartbeat = Heartbeat::create([
         'user_id' => $this->user->id,
-        'channel' => 'telegram',
+        'connector' => 'telegram',
         'key' => 'user-123',
         'prompt' => 'Cancel me',
         'cron' => '0 9 * * *',

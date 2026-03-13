@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Str;
 use LaraClaw\Agents\ChatBotAgent;
-use LaraClaw\Channels\ApiChannel;
+use LaraClaw\Connectors\Api;
 use LaraClaw\Commands\CommandRegistry;
 use LaraClaw\DTOs\Attachment;
 use LaraClaw\Models\Thread;
@@ -38,7 +38,7 @@ class ApiController extends Controller
 
         $key = $request->input('key', (string) Str::uuid());
 
-        $incomingMessage = ApiChannel::createIncomingMessageFrom(
+        $incomingMessage = Api::createIncomingMessageFrom(
             text: $request->input('text'),
             key: $key,
             files: $request->file('attachments', []),

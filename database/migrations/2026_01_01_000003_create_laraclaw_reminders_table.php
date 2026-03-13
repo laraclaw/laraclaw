@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::create('laraclaw_reminders', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->string('channel');
+            $table->string('connector');
             $table->string('key');
             $table->text('message');
             $table->dateTime('remind_at');

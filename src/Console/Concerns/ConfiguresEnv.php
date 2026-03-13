@@ -35,11 +35,11 @@ trait ConfiguresEnv
     }
 
     /**
-     * If a UserAccount already exists for this user and channel, prompt to use it or set a new one.
+     * If a UserAccount already exists for this user and connector, prompt to use it or set a new one.
      */
-    private function askAccount(string $label, int|string $userId, string $channel, string $placeholder = ''): string
+    private function askAccount(string $label, int|string $userId, string $connector, string $placeholder = ''): string
     {
-        $existing = UserAccount::where('user_id', $userId)->where('channel', $channel)->value('account');
+        $existing = UserAccount::where('user_id', $userId)->where('connector', $connector)->value('account');
 
         if ($existing !== null && select($label, [
             'existing' => "Use existing: {$existing}",
@@ -52,7 +52,7 @@ trait ConfiguresEnv
             label: $label,
             placeholder: $placeholder,
             required: true,
-            validate: fn (string $value): ?string => UserAccount::where('channel', $channel)
+            validate: fn (string $value): ?string => UserAccount::where('connector', $connector)
                 ->where('account', $value)
                 ->where('user_id', '!=', $userId)
                 ->exists()

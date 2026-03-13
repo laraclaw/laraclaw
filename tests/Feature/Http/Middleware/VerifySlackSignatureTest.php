@@ -4,7 +4,7 @@ use Illuminate\Http\Request;
 use LaraClaw\Http\Middleware\VerifySlackSignature;
 
 beforeEach(function () {
-    config(['laraclaw.channels.slack.signing_secret' => 'test-secret']);
+    config(['laraclaw.connectors.slack.signing_secret' => 'test-secret']);
 });
 
 function makeSlackRequest(string $body, ?string $timestamp = null, ?string $secret = null): Request

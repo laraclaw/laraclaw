@@ -18,7 +18,7 @@ class NewConversation implements Command
     public function handle(IncomingMessage $message, Thread $thread): ?string
     {
         $thread->update(['conversation_id' => null]);
-        $thread->channel()->reply($thread, '✅ Conversation reset.');
+        $thread->connector()->reply($thread, '✅ Conversation reset.');
 
         return null;
     }
