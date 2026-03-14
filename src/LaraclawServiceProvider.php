@@ -120,9 +120,7 @@ class LaraclawServiceProvider extends ServiceProvider
             return Limit::perMinute($perMinute)->by('telegram:' . $chatId);
         });
 
-        RateLimiter::for('laraclaw-api', function (Request $request) use ($perMinute) {
-            return Limit::perMinute($perMinute)->by('api:' . ($request->user()?->getAuthIdentifier() ?? 'unknown'));
-        });
+        RateLimiter::for('laraclaw-api', fn (Request $request) => Limit::perMinute($perMinute)->by('api:' . ($request->user()?->getAuthIdentifier() ?? 'unknown')));
     }
 
     /**

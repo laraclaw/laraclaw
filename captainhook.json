@@ -9,6 +9,9 @@
                 "action": "./vendor/bin/duster fix --dirty"
             },
             {
+                "action": "git add -u"
+            },
+            {
                 "action": "./vendor/bin/pest --no-coverage"
             }
         ]

@@ -7,6 +7,7 @@ use Laravel\Ai\Contracts\Providers\TextProvider;
 use Laravel\Ai\Gateway\Prism\PrismCitations;
 use Laravel\Ai\Gateway\Prism\PrismException;
 use Laravel\Ai\Gateway\Prism\PrismGateway;
+use Laravel\Ai\Gateway\Prism\PrismTool;
 use Laravel\Ai\Gateway\Prism\PrismUsage;
 use Laravel\Ai\Gateway\TextGenerationOptions;
 use Laravel\Ai\Providers\AnthropicProvider;
@@ -110,7 +111,7 @@ class CachedPrismGateway extends PrismGateway
     #[Override]
     protected function addTools($request, array $tools, ?TextGenerationOptions $options = null)
     {
-        $prismTools = new Collection($tools)->map(fn ($tool) => $tool instanceof ProviderTool ? null : $this->createPrismTool($tool))->filter()->values();
+        $prismTools = new Collection($tools)->map(fn ($tool): ?PrismTool => $tool instanceof ProviderTool ? null : $this->createPrismTool($tool))->filter()->values();
 
         // Place the cache breakpoint on the last tool so all tool
         // definitions before it are included in the cached prefix.

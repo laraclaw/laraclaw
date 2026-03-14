@@ -73,7 +73,7 @@ class ApiController extends Controller
             'text' => $response->text,
             'key' => $thread->key,
             'attachments' => $this->attachments->outbound($uuid)->getAll()
-                ->map(fn (Attachment $a) => [
+                ->map(fn (Attachment $a): array => [
                     'filename' => $a->filename,
                     'mime_type' => $a->mimeType,
                     'path' => $a->path,
