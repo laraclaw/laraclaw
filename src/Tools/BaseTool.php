@@ -4,7 +4,7 @@ namespace LaraClaw\Tools;
 
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Storage;
-use LaraClaw\Connectors\Channel;
+use LaraClaw\Connectors\Connector;
 use LaraClaw\Connectors\Contracts\SupportsConfirmation;
 use LaraClaw\DTOs\IncomingMessage;
 use LaraClaw\Models\UserAccount;

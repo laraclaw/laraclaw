@@ -45,6 +45,7 @@ enum ConnectorType: string
             self::Slack => Slack::isDirectMessage($key),
             self::Email => Email::isDirectMessage($key),
             self::Terminal => Terminal::isDirectMessage($key),
+            self::Api => Api::isDirectMessage($key),
         };
     }
 }
