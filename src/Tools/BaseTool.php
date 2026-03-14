@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Storage;
 use LaraClaw\Connectors\Connector;
 use LaraClaw\Connectors\Contracts\SupportsConfirmation;
 use LaraClaw\DTOs\IncomingMessage;
-use LaraClaw\Models\UserAccount;
+use LaraClaw\Models\Account;
 use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Tools\Request;
 use Stringable;
@@ -153,7 +153,7 @@ abstract class BaseTool implements Tool
     protected function resolveConnector(?string $connectorType): array
     {
         if ($connectorType) {
-            $account = UserAccount::where('user_id', config('laraclaw.auth.admin_user_id'))
+            $account = Account::where('user_id', config('laraclaw.auth.admin_user_id'))
                 ->where('connector', $connectorType)
                 ->first();
 

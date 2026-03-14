@@ -11,7 +11,7 @@ use LaraClaw\Enums\ConnectorType;
 use LaraClaw\Http\Controllers\ApiController;
 use LaraClaw\Http\Middleware\VerifyApiToken;
 use LaraClaw\Models\Thread;
-use LaraClaw\Models\UserAccount;
+use LaraClaw\Models\Account;
 use Laravel\Ai\Responses\AgentResponse;
 use Laravel\Ai\Responses\Data\Meta;
 use Laravel\Ai\Responses\Data\Usage;
@@ -30,7 +30,7 @@ function authenticatedUser(): \Illuminate\Foundation\Auth\User
 {
     $user = test()->createUser();
 
-    UserAccount::updateOrCreate(
+    Account::updateOrCreate(
         ['user_id' => $user->getAuthIdentifier(), 'connector' => ConnectorType::Api],
         ['account' => hash('sha256', apiToken())],
     );

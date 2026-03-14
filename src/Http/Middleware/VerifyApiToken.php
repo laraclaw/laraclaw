@@ -5,7 +5,7 @@ namespace LaraClaw\Http\Middleware;
 use Closure;
 use Illuminate\Http\Request;
 use LaraClaw\Enums\ConnectorType;
-use LaraClaw\Models\UserAccount;
+use LaraClaw\Models\Account;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -24,7 +24,7 @@ class VerifyApiToken
             abort(401, 'Missing API token.');
         }
 
-        $account = UserAccount::with('user')
+        $account = Account::with('user')
             ->forConnector(hash('sha256', $token), ConnectorType::Api)
             ->first();
 

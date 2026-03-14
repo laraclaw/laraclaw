@@ -7,7 +7,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use LaraClaw\Console\Concerns\ConfiguresEnv;
 use LaraClaw\Enums\ConnectorType;
-use LaraClaw\Models\UserAccount;
+use LaraClaw\Models\Account;
 
 use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\info;
@@ -63,7 +63,7 @@ class SetupConnector extends Command
 
         $this->saveEnv(['LARACLAW_TELEGRAM_TOKEN' => $token, 'LARACLAW_TELEGRAM_ENABLED' => 'true']);
 
-        UserAccount::updateOrCreate(
+        Account::updateOrCreate(
             ['user_id' => $user->getAuthIdentifier(), 'connector' => 'telegram'],
             ['account' => $chatId],
         );
@@ -85,7 +85,7 @@ class SetupConnector extends Command
             'LARACLAW_SLACK_ENABLED' => 'true',
         ]);
 
-        UserAccount::updateOrCreate(
+        Account::updateOrCreate(
             ['user_id' => $user->getAuthIdentifier(), 'connector' => 'slack'],
             ['account' => $ownerSlackId],
         );
@@ -129,9 +129,9 @@ class SetupConnector extends Command
             'LARACLAW_IMAP_PASSWORD' => $imapPassword,
         ]);
 
-        UserAccount::where('user_id', $user->getAuthIdentifier())->where('connector', 'email')->delete();
+        Account::where('user_id', $user->getAuthIdentifier())->where('connector', 'email')->delete();
 
-        $ownerEmails->each(fn ($email) => UserAccount::create([
+        $ownerEmails->each(fn ($email) => Account::create([
             'user_id' => $user->getAuthIdentifier(),
             'connector' => 'email',
             'account' => $email,
@@ -142,14 +142,14 @@ class SetupConnector extends Command
     {
         $this->heading('✨ API');
 
-        $existing = UserAccount::where('user_id', $user->getAuthIdentifier())
+        $existing = Account::where('user_id', $user->getAuthIdentifier())
             ->where('connector', ConnectorType::Api)
             ->exists();
 
         if (! $existing || confirm('An API token already exists. Generate a new one? This will replace the current token.', default: false)) {
             $plaintext = Str::random(64);
 
-            UserAccount::updateOrCreate(
+            Account::updateOrCreate(
                 ['user_id' => $user->getAuthIdentifier(), 'connector' => ConnectorType::Api],
                 ['account' => hash('sha256', $plaintext)],
             );

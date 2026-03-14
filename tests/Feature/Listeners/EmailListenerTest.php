@@ -5,7 +5,7 @@ use DirectoryTree\ImapEngine\Laravel\Events\MessageReceived;
 use DirectoryTree\ImapEngine\MessageInterface;
 use Illuminate\Support\Facades\Log;
 use LaraClaw\Enums\ConnectorType;
-use LaraClaw\Models\UserAccount;
+use LaraClaw\Models\Account;
 
 function makeRawEmail(string $from, string $subject = 'Hello', string $authResults = 'dkim=pass spf=pass'): MessageInterface
 {
@@ -35,7 +35,7 @@ function registerEmailAccount(string $email): void
 {
     $user = test()->createUser();
 
-    UserAccount::create([
+    Account::create([
         'user_id' => $user->getAuthIdentifier(),
         'connector' => ConnectorType::Email,
         'account' => $email,

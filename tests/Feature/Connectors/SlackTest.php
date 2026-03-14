@@ -4,7 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use LaraClaw\Connectors\Slack;
 use LaraClaw\Enums\ConnectorType;
-use LaraClaw\Models\UserAccount;
+use LaraClaw\Models\Account;
 
 function slackRequest(array $payload): Request
 {
@@ -42,7 +42,7 @@ function registerSlackAccount(string $slackUserId): void
 {
     $user = test()->createUser();
 
-    UserAccount::create([
+    Account::create([
         'user_id' => $user->getAuthIdentifier(),
         'connector' => ConnectorType::Slack,
         'account' => $slackUserId,

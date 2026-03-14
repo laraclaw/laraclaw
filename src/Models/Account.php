@@ -12,7 +12,7 @@ use Override;
 /**
  * Eloquent model linking a user to an external connector account identifier.
  */
-class UserAccount extends Model
+class Account extends Model
 {
     const string TABLE = 'laraclaw_accounts';
 

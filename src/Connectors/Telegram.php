@@ -14,7 +14,7 @@ use LaraClaw\DTOs\Attachment;
 use LaraClaw\DTOs\IncomingMessage;
 use LaraClaw\Enums\ConnectorType;
 use LaraClaw\Models\Thread;
-use LaraClaw\Models\UserAccount;
+use LaraClaw\Models\Account;
 use LaraClaw\Services\Attachments;
 use League\CommonMark\CommonMarkConverter;
 use Telegram\Bot\Actions;
@@ -47,7 +47,7 @@ class Telegram extends Connector implements SupportsConfirmation
         $chatId = $message->getChat()->getId();
         $isDirectMessage = $chatId > 0;
 
-        if ($isDirectMessage && ! UserAccount::query()->forConnector((string) $chatId, ConnectorType::Telegram)->exists()) {
+        if ($isDirectMessage && ! Account::query()->forConnector((string) $chatId, ConnectorType::Telegram)->exists()) {
             throw ValidationException::withMessages(['telegram' => 'UNREGISTERED_ACCOUNT']);
         }
 

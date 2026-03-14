@@ -3,7 +3,7 @@
 namespace LaraClaw\Console\Concerns;
 
 use Closure;
-use LaraClaw\Models\UserAccount;
+use LaraClaw\Models\Account;
 
 use function Laravel\Prompts\password;
 use function Laravel\Prompts\select;
@@ -35,11 +35,11 @@ trait ConfiguresEnv
     }
 
     /**
-     * If a UserAccount already exists for this user and connector, prompt to use it or set a new one.
+     * If an Account already exists for this user and connector, prompt to use it or set a new one.
      */
     private function askAccount(string $label, int|string $userId, string $connector, string $placeholder = ''): string
     {
-        $existing = UserAccount::where('user_id', $userId)->where('connector', $connector)->value('account');
+        $existing = Account::where('user_id', $userId)->where('connector', $connector)->value('account');
 
         if ($existing !== null && select($label, [
             'existing' => "Use existing: {$existing}",
@@ -52,7 +52,7 @@ trait ConfiguresEnv
             label: $label,
             placeholder: $placeholder,
             required: true,
-            validate: fn (string $value): ?string => UserAccount::where('connector', $connector)
+            validate: fn (string $value): ?string => Account::where('connector', $connector)
                 ->where('account', $value)
                 ->where('user_id', '!=', $userId)
                 ->exists()

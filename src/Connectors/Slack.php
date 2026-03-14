@@ -16,7 +16,7 @@ use LaraClaw\DTOs\Attachment;
 use LaraClaw\DTOs\IncomingMessage;
 use LaraClaw\Enums\ConnectorType;
 use LaraClaw\Models\Thread;
-use LaraClaw\Models\UserAccount;
+use LaraClaw\Models\Account;
 use LaraClaw\Services\Attachments;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
@@ -78,7 +78,7 @@ class Slack extends Connector implements SupportsConfirmation
                 return;
             }
 
-            if ($isDirectMessage && ! UserAccount::query()->forConnector($request->input('event.user'), ConnectorType::Slack)->exists()) {
+            if ($isDirectMessage && ! Account::query()->forConnector($request->input('event.user'), ConnectorType::Slack)->exists()) {
                 $validator->errors()->add('event', 'UNREGISTERED_ACCOUNT');
                 return;
             }

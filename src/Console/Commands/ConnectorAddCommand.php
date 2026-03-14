@@ -5,7 +5,7 @@ namespace LaraClaw\Console\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Database\UniqueConstraintViolationException;
 use LaraClaw\Enums\ConnectorType;
-use LaraClaw\Models\UserAccount;
+use LaraClaw\Models\Account;
 
 use function Laravel\Prompts\error;
 use function Laravel\Prompts\info;
@@ -20,7 +20,7 @@ class ConnectorAddCommand extends Command
     protected $description = 'Link a user to a connector identifier (telegram, slack, email)';
 
     /**
-     * Resolve the user by ID or email, create the UserAccount record, and report the result.
+     * Resolve the user by ID or email, create the Account record, and report the result.
      */
     public function handle(): int
     {
@@ -50,7 +50,7 @@ class ConnectorAddCommand extends Command
         }
 
         try {
-            UserAccount::create([
+            Account::create([
                 'user_id' => $user->getAuthIdentifier(),
                 'connector' => $connector,
                 'account' => $identifier,

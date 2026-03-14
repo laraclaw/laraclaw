@@ -19,7 +19,7 @@ use LaraClaw\DTOs\IncomingMessage;
 use LaraClaw\Enums\ConnectorType;
 use LaraClaw\Mail\ConnectorReply;
 use LaraClaw\Models\Thread;
-use LaraClaw\Models\UserAccount;
+use LaraClaw\Models\Account;
 use LaraClaw\Services\Attachments;
 use League\CommonMark\CommonMarkConverter;
 
@@ -57,7 +57,7 @@ class Email extends Connector implements SupportsConfirmation
             throw ValidationException::withMessages(['email' => 'SELF_MESSAGE']);
         }
 
-        if (! UserAccount::query()->forConnector($fromEmail, ConnectorType::Email)->exists()) {
+        if (! Account::query()->forConnector($fromEmail, ConnectorType::Email)->exists()) {
             throw ValidationException::withMessages(['email' => 'UNREGISTERED_ACCOUNT']);
         }
 

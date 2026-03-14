@@ -3,7 +3,7 @@
 use LaraClaw\DTOs\IncomingMessage;
 use LaraClaw\Enums\ConnectorType;
 use LaraClaw\Models\Thread;
-use LaraClaw\Models\UserAccount;
+use LaraClaw\Models\Account;
 
 beforeEach(function () {
     $this->user = $this->createUser();
@@ -39,7 +39,7 @@ it('returns admin user for group threads', function () {
 });
 
 it('returns the registered account owner for DM threads', function () {
-    UserAccount::create([
+    Account::create([
         'user_id' => $this->user->id,
         'connector' => ConnectorType::Telegram,
         'account' => 'dm-user-99',

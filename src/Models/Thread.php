@@ -49,7 +49,7 @@ class Thread extends Model
     public function user(): mixed
     {
         if ($this->is_direct_message) {
-            return UserAccount::with('user')
+            return Account::with('user')
                 ->forConnector($this->key, $this->connector)
                 ->firstOrFail()
                 ->user;

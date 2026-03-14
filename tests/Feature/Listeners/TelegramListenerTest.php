@@ -11,7 +11,7 @@ use LaraClaw\Enums\ConnectorType;
 use LaraClaw\Events\TelegramMessageReceived;
 use LaraClaw\Listeners\TelegramListener;
 use LaraClaw\Models\Thread;
-use LaraClaw\Models\UserAccount;
+use LaraClaw\Models\Account;
 use Laravel\Ai\Responses\QueuedAgentResponse;
 use Telegram\Bot\Api;
 use Telegram\Bot\Objects\Chat;
@@ -48,7 +48,7 @@ function registerTelegramAccount(int $chatId = 12345): void
     $user = test()->createUser();
     config(['laraclaw.auth.admin_user_id' => $user->getAuthIdentifier()]);
 
-    UserAccount::create([
+    Account::create([
         'user_id' => $user->getAuthIdentifier(),
         'connector' => ConnectorType::Telegram,
         'account' => (string) $chatId,
