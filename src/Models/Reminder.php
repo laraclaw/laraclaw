@@ -4,7 +4,7 @@ namespace LaraClaw\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use LaraClaw\Enums\ChannelType;
+use LaraClaw\Enums\ConnectorType;
 use LaraClaw\Tables;
 use Override;
 
@@ -17,7 +17,7 @@ class Reminder extends Model
 
     protected $fillable = [
         'user_id',
-        'channel',
+        'connector',
         'key',
         'message',
         'remind_at',
@@ -36,7 +36,7 @@ class Reminder extends Model
     protected function casts(): array
     {
         return [
-            'channel' => ChannelType::class,
+            'connector' => ConnectorType::class,
             'remind_at' => 'datetime',
             'sent_at' => 'datetime',
         ];

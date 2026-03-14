@@ -26,12 +26,12 @@ class SendReminder implements ShouldQueue
     ) {}
 
     /**
-     * Resolve the channel, send the reminder message, and mark it sent.
+     * Resolve the connector, send the reminder message, and mark it sent.
      */
     public function handle(): void
     {
-        $thread = Thread::firstOrCreate(['channel' => $this->reminder->channel, 'key' => $this->reminder->key]);
-        $thread->channel()->reply($thread, $this->reminder->message);
+        $thread = Thread::firstOrCreate(['connector' => $this->reminder->connector, 'key' => $this->reminder->key]);
+        $thread->connector()->reply($thread, $this->reminder->message);
         $this->reminder->update(['sent_at' => now()]);
     }
 
@@ -42,7 +42,7 @@ class SendReminder implements ShouldQueue
     {
         Log::error('SendReminder failed', [
             'reminder_id' => $this->reminder->id,
-            'channel' => $this->reminder->channel->value,
+            'connector' => $this->reminder->connector->value,
             'key' => $this->reminder->key,
             'error' => $exception->getMessage(),
         ]);

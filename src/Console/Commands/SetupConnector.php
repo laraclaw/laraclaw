@@ -6,7 +6,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use LaraClaw\Console\Concerns\ConfiguresEnv;
-use LaraClaw\Enums\ChannelType;
+use LaraClaw\Enums\ConnectorType;
 use LaraClaw\Models\UserAccount;
 
 use function Laravel\Prompts\confirm;
@@ -14,19 +14,19 @@ use function Laravel\Prompts\info;
 use function Laravel\Prompts\text;
 
 /**
- * Configure a single LaraClaw channel: telegram, slack, email, or api.
+ * Configure a single LaraClaw connector: telegram, slack, email, or api.
  */
-class SetupChannel extends Command
+class SetupConnector extends Command
 {
     use ConfiguresEnv;
 
-    protected $signature = 'laraclaw:setup-channel {channel : The channel to configure (telegram, slack, email, api)}';
+    protected $signature = 'laraclaw:setup-connector {connector : The connector to configure (telegram, slack, email, api)}';
 
-    protected $description = 'Configure a LaraClaw channel';
+    protected $description = 'Configure a LaraClaw connector';
 
     public function handle(): int
     {
-        $channel = $this->argument('channel');
+        $connector = $this->argument('connector');
 
         $userModel = config('laraclaw.auth.user_model');
         $user = $userModel::find($this->readEnv('LARACLAW_ADMIN_USER_ID'));
@@ -37,7 +37,7 @@ class SetupChannel extends Command
             return self::FAILURE;
         }
 
-        $handled = match ($channel) {
+        $handled = match ($connector) {
             'telegram' => $this->setupTelegram($user) ?? true,
             'slack' => $this->setupSlack($user) ?? true,
             'email' => $this->setupEmail($user) ?? true,
@@ -46,7 +46,7 @@ class SetupChannel extends Command
         };
 
         if (! $handled) {
-            $this->error("Unknown channel '{$channel}'. Valid options: telegram, slack, email, api.");
+            $this->error("Unknown connector '{$connector}'. Valid options: telegram, slack, email, api.");
 
             return self::FAILURE;
         }
@@ -64,7 +64,7 @@ class SetupChannel extends Command
         $this->saveEnv(['LARACLAW_TELEGRAM_TOKEN' => $token, 'LARACLAW_TELEGRAM_ENABLED' => 'true']);
 
         UserAccount::updateOrCreate(
-            ['user_id' => $user->getAuthIdentifier(), 'channel' => 'telegram'],
+            ['user_id' => $user->getAuthIdentifier(), 'connector' => 'telegram'],
             ['account' => $chatId],
         );
     }
@@ -86,7 +86,7 @@ class SetupChannel extends Command
         ]);
 
         UserAccount::updateOrCreate(
-            ['user_id' => $user->getAuthIdentifier(), 'channel' => 'slack'],
+            ['user_id' => $user->getAuthIdentifier(), 'connector' => 'slack'],
             ['account' => $ownerSlackId],
         );
     }
@@ -129,11 +129,11 @@ class SetupChannel extends Command
             'LARACLAW_IMAP_PASSWORD' => $imapPassword,
         ]);
 
-        UserAccount::where('user_id', $user->getAuthIdentifier())->where('channel', 'email')->delete();
+        UserAccount::where('user_id', $user->getAuthIdentifier())->where('connector', 'email')->delete();
 
         $ownerEmails->each(fn ($email) => UserAccount::create([
             'user_id' => $user->getAuthIdentifier(),
-            'channel' => 'email',
+            'connector' => 'email',
             'account' => $email,
         ]));
     }
@@ -143,14 +143,14 @@ class SetupChannel extends Command
         $this->heading('✨ API');
 
         $existing = UserAccount::where('user_id', $user->getAuthIdentifier())
-            ->where('channel', ChannelType::Api)
+            ->where('connector', ConnectorType::Api)
             ->exists();
 
         if (! $existing || confirm('An API token already exists. Generate a new one? This will replace the current token.', default: false)) {
             $plaintext = Str::random(64);
 
             UserAccount::updateOrCreate(
-                ['user_id' => $user->getAuthIdentifier(), 'channel' => ChannelType::Api],
+                ['user_id' => $user->getAuthIdentifier(), 'connector' => ConnectorType::Api],
                 ['account' => hash('sha256', $plaintext)],
             );
 

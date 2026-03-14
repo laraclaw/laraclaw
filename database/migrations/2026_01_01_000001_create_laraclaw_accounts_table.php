@@ -11,12 +11,12 @@ return new class extends Migration
         Schema::create('laraclaw_accounts', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->string('channel');
+            $table->string('connector');
             $table->string('account');
             $table->timestamps();
 
             $table->index('user_id');
-            $table->unique(['channel', 'account']);
+            $table->unique(['connector', 'account']);
         });
     }
 

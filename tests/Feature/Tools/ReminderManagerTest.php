@@ -1,7 +1,7 @@
 <?php
 
 use LaraClaw\DTOs\IncomingMessage;
-use LaraClaw\Enums\ChannelType;
+use LaraClaw\Enums\ConnectorType;
 use LaraClaw\Models\Reminder;
 use LaraClaw\Tools\ReminderManager;
 use Laravel\Ai\Tools\Request;
@@ -19,7 +19,7 @@ function reminderTool(): ReminderManager
 {
     $message = new IncomingMessage(
         text: 'test',
-        channel: ChannelType::Telegram,
+        connector: ConnectorType::Telegram,
         key: 'user-123',
         isDirectMessage: true,
     );
@@ -73,7 +73,7 @@ it('returns an error when remind_at is missing from create', function () {
 it('lists pending reminders as JSON', function () {
     Reminder::create([
         'user_id' => $this->user->id,
-        'channel' => 'telegram',
+        'connector' => 'telegram',
         'key' => 'user-123',
         'message' => 'Pending reminder',
         'remind_at' => now()->addHour(),
@@ -93,7 +93,7 @@ it('returns a no-reminders message when the list is empty', function () {
 it('does not include already-sent reminders in the list', function () {
     Reminder::create([
         'user_id' => $this->user->id,
-        'channel' => 'telegram',
+        'connector' => 'telegram',
         'key' => 'user-123',
         'message' => 'Already sent',
         'remind_at' => now()->subMinute(),
@@ -110,7 +110,7 @@ it('does not include already-sent reminders in the list', function () {
 it('cancels a pending reminder by ID', function () {
     $reminder = Reminder::create([
         'user_id' => $this->user->id,
-        'channel' => 'telegram',
+        'connector' => 'telegram',
         'key' => 'user-123',
         'message' => 'Cancel me',
         'remind_at' => now()->addHour(),

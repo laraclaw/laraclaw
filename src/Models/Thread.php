@@ -3,22 +3,22 @@
 namespace LaraClaw\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use LaraClaw\Channels\Channel;
+use LaraClaw\Connectors\Connector;
 use LaraClaw\DTOs\IncomingMessage;
-use LaraClaw\Enums\ChannelType;
+use LaraClaw\Enums\ConnectorType;
 use LaraClaw\Tables;
 use Override;
 
 /**
- * Eloquent model representing a persistent conversation thread record for any channel.
+ * Eloquent model representing a persistent conversation thread record for any connector.
  */
 class Thread extends Model
 {
     protected $table = Tables::THREADS;
 
-    protected $fillable = ['channel', 'key', 'conversation_id', 'is_direct_message', 'persona'];
+    protected $fillable = ['connector', 'key', 'conversation_id', 'is_direct_message', 'persona'];
 
-    private ?Channel $resolvedChannel = null;
+    private ?Connector $resolvedConnector = null;
 
     /**
      * Find or create the thread record for the given incoming message.
@@ -26,17 +26,17 @@ class Thread extends Model
     public static function forMessage(IncomingMessage $message): self
     {
         return static::firstOrCreate(
-            ['channel' => $message->channel, 'key' => $message->key],
+            ['connector' => $message->connector, 'key' => $message->key],
             ['is_direct_message' => $message->isDirectMessage],
         );
     }
 
     /**
-     * Instantiate the outbound channel for this thread.
+     * Instantiate the outbound connector for this thread.
      */
-    public function channel(): Channel
+    public function connector(): Connector
     {
-        return $this->resolvedChannel ??= $this->channel->forKey($this->key);
+        return $this->resolvedConnector ??= $this->connector->forKey($this->key);
     }
 
     /**
@@ -49,7 +49,7 @@ class Thread extends Model
     {
         if ($this->is_direct_message) {
             return UserAccount::with('user')
-                ->forChannel($this->key, $this->channel)
+                ->forConnector($this->key, $this->connector)
                 ->firstOrFail()
                 ->user;
         }
@@ -63,7 +63,7 @@ class Thread extends Model
     protected function casts(): array
     {
         return [
-            'channel' => ChannelType::class,
+            'connector' => ConnectorType::class,
             'is_direct_message' => 'boolean',
         ];
     }

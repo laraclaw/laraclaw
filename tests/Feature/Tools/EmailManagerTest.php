@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Storage;
 use LaraClaw\DTOs\Attachment;
 use LaraClaw\DTOs\IncomingMessage;
-use LaraClaw\Enums\ChannelType;
+use LaraClaw\Enums\ConnectorType;
 use LaraClaw\Tools\EmailManager;
 use Laravel\Ai\Tools\Request;
 use Symfony\Component\Mime\Email;
@@ -30,7 +30,7 @@ function emailTool(?IncomingMessage $message = null): EmailManager
 {
     $message ??= new IncomingMessage(
         text: 'test',
-        channel: ChannelType::Telegram,
+        connector: ConnectorType::Telegram,
         key: 'user-123',
         isDirectMessage: true,
     );
@@ -94,7 +94,7 @@ it('attaches message attachments when sending an email', function () {
 
     $message = new IncomingMessage(
         text: 'test',
-        channel: ChannelType::Telegram,
+        connector: ConnectorType::Telegram,
         key: 'user-123',
         isDirectMessage: true,
         attachments: [$attachment],
@@ -183,7 +183,7 @@ it('attaches message attachments when replying', function () {
 
     $message = new IncomingMessage(
         text: 'test',
-        channel: ChannelType::Telegram,
+        connector: ConnectorType::Telegram,
         key: 'user-123',
         isDirectMessage: true,
         attachments: [$attachment],

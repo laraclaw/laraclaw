@@ -15,7 +15,7 @@ beforeEach(function () {
 it('dispatches SendHeartbeat immediately when last_run_at is null', function () {
     Heartbeat::create([
         'user_id' => $this->user->id,
-        'channel' => 'telegram',
+        'connector' => 'telegram',
         'key' => 'user-123',
         'prompt' => 'Good morning!',
         'cron' => '0 9 * * *',
@@ -34,7 +34,7 @@ it('dispatches SendHeartbeat when the next scheduled time has passed', function 
 
     Heartbeat::create([
         'user_id' => $this->user->id,
-        'channel' => 'telegram',
+        'connector' => 'telegram',
         'key' => 'user-123',
         'prompt' => 'Weekly check-in',
         'cron' => '0 9 * * 1',  // Every Monday at 9am
@@ -53,7 +53,7 @@ it('does not dispatch when the next scheduled time has not yet passed', function
 
     Heartbeat::create([
         'user_id' => $this->user->id,
-        'channel' => 'telegram',
+        'connector' => 'telegram',
         'key' => 'user-123',
         'prompt' => 'Daily digest',
         'cron' => '0 9 * * *',  // Every day at 9am
@@ -69,7 +69,7 @@ it('does not dispatch when the next scheduled time has not yet passed', function
 it('does not dispatch for inactive heartbeats', function () {
     Heartbeat::create([
         'user_id' => $this->user->id,
-        'channel' => 'telegram',
+        'connector' => 'telegram',
         'key' => 'user-123',
         'prompt' => 'Disabled',
         'cron' => '* * * * *',
@@ -85,7 +85,7 @@ it('does not dispatch for inactive heartbeats', function () {
 it('only dispatches active heartbeats when mixed with inactive ones', function () {
     Heartbeat::create([
         'user_id' => $this->user->id,
-        'channel' => 'telegram',
+        'connector' => 'telegram',
         'key' => 'user-123',
         'prompt' => 'Active',
         'cron' => '* * * * *',
@@ -95,7 +95,7 @@ it('only dispatches active heartbeats when mixed with inactive ones', function (
 
     Heartbeat::create([
         'user_id' => $this->user->id,
-        'channel' => 'telegram',
+        'connector' => 'telegram',
         'key' => 'user-456',
         'prompt' => 'Inactive',
         'cron' => '* * * * *',

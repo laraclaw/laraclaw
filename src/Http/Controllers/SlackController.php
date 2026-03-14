@@ -8,7 +8,7 @@ use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use LaraClaw\Agents\ChatBotAgent;
-use LaraClaw\Channels\SlackChannel;
+use LaraClaw\Connectors\Slack;
 use LaraClaw\Commands\CommandRegistry;
 use LaraClaw\Models\Thread;
 use LaraClaw\Services\Attachments;
@@ -22,7 +22,7 @@ class SlackController extends Controller
 {
     public function __construct(
         private readonly Attachments $attachments,
-        private readonly SlackChannel $channel,
+        private readonly Slack $connector,
         private readonly CommandRegistry $commands,
     ) {}
 
@@ -40,23 +40,23 @@ class SlackController extends Controller
 
         // Validate the incoming Slack event
         try {
-            SlackChannel::validateEvent($request);
+            Slack::validateEvent($request);
         } catch (ValidationException $e) {
             // Return 200 OK so Slack doesn't retry
             return response()->json(['skipped' => true, 'code' => $e->validator->errors()->first()]);
         }
 
         $event = $request->input('event');
-        $incomingMessage = SlackChannel::createIncomingMessageFrom(event: $event, attachments: $this->attachments);
+        $incomingMessage = Slack::createIncomingMessageFrom(event: $event, attachments: $this->attachments);
         $thread = Thread::forMessage($incomingMessage);
 
         // Check if the event is a reply to a pending confirmation
-        if ($this->channel->resolvePendingConfirmation($incomingMessage)) {
+        if ($this->connector->resolvePendingConfirmation($incomingMessage)) {
             return response()->json(['confirmation_resolved' => true]);
         }
 
         // Acknowledge the incoming message
-        $this->channel->thumbsUp($event);
+        $this->connector->thumbsUp($event);
 
         // Handle commands
         if ($command = $this->commands->match($incomingMessage->text ?? '')) {
@@ -68,13 +68,13 @@ class SlackController extends Controller
         // We need a reference to pass to the callback
         $attachments = $this->attachments;
 
-        // Queue the agent response, on callback deliver the response via the correct channel
+        // Queue the agent response, on callback deliver the response via the correct connector
         resolve(ChatBotAgent::class, ['message' => $incomingMessage, 'thread' => $thread])
             ->queue(...$incomingMessage->toAgentInput())
             ->then(function (AgentResponse $response) use ($thread, $incomingMessage, $attachments): void {
                 $thread->update(['conversation_id' => $response->conversationId]);
 
-                $thread->channel()->reply(
+                $thread->connector()->reply(
                     thread: $thread,
                     text: $response->text,
                     attachments: $attachments->outbound($incomingMessage->uuid)->getAll(),

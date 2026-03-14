@@ -10,7 +10,7 @@ use function Laravel\Prompts\multiselect;
 use function Laravel\Prompts\spin;
 
 /**
- * Interactive Artisan wizard that provisions the owner account and configures channels.
+ * Interactive Artisan wizard that provisions the owner account and configures connectors.
  */
 class SetupWizard extends Command
 {
@@ -31,22 +31,22 @@ class SetupWizard extends Command
         $this->call('laraclaw:setup-admin');
         $this->call('laraclaw:setup-agent');
 
-        $channels = $this->selectChannels();
+        $connectors = $this->selectConnectors();
 
-        foreach ($channels as $channel) {
-            $this->call('laraclaw:setup-channel', ['channel' => $channel]);
+        foreach ($connectors as $connector) {
+            $this->call('laraclaw:setup-connector', ['connector' => $connector]);
         }
 
         $this->selectTools();
         $this->selectSuperpowers();
-        $this->finish($channels);
+        $this->finish($connectors);
 
         return self::SUCCESS;
     }
 
-    private function selectChannels(): array
+    private function selectConnectors(): array
     {
-        $this->heading('📫 Channels');
+        $this->heading('📫 Connectors');
 
         $texts = implode(PHP_EOL, [
             '  - Telegram: a Telegram bot',
@@ -54,7 +54,7 @@ class SetupWizard extends Command
             '  - Email: SMTP and IMAP details',
             '  - API: a REST endpoint with a Bearer token',
         ]);
-        info('I can receive your messages from multiple channels.');
+        info('I can receive your messages from multiple connectors.');
         info('This is what we need to configure each:' . PHP_EOL . PHP_EOL . $texts);
 
         $defaults = collect([
@@ -65,7 +65,7 @@ class SetupWizard extends Command
         ])->filter()->keys()->all();
 
         return multiselect(
-            label: '📫 Which channels would you like to set up?',
+            label: '📫 Which connectors would you like to set up?',
             options: ['telegram' => 'Telegram', 'slack' => 'Slack', 'email' => 'Email', 'api' => 'API'],
             default: $defaults,
             required: false,
@@ -137,7 +137,7 @@ class SetupWizard extends Command
         ]);
     }
 
-    private function finish(array $channels): void
+    private function finish(array $connectors): void
     {
         $appUrl = config('app.url', 'https://your-app.com');
 
@@ -145,7 +145,7 @@ class SetupWizard extends Command
             'telegram' => "  - Telegram: set your webhook URL to {$appUrl}/telegram/webhook",
             'slack' => "  - Slack: set your event subscription URL to {$appUrl}/slack/webhook",
             'api' => "  - API: send POST requests to {$appUrl}/api/message",
-        ])->only($channels)->values()->implode(PHP_EOL);
+        ])->only($connectors)->values()->implode(PHP_EOL);
 
         $message = 'Setup complete!';
 

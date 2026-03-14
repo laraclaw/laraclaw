@@ -4,8 +4,8 @@ namespace LaraClaw\Tools;
 
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Storage;
-use LaraClaw\Channels\Channel;
-use LaraClaw\Channels\Contracts\SupportsConfirmation;
+use LaraClaw\Connectors\Connector;
+use LaraClaw\Connectors\Contracts\SupportsConfirmation;
 use LaraClaw\DTOs\IncomingMessage;
 use LaraClaw\Models\UserAccount;
 use Laravel\Ai\Contracts\Tool;
@@ -15,22 +15,22 @@ use Stringable;
 use function LaraClaw\Support\interpolate;
 
 /**
- * Base class for tools that dispatch named operations, with built-in confirmation, storage, and channel helpers.
+ * Base class for tools that dispatch named operations, with built-in confirmation, storage, and connector helpers.
  */
 abstract class BaseTool implements Tool
 {
     protected array $requiresConfirmation = [];
 
-    protected ?Channel $channel = null;
+    protected ?Connector $connector = null;
 
     public function __construct(protected IncomingMessage $message) {}
 
     /**
-     * Set the active channel so confirmation prompts can reach the user.
+     * Set the active connector so confirmation prompts can reach the user.
      */
-    public function withChannel(Channel $channel): static
+    public function withConnector(Connector $connector): static
     {
-        $this->channel = $channel;
+        $this->connector = $connector;
 
         return $this;
     }
@@ -81,7 +81,7 @@ abstract class BaseTool implements Tool
             ? $template($request)
             : interpolate($template, $request->toArray());
 
-        if (! $this->channel instanceof SupportsConfirmation || ! $this->channel->askForConfirmation($this->message, $prompt)) {
+        if (! $this->connector instanceof SupportsConfirmation || ! $this->connector->askForConfirmation($this->message, $prompt)) {
             return 'Cancelled by user.';
         }
 
@@ -145,24 +145,24 @@ abstract class BaseTool implements Tool
     }
 
     /**
-     * Resolve the target channel and key for scheduling tools.
-     * Falls back to the current message's channel when no override is given.
+     * Resolve the target connector and key for scheduling tools.
+     * Falls back to the current message's connector when no override is given.
      *
-     * @return array{0: ChannelType, 1: string}
+     * @return array{0: ConnectorType, 1: string}
      */
-    protected function resolveChannel(?string $channelType): array
+    protected function resolveConnector(?string $connectorType): array
     {
-        if ($channelType) {
+        if ($connectorType) {
             $account = UserAccount::where('user_id', config('laraclaw.auth.admin_user_id'))
-                ->where('channel', $channelType)
+                ->where('connector', $connectorType)
                 ->first();
 
             if ($account) {
-                return [$account->channel, $account->account];
+                return [$account->connector, $account->account];
             }
         }
 
-        return [$this->message->channel, $this->message->key];
+        return [$this->message->connector, $this->message->key];
     }
 
     /**

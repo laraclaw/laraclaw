@@ -80,7 +80,7 @@ return [
         'path' => env('LARACLAW_SKILLS_PATH', base_path('laraclaw/skills')),
     ],
 
-    'channels' => [
+    'connectors' => [
         'telegram' => [
             'enabled' => env('LARACLAW_TELEGRAM_ENABLED', false),
             'token' => env('LARACLAW_TELEGRAM_TOKEN'),

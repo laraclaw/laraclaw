@@ -40,9 +40,9 @@ abstract class TestCase extends BaseTestCase
         $app['config']->set('laraclaw.auth.user_model', User::class);
 
         // Disable boot-time config validation (only fires outside console anyway)
-        $app['config']->set('laraclaw.channels.telegram.enabled', false);
-        $app['config']->set('laraclaw.channels.slack.enabled', false);
-        $app['config']->set('laraclaw.channels.email.enabled', false);
+        $app['config']->set('laraclaw.connectors.telegram.enabled', false);
+        $app['config']->set('laraclaw.connectors.slack.enabled', false);
+        $app['config']->set('laraclaw.connectors.email.enabled', false);
     }
 
     protected function defineDatabaseMigrations(): void
