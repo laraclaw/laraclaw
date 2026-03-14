@@ -5,7 +5,6 @@ namespace LaraClaw\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use LaraClaw\Enums\ConnectorType;
-use LaraClaw\Tables;
 use Override;
 
 /**
@@ -13,7 +12,9 @@ use Override;
  */
 class Reminder extends Model
 {
-    protected $table = Tables::REMINDERS;
+    const string TABLE = 'laraclaw_reminders';
+
+    protected $table = self::TABLE;
 
     protected $fillable = [
         'user_id',

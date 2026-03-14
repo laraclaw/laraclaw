@@ -5,7 +5,6 @@ namespace LaraClaw\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use LaraClaw\Enums\ConnectorType;
-use LaraClaw\Tables;
 use Override;
 
 /**
@@ -13,7 +12,9 @@ use Override;
  */
 class Heartbeat extends Model
 {
-    protected $table = Tables::HEARTBEATS;
+    const string TABLE = 'laraclaw_heartbeats';
+
+    protected $table = self::TABLE;
 
     protected $fillable = [
         'user_id',

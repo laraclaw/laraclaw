@@ -6,7 +6,6 @@ use Illuminate\Database\Eloquent\Model;
 use LaraClaw\Connectors\Connector;
 use LaraClaw\DTOs\IncomingMessage;
 use LaraClaw\Enums\ConnectorType;
-use LaraClaw\Tables;
 use Override;
 
 /**
@@ -14,7 +13,9 @@ use Override;
  */
 class Thread extends Model
 {
-    protected $table = Tables::THREADS;
+    const string TABLE = 'laraclaw_threads';
+
+    protected $table = self::TABLE;
 
     protected $fillable = ['connector', 'key', 'conversation_id', 'is_direct_message', 'persona'];
 

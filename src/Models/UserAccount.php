@@ -7,7 +7,6 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use LaraClaw\Enums\ConnectorType;
-use LaraClaw\Tables;
 use Override;
 
 /**
@@ -15,7 +14,9 @@ use Override;
  */
 class UserAccount extends Model
 {
-    protected $table = Tables::ACCOUNTS;
+    const string TABLE = 'laraclaw_accounts';
+
+    protected $table = self::TABLE;
 
     protected $fillable = ['user_id', 'connector', 'account'];
 
