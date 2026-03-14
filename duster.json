@@ -1,5 +1,5 @@
 {
     "exclude": [
-        "src/Channels/Channel.php"
+        "src/Connectors/Connector.php"
     ]
 }
