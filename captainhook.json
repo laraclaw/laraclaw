@@ -1,1 +1,16 @@
-[]
+{
+    "pre-commit": {
+        "enabled": true,
+        "actions": [
+            {
+                "action": "./vendor/bin/rector --no-progress-bar"
+            },
+            {
+                "action": "./vendor/bin/duster fix --dirty"
+            },
+            {
+                "action": "./vendor/bin/pest --no-coverage"
+            }
+        ]
+    }
+}
