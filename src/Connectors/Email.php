@@ -18,8 +18,8 @@ use LaraClaw\DTOs\Attachment;
 use LaraClaw\DTOs\IncomingMessage;
 use LaraClaw\Enums\ConnectorType;
 use LaraClaw\Mail\ConnectorReply;
-use LaraClaw\Models\Thread;
 use LaraClaw\Models\Account;
+use LaraClaw\Models\Thread;
 use LaraClaw\Services\Attachments;
 use League\CommonMark\CommonMarkConverter;
 
@@ -29,7 +29,11 @@ class Email extends Connector implements SupportsConfirmation
 {
     use ChecksRedisForConfirmations;
 
-    public ConnectorType $type { get { return ConnectorType::Email; } }
+    public ConnectorType $type {
+        get {
+            return ConnectorType::Email;
+        }
+    }
 
     /** @var Attachment[] */
     private array $attachments = [];
@@ -132,18 +136,6 @@ class Email extends Connector implements SupportsConfirmation
     }
 
     /**
-     * Send a reply to the given thread, optionally with file attachments.
-     */
-    public function reply(?Thread $thread, string $text, ?Collection $attachments = null): void
-    {
-        if ($attachments?->isNotEmpty()) {
-            $this->handleAttachments($attachments);
-        }
-
-        $this->send($text);
-    }
-
-    /**
      * Email conversations are always direct messages.
      */
     public static function isDirectMessage(string $key): bool
@@ -191,6 +183,18 @@ class Email extends Connector implements SupportsConfirmation
             mimeType: $attachment->contentType(),
             filename: $filename,
         );
+    }
+
+    /**
+     * Send a reply to the given thread, optionally with file attachments.
+     */
+    public function reply(?Thread $thread, string $text, ?Collection $attachments = null): void
+    {
+        if ($attachments?->isNotEmpty()) {
+            $this->handleAttachments($attachments);
+        }
+
+        $this->send($text);
     }
 
     private function handleAttachments(Collection $attachments): void

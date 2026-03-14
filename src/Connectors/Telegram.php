@@ -13,8 +13,8 @@ use LaraClaw\Connectors\Contracts\SupportsConfirmation;
 use LaraClaw\DTOs\Attachment;
 use LaraClaw\DTOs\IncomingMessage;
 use LaraClaw\Enums\ConnectorType;
-use LaraClaw\Models\Thread;
 use LaraClaw\Models\Account;
+use LaraClaw\Models\Thread;
 use LaraClaw\Services\Attachments;
 use League\CommonMark\CommonMarkConverter;
 use Telegram\Bot\Actions;
@@ -28,7 +28,11 @@ class Telegram extends Connector implements SupportsConfirmation
 {
     use ChecksRedisForConfirmations;
 
-    public ConnectorType $type { get { return ConnectorType::Telegram; } }
+    public ConnectorType $type {
+        get {
+            return ConnectorType::Telegram;
+        }
+    }
 
     public function __construct(
         private int|string $chatId,
@@ -73,33 +77,6 @@ class Telegram extends Connector implements SupportsConfirmation
             attachments: self::saveAttachments($message, $bot, $attachments->inbound($uuid)),
             uuid: $uuid,
         );
-    }
-
-    /**
-     * Send a typing indicator to show the bot is processing.
-     */
-    public function showTypingIndicator(): void
-    {
-        try {
-            $this->bot->sendChatAction([
-                'chat_id' => $this->chatId,
-                'action' => Actions::TYPING,
-            ]);
-        } catch (Throwable $e) {
-            Log::warning('Telegram typing indicator failed', ['error' => $e->getMessage()]);
-        }
-    }
-
-    /**
-     * Send a reply to the given thread, optionally with file attachments.
-     */
-    public function reply(?Thread $thread, string $text, ?Collection $attachments = null): void
-    {
-        if ($attachments?->isNotEmpty()) {
-            $this->handleAttachments($attachments);
-        }
-
-        $this->send($text);
     }
 
     /**
@@ -200,6 +177,33 @@ class Telegram extends Connector implements SupportsConfirmation
 
             return null;
         }
+    }
+
+    /**
+     * Send a typing indicator to show the bot is processing.
+     */
+    public function showTypingIndicator(): void
+    {
+        try {
+            $this->bot->sendChatAction([
+                'chat_id' => $this->chatId,
+                'action' => Actions::TYPING,
+            ]);
+        } catch (Throwable $e) {
+            Log::warning('Telegram typing indicator failed', ['error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Send a reply to the given thread, optionally with file attachments.
+     */
+    public function reply(?Thread $thread, string $text, ?Collection $attachments = null): void
+    {
+        if ($attachments?->isNotEmpty()) {
+            $this->handleAttachments($attachments);
+        }
+
+        $this->send($text);
     }
 
     /**

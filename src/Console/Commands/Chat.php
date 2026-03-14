@@ -7,8 +7,8 @@ use Illuminate\Console\Command;
 use Illuminate\Contracts\Auth\Authenticatable;
 use LaraClaw\Agents\ChatBotAgent;
 use LaraClaw\Connectors\Terminal;
-use LaraClaw\Models\Thread;
 use LaraClaw\Models\Account;
+use LaraClaw\Models\Thread;
 
 use function Laravel\Prompts\info;
 

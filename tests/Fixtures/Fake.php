@@ -12,17 +12,21 @@ use LaraClaw\Models\Thread;
  */
 class Fake extends Connector
 {
-    public ConnectorType $type { get { return ConnectorType::Telegram; } }
+    public ConnectorType $type {
+        get {
+            return ConnectorType::Telegram;
+        }
+    }
 
     public array $sent = [];
-
-    public function reply(?Thread $thread, string $text, ?Collection $attachments = null): void
-    {
-        $this->sent[] = $text;
-    }
 
     public static function isDirectMessage(string $key): bool
     {
         return true;
+    }
+
+    public function reply(?Thread $thread, string $text, ?Collection $attachments = null): void
+    {
+        $this->sent[] = $text;
     }
 }

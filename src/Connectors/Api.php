@@ -13,7 +13,11 @@ use LaraClaw\Services\Attachments;
 
 class Api extends Connector
 {
-    public ConnectorType $type { get { return ConnectorType::Api; } }
+    public ConnectorType $type {
+        get {
+            return ConnectorType::Api;
+        }
+    }
 
     /**
      * Build an IncomingMessage from the validated API request data,
@@ -40,6 +44,22 @@ class Api extends Connector
     }
 
     /**
+     * API conversations are always direct messages.
+     */
+    public static function isDirectMessage(string $key): bool
+    {
+        return true;
+    }
+
+    /**
+     * Build an Api connector instance for outbound replies.
+     */
+    public static function forKey(string $key): self
+    {
+        return new self;
+    }
+
+    /**
      * Save uploaded files to inbound storage and return Attachment DTOs.
      *
      * @param  UploadedFile[]  $files
@@ -62,22 +82,6 @@ class Api extends Connector
                 );
             })
             ->all();
-    }
-
-    /**
-     * API conversations are always direct messages.
-     */
-    public static function isDirectMessage(string $key): bool
-    {
-        return true;
-    }
-
-    /**
-     * Build an Api connector instance for outbound replies.
-     */
-    public static function forKey(string $key): self
-    {
-        return new self;
     }
 
     /**

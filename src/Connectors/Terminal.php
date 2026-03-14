@@ -16,7 +16,11 @@ use function Laravel\Prompts\note;
 
 class Terminal extends Connector implements SupportsConfirmation
 {
-    public ConnectorType $type { get { return ConnectorType::Terminal; } }
+    public ConnectorType $type {
+        get {
+            return ConnectorType::Terminal;
+        }
+    }
 
     /**
      * Build an IncomingMessage from a raw Slack event payload,

@@ -10,15 +10,15 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use LaraClaw\Connectors\Concerns\ChecksRedisForConfirmations;
 use LaraClaw\Connectors\Contracts\SupportsConfirmation;
 use LaraClaw\DTOs\Attachment;
 use LaraClaw\DTOs\IncomingMessage;
 use LaraClaw\Enums\ConnectorType;
-use LaraClaw\Models\Thread;
 use LaraClaw\Models\Account;
+use LaraClaw\Models\Thread;
 use LaraClaw\Services\Attachments;
-use Illuminate\Validation\ValidationException;
 use RuntimeException;
 use Throwable;
 
@@ -26,13 +26,16 @@ use function LaraClaw\Support\markdownToMrkdwn;
 
 class Slack extends Connector implements SupportsConfirmation
 {
+    use ChecksRedisForConfirmations;
     public $channelId;
 
     public $threadTs;
 
-    use ChecksRedisForConfirmations;
-
-    public ConnectorType $type { get { return ConnectorType::Slack; } }
+    public ConnectorType $type {
+        get {
+            return ConnectorType::Slack;
+        }
+    }
 
     /**
      * Validate the incoming Slack event request. Throws if the event should not be processed.
@@ -67,6 +70,7 @@ class Slack extends Connector implements SupportsConfirmation
 
             if (! $isEnabled || ! $botUserId) {
                 $validator->errors()->add('event', 'CHANNEL_DISABLED');
+
                 return;
             }
 
@@ -75,11 +79,13 @@ class Slack extends Connector implements SupportsConfirmation
 
             if (! $isDirectMessage && ! $isMentioned && ! $isThreadReply) {
                 $validator->errors()->add('event', 'BOT_NOT_MENTIONED');
+
                 return;
             }
 
             if ($isDirectMessage && ! Account::query()->forConnector($request->input('event.user'), ConnectorType::Slack)->exists()) {
                 $validator->errors()->add('event', 'UNREGISTERED_ACCOUNT');
+
                 return;
             }
 
@@ -133,26 +139,13 @@ class Slack extends Connector implements SupportsConfirmation
     }
 
     /**
-     * Parse a thread key into channelId and threadTs on this instance.
-     * Keys with ':' are channel:threadTs pairs; bare keys are user IDs for DMs.
-     */
-    private function applyKey(string $key): void
-    {
-        if (str_contains($key, ':')) {
-            [$this->channelId, $this->threadTs] = explode(':', $key, 2);
-        } else {
-            $this->channelId = $key;
-        }
-    }
-
-    /**
      * Check if the event is a reply inside a thread the bot has already responded to.
      * This lets thread replies through without requiring an explicit mention.
      */
     private static function isReplyInKnownThread(Request $request): bool
     {
         $threadTs = $request->input('event.thread_ts');
-        $channel  = $request->input('event.channel');
+        $channel = $request->input('event.channel');
 
         if (! $threadTs || ! $channel) {
             return false;
@@ -172,7 +165,7 @@ class Slack extends Connector implements SupportsConfirmation
             ? $event['user']
             : implode(':', [
                 $event['channel'],
-                $event['thread_ts'] ?? $event['ts']
+                $event['thread_ts'] ?? $event['ts'],
             ]);
     }
 
@@ -222,6 +215,14 @@ class Slack extends Connector implements SupportsConfirmation
     }
 
     /**
+     * Retrieve the configured Slack bot token.
+     */
+    private static function token(): string
+    {
+        return config('laraclaw.connectors.slack.bot_token');
+    }
+
+    /**
      * React with a thumbsup to acknowledge the incoming message.
      */
     public function thumbsUp(array $event): void
@@ -236,14 +237,6 @@ class Slack extends Connector implements SupportsConfirmation
         } catch (Throwable $e) {
             Log::warning('Slack reaction failed', ['error' => $e->getMessage()]);
         }
-    }
-
-    /**
-     * Retrieve the configured Slack bot token.
-     */
-    private static function token(): string
-    {
-        return config('laraclaw.connectors.slack.bot_token');
     }
 
     /**
@@ -292,6 +285,19 @@ class Slack extends Connector implements SupportsConfirmation
             if ($data['ok'] && isset($data['ts'])) {
                 $this->threadTs = $data['ts'];
             }
+        }
+    }
+
+    /**
+     * Parse a thread key into channelId and threadTs on this instance.
+     * Keys with ':' are channel:threadTs pairs; bare keys are user IDs for DMs.
+     */
+    private function applyKey(string $key): void
+    {
+        if (str_contains($key, ':')) {
+            [$this->channelId, $this->threadTs] = explode(':', $key, 2);
+        } else {
+            $this->channelId = $key;
         }
     }
 
