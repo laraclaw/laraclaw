@@ -3,7 +3,7 @@
 namespace LaraClaw\Agents;
 
 use LaraClaw\Agents\Middleware\TranscribeAudio;
-use LaraClaw\Calendar\Contracts\CalendarDriver;
+use LaraClaw\Services\Calendar\Contracts\CalendarDriver;
 use LaraClaw\DTOs\IncomingMessage;
 use LaraClaw\Models\Thread;
 use LaraClaw\Skills\SkillRegistry;

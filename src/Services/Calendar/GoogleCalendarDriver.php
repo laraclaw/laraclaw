@@ -1,12 +1,12 @@
 <?php
 
-namespace LaraClaw\Calendar;
+namespace LaraClaw\Services\Calendar;
 
 use Carbon\Carbon;
 use DateTimeImmutable;
 use DateTimeInterface;
 use Illuminate\Support\Collection;
-use LaraClaw\Calendar\Contracts\CalendarDriver;
+use LaraClaw\Services\Calendar\Contracts\CalendarDriver;
 use LaraClaw\DTOs\CalendarEvent;
 use Spatie\GoogleCalendar\Event as SpatieEvent;
 

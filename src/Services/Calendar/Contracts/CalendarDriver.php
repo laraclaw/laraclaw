@@ -1,6 +1,6 @@
 <?php
 
-namespace LaraClaw\Calendar\Contracts;
+namespace LaraClaw\Services\Calendar\Contracts;
 
 use DateTimeInterface;
 use LaraClaw\DTOs\CalendarEvent;

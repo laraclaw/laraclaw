@@ -6,7 +6,7 @@ use Carbon\Carbon;
 use DateTimeImmutable;
 use Exception;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
-use LaraClaw\Calendar\Contracts\CalendarDriver;
+use LaraClaw\Services\Calendar\Contracts\CalendarDriver;
 use LaraClaw\DTOs\CalendarEvent;
 use LaraClaw\DTOs\IncomingMessage;
 use Laravel\Ai\Tools\Request;
