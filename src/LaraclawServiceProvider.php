@@ -23,17 +23,21 @@ use LaraClaw\Console\Commands\SetupAgent;
 use LaraClaw\Console\Commands\SetupCalendar;
 use LaraClaw\Console\Commands\SetupConnector;
 use LaraClaw\Console\Commands\SetupFiles;
+use LaraClaw\Console\Commands\SetupMemory;
 use LaraClaw\Console\Commands\SetupWizard;
 use LaraClaw\Events\TelegramMessageReceived;
 use LaraClaw\Gateway\Prism\CachedPrismGateway;
 use LaraClaw\Http\Middleware\VerifyApiToken;
 use LaraClaw\Http\Middleware\VerifySlackSignature;
 use LaraClaw\Listeners\EmailListener;
+use LaraClaw\Listeners\EmbedConversation;
 use LaraClaw\Listeners\LogAgentRequest;
 use LaraClaw\Listeners\TelegramListener;
 use LaraClaw\Services\Calendar\AppleCalendarDriver;
 use LaraClaw\Services\Calendar\Contracts\CalendarDriver;
 use LaraClaw\Services\Calendar\GoogleCalendarDriver;
+use LaraClaw\Services\Memory\ContentChunker;
+use LaraClaw\Services\Memory\EmbedContent;
 use LaraClaw\Skills\SkillRegistry;
 use LaraClaw\Tools\ToolRegistry;
 use Laravel\Ai\AiManager;
@@ -61,6 +65,9 @@ class LaraclawServiceProvider extends ServiceProvider
         $this->configureTelegramConnector();
         $this->configureEmailConnector();
         $this->registerCalendarDriver();
+
+        $this->app->singleton(ContentChunker::class);
+        $this->app->singleton(EmbedContent::class);
     }
 
     /**
@@ -140,6 +147,13 @@ class LaraclawServiceProvider extends ServiceProvider
         if (config('laraclaw.connectors.slack.enabled') && empty(config('laraclaw.connectors.slack.signing_secret'))) {
             throw new RuntimeException(
                 'LaraClaw: LARACLAW_SLACK_SIGNING_SECRET must be set when the Slack connector is enabled.'
+            );
+        }
+
+        if (config('laraclaw.memory.enabled') && ! config('ai.default_for_embeddings')) {
+            throw new RuntimeException(
+                'LaraClaw: ai.default_for_embeddings must be configured when the memory is enabled. '
+                . 'Set AI_DEFAULT_FOR_EMBEDDINGS in your .env (e.g. openai, voyage, ollama).'
             );
         }
     }
@@ -286,6 +300,7 @@ class LaraclawServiceProvider extends ServiceProvider
             Event::listen(TelegramMessageReceived::class, TelegramListener::class);
         }
 
+        Event::listen(AgentPrompted::class, EmbedConversation::class);
         Event::listen(AgentPrompted::class, LogAgentRequest::class);
     }
 
@@ -305,6 +320,7 @@ class LaraclawServiceProvider extends ServiceProvider
             SetupCalendar::class,
             SetupConnector::class,
             SetupFiles::class,
+            SetupMemory::class,
             Chat::class,
         ]);
     }

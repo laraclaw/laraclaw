@@ -2,10 +2,13 @@
 
 namespace LaraClaw\Support;
 
+use Illuminate\Database\PostgresConnection;
+use Illuminate\Support\Facades\Schema;
 use League\CommonMark\Environment\Environment;
 use League\CommonMark\Extension\CommonMark\CommonMarkCoreExtension;
 use League\CommonMark\Extension\Strikethrough\StrikethroughExtension;
 use League\CommonMark\MarkdownConverter;
+use Throwable;
 
 /**
  * Convert Markdown to Slack mrkdwn format.
@@ -170,6 +173,25 @@ function interpolate(string $template, array $values): string
 
         return is_array($value) ? implode(', ', $value) : $value;
     }, $template);
+}
+
+/**
+ * Check if the database is PostgreSQL with the pgvector extension available.
+ * Enables the extension if it is available but not yet active.
+ */
+function databaseUsesPgVector(): bool
+{
+    if (! Schema::getConnection() instanceof PostgresConnection) {
+        return false;
+    }
+
+    try {
+        Schema::ensureVectorExtensionExists();
+
+        return true;
+    } catch (Throwable) {
+        return false;
+    }
 }
 
 /**

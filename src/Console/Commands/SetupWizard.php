@@ -37,6 +37,8 @@ class SetupWizard extends Command
             $this->call('laraclaw:setup-connector', ['connector' => $connector]);
         }
 
+        $this->call('laraclaw:setup-memory');
+
         $this->selectTools();
         $this->selectSuperpowers();
         $this->finish($connectors);
