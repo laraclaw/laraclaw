@@ -99,11 +99,11 @@ class SetupWizard extends Command
         $this->heading('🧰 Tools');
 
         $builtIn = implode(PHP_EOL, [
-            '  💬  Answer your questions',
-            '  🌐  Search and browse the web',
-            '  🖼️  Resize, convert, and compress images',
-            '  ⏰  Schedule one-off reminders',
-            '  🔁  Send recurring scheduled messages',
+            '  💬 Answer your questions',
+            '  🌐 Search and browse the web',
+            '  🖼️ Resize, convert, and compress images',
+            '  ⏰ Schedule one-off reminders',
+            '  🔁 Send recurring scheduled messages',
         ]);
         info('Here is what I can do out of the box:' . PHP_EOL . PHP_EOL . $builtIn);
         info('You can also enable these optional tools:');
