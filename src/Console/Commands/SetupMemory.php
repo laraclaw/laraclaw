@@ -12,6 +12,7 @@ use thiagoalessio\TesseractOCR\TesseractOCR;
 
 use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\info;
+use function Laravel\Prompts\multiselect;
 use function Laravel\Prompts\select;
 use function Laravel\Prompts\spin;
 use function Laravel\Prompts\warning;
@@ -31,15 +32,21 @@ class SetupMemory extends Command
     {
         $this->heading('📒 Memory');
 
-        info('If you enable memory, I can remember your past conversations, documents, and attached files (like PDFs and images) and use them as context to better help you in future chats.');
+        $memoryEnabled = $this->readEnv('LARACLAW_MEMORY_ENABLED') === 'true';
+
+        info('By default, I only remember the current conversation. If you enable memory, I can also remember past conversations and optionally read text from attachments, which helps me give better answers in the future.');
+
+        if (! confirm('Enable memory?', default: $memoryEnabled)) {
+            $this->saveEnv(['LARACLAW_MEMORY_ENABLED' => 'false']);
+
+            return self::SUCCESS;
+        }
 
         if (! $this->checkRequirements()) {
             return self::FAILURE;
         }
 
         $this->saveEnv(['LARACLAW_MEMORY_ENABLED' => 'true']);
-
-        info('Memory enabled!');
 
         return self::SUCCESS;
     }
@@ -50,26 +57,46 @@ class SetupMemory extends Command
             return false;
         }
 
-        $this->checkOptionalDependency(
-            'Plain text files (.txt, .md, .csv, .html)',
-            true,
-        );
-
-        $this->checkOptionalDependency(
-            'PDF text extraction',
-            class_exists(Pdf::class),
-            'spatie/pdf-to-text',
-        );
-
-        $this->checkOptionalDependency(
-            'Image OCR',
-            class_exists(TesseractOCR::class),
-            'thiagoalessio/tesseract_ocr',
-        );
-
-        echo PHP_EOL;
+        $this->installExtractionDependencies();
 
         return true;
+    }
+
+    private function installExtractionDependencies(): void
+    {
+        info('Great! I can also extract text from attachments and make it part of my memory.');
+
+        $options = collect();
+
+        if (! class_exists(Pdf::class)) {
+            $options->put('pdf', 'Extract text from PDFs (will install spatie/pdf-to-text)');
+        }
+
+        if (! class_exists(TesseractOCR::class)) {
+            $options->put('ocr', 'Extract text from images (will install thiagoalessio/tesseract_ocr)');
+        }
+
+        if ($options->isEmpty()) {
+            info('All extraction dependencies are already installed.');
+
+            return;
+        }
+
+        $selected = multiselect(
+            label: 'I should...',
+            options: $options->all(),
+            required: false,
+        );
+
+        $packages = collect($selected)->map(fn (string $key): string => match ($key) {
+            'pdf' => 'spatie/pdf-to-text',
+            'ocr' => 'thiagoalessio/tesseract_ocr',
+        });
+
+        $packages->each(fn (string $package): mixed => spin(
+            fn () => Process::run("composer require {$package}")->throw(),
+            "Installing {$package}...",
+        ));
     }
 
     private function configureEmbeddingProvider(): bool
@@ -77,8 +104,6 @@ class SetupMemory extends Command
         $current = config('ai.default_for_embeddings');
 
         if ($current) {
-            info("  ✓ Embedding provider: {$current}");
-
             return true;
         }
 
@@ -101,26 +126,6 @@ class SetupMemory extends Command
 
         $this->writeEnv('AI_DEFAULT_FOR_EMBEDDINGS', $selected);
 
-        info("  ✓ Embedding provider: {$selected}");
-
         return true;
-    }
-
-    private function checkOptionalDependency(string $label, bool $available, ?string $package = null): void
-    {
-        if ($available) {
-            info("  ✓ {$label}");
-
-            return;
-        }
-
-        if ($package && confirm("  Install {$package} to enable {$label}?", default: false)) {
-            spin(
-                fn () => Process::run("composer require {$package}")->throw(),
-                "Installing {$package}...",
-            );
-
-            info("  ✓ {$label}");
-        }
     }
 }

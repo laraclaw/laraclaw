@@ -25,6 +25,8 @@ class SetupCalendar extends Command
     {
         $this->heading('📅 Calendar Manager');
 
+        info('Select a calendar driver:');
+
         $driver = select(
             label: 'Calendar driver',
             options: ['google' => 'Google Calendar', 'apple' => 'Apple CalDAV'],

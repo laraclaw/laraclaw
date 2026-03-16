@@ -140,8 +140,6 @@ class SetupConnector extends Command
 
     private function setupApi(mixed $user): void
     {
-        $this->heading('✨ API');
-
         $existing = Account::where('user_id', $user->getAuthIdentifier())
             ->where('connector', ConnectorType::Api)
             ->exists();

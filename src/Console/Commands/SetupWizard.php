@@ -5,6 +5,7 @@ namespace LaraClaw\Console\Commands;
 use Illuminate\Console\Command;
 use LaraClaw\Console\Concerns\ConfiguresEnv;
 
+use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\info;
 use function Laravel\Prompts\multiselect;
 use function Laravel\Prompts\spin;
@@ -37,11 +38,13 @@ class SetupWizard extends Command
             $this->call('laraclaw:setup-connector', ['connector' => $connector]);
         }
 
+        $apiEnabled = $this->setupApiEndpoint();
+
         $this->call('laraclaw:setup-memory');
 
         $this->selectTools();
         $this->selectSuperpowers();
-        $this->finish($connectors);
+        $this->finish($connectors, $apiEnabled);
 
         return self::SUCCESS;
     }
@@ -51,27 +54,44 @@ class SetupWizard extends Command
         $this->heading('📫 Connectors');
 
         $texts = implode(PHP_EOL, [
-            '  - Telegram: a Telegram bot',
-            '  - Slack: a Slack bot',
-            '  - Email: SMTP and IMAP details',
-            '  - API: a REST endpoint with a Bearer token',
+            '  - Telegram: you need a Telegram bot',
+            '  - Slack: you need a Slack bot',
+            '  - Email: you need SMTP and IMAP details',
         ]);
-        info('I can receive your messages from multiple connectors.');
-        info('This is what we need to configure each:' . PHP_EOL . PHP_EOL . $texts);
+        info("Let's setup ways you can message me:" . PHP_EOL . PHP_EOL . $texts);
 
         $defaults = collect([
             'telegram' => $this->readEnv('LARACLAW_TELEGRAM_TOKEN'),
             'slack' => $this->readEnv('LARACLAW_SLACK_BOT_TOKEN'),
             'email' => $this->readEnv('LARACLAW_SMTP_HOST'),
-            'api' => $this->readEnv('LARACLAW_API_ENABLED') === 'true',
         ])->filter()->keys()->all();
 
         return multiselect(
             label: '📫 Which connectors would you like to set up?',
-            options: ['telegram' => 'Telegram', 'slack' => 'Slack', 'email' => 'Email', 'api' => 'API'],
+            options: ['telegram' => 'Telegram', 'slack' => 'Slack', 'email' => 'Email'],
             default: $defaults,
             required: false,
         );
+    }
+
+    private function setupApiEndpoint(): bool
+    {
+        $this->heading('🌐 API');
+
+        $apiEnabled = $this->readEnv('LARACLAW_API_ENABLED') === 'true';
+
+        info("Would you like to send me messages via the API? It's very useful for webhooks.");
+        info("If you enable the API endpoint, I'll print out a token here. Make sure to copy it!");
+
+        if (! confirm('Enable API endpoint?', default: $apiEnabled)) {
+            $this->saveEnv(['LARACLAW_API_ENABLED' => 'false']);
+
+            return false;
+        }
+
+        $this->call('laraclaw:setup-connector', ['connector' => 'api']);
+
+        return true;
     }
 
     private function selectTools(): void
@@ -80,7 +100,6 @@ class SetupWizard extends Command
 
         $builtIn = implode(PHP_EOL, [
             '  💬  Answer your questions',
-            '  🗣️  Send audio messages',
             '  🌐  Search and browse the web',
             '  🖼️  Resize, convert, and compress images',
             '  ⏰  Schedule one-off reminders',
@@ -112,14 +131,14 @@ class SetupWizard extends Command
 
     private function selectSuperpowers(): void
     {
-        $this->heading('⚡ Superpowers');
+        $this->heading('🦸 Superpowers');
 
         $powers = implode(PHP_EOL, [
-            '  🎛️  Execute Bash commands',
-            '  📟  Use Tinker to interact with your Laravel app',
+            '  - Execute Bash commands',
+            '  - Use Artisan Tinker to interact with your Laravel app',
         ]);
         info('With superpowers, I can:' . PHP_EOL . PHP_EOL . $powers);
-        info('However, granting an agent the power to execute these commands could in some cases result in unintended negative consequences.');
+        info('But with great power comes great responsibility. Allowing the agent to execute these commands could in some cases result in unintended negative consequences.');
 
         $defaults = collect([
             'bash' => $this->readEnv('LARACLAW_BASH_ENABLED') === 'true',
@@ -127,8 +146,8 @@ class SetupWizard extends Command
         ])->filter()->keys()->all();
 
         $selected = multiselect(
-            label: '⚡ Which superpowers do you want to enable?',
-            options: ['bash' => 'Bash', 'tinker' => 'Tinker'],
+            label: 'Which superpowers do you want to enable?',
+            options: ['bash' => 'Allow the agent to execute Bash commands', 'tinker' => 'Allow the agent to run Artisan Tinker'],
             default: $defaults,
             required: false,
         );
@@ -139,15 +158,17 @@ class SetupWizard extends Command
         ]);
     }
 
-    private function finish(array $connectors): void
+    private function finish(array $connectors, bool $apiEnabled): void
     {
         $appUrl = config('app.url', 'https://your-app.com');
+
+        $allConnectors = $apiEnabled ? [...$connectors, 'api'] : $connectors;
 
         $steps = collect([
             'telegram' => "  - Telegram: set your webhook URL to {$appUrl}/telegram/webhook",
             'slack' => "  - Slack: set your event subscription URL to {$appUrl}/slack/webhook",
             'api' => "  - API: send POST requests to {$appUrl}/api/message",
-        ])->only($connectors)->values()->implode(PHP_EOL);
+        ])->only($allConnectors)->values()->implode(PHP_EOL);
 
         $message = 'Setup complete!';
 

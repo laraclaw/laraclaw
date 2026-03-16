@@ -95,6 +95,6 @@ trait ConfiguresEnv
 
     private function heading(string $text): void
     {
-        echo PHP_EOL . "\033[1m{$text}\033[0m" . PHP_EOL . PHP_EOL;
+        echo "\033[1m{$text}\033[0m" . PHP_EOL . PHP_EOL;
     }
 }
