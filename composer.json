@@ -24,6 +24,10 @@
             "LaraClaw\\": "src/"
         }
     },
+    "suggest": {
+        "spatie/pdf-to-text": "Required for PDF text extraction in memory (~^1.0)",
+        "thiagoalessio/tesseract_ocr": "Required for image OCR in memory (~^2.0)"
+    },
     "extra": {
         "laravel": {
             "providers": [

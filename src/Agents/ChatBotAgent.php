@@ -14,6 +14,7 @@ use LaraClaw\Tools\EmailManager;
 use LaraClaw\Tools\FileManager;
 use LaraClaw\Tools\HeartbeatManager;
 use LaraClaw\Tools\ImageManager;
+use LaraClaw\Tools\MemoryManager;
 use LaraClaw\Tools\Persona;
 use LaraClaw\Tools\ReminderManager;
 use LaraClaw\Tools\TextToSpeech;
@@ -38,10 +39,10 @@ class ChatBotAgent implements Agent, Conversational, HasMiddleware, HasTools
     use Promptable, RemembersConversations;
 
     public function __construct(
-        private IncomingMessage $message,
+        public readonly IncomingMessage $message,
         private SkillRegistry $skillRegistry,
         private ToolRegistry $toolRegistry,
-        private Thread $thread,
+        public readonly Thread $thread,
         private ?CalendarDriver $calendarDriver = null,
     ) {
         $user = $this->thread->user() ?? throw new RuntimeException('No user found for thread.');
@@ -70,21 +71,29 @@ class ChatBotAgent implements Agent, Conversational, HasMiddleware, HasTools
     public function tools(): iterable
     {
         $tools = [
-            new UseSkill($this->skillRegistry),
+            resolve(UseSkill::class, ['registry' => $this->skillRegistry]),
+            resolve(Persona::class, ['thread' => $this->thread]),
             resolve(ImageManager::class, ['message' => $this->message]),
             resolve(FileManager::class, ['message' => $this->message]),
-            new WebRequest($this->message),
-            new Persona($this->thread),
-            new ReminderManager($this->message),
-            new HeartbeatManager($this->message),
+            resolve(ReminderManager::class, ['message' => $this->message]),
+            resolve(HeartbeatManager::class, ['message' => $this->message]),
+            resolve(WebRequest::class, ['message' => $this->message]),
         ];
 
         if (Ai::textProvider(config('ai.default')) instanceof SupportsWebSearch) {
-            $tools[] = new WebSearch;
+            $tools[] = resolve(WebSearch::class);
         }
 
         if (config('laraclaw.connectors.email.enabled')) {
-            $tools[] = new EmailManager($this->message, config('laraclaw.connectors.email.imap.mailbox', 'default'));
+            $tools[] = resolve(EmailManager::class, ['message' => $this->message, 'mailbox' => config('laraclaw.connectors.email.imap.mailbox', 'default')]);
+        }
+
+        if ($this->calendarDriver) {
+            $tools[] = resolve(CalendarManager::class, ['message' => $this->message, 'driver' => $this->calendarDriver]);
+        }
+
+        if (config('laraclaw.memory.enabled')) {
+            $tools[] = resolve(MemoryManager::class);
         }
 
         if (config('laraclaw.tools.tts.enabled')) {
@@ -92,15 +101,11 @@ class ChatBotAgent implements Agent, Conversational, HasMiddleware, HasTools
         }
 
         if (config('laraclaw.tools.bash.enabled')) {
-            $tools[] = new Bash;
+            $tools[] = resolve(Bash::class);
         }
 
         if (config('laraclaw.tools.tinker.enabled')) {
-            $tools[] = new Tinker;
-        }
-
-        if ($this->calendarDriver) {
-            $tools[] = new CalendarManager($this->message, $this->calendarDriver);
+            $tools[] = resolve(Tinker::class);
         }
 
         $all = array_merge($tools, $this->toolRegistry->resolve(

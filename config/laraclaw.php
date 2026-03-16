@@ -20,6 +20,16 @@ return [
         'outgoing_attachments_path' => env('LARACLAW_OUTGOING_ATTACHMENTS_PATH', 'outbound'),
     ],
 
+    'memory' => [
+        'enabled' => env('LARACLAW_MEMORY_ENABLED', false),
+
+        // How many relevant chunks to inject into the agent prompt
+        'max_results' => env('LARACLAW_MEMORY_MAX_RESULTS', 5),
+
+        // Minimum similarity score (0.0 to 1.0) to include a result
+        'min_similarity' => env('LARACLAW_MEMORY_MIN_SIMILARITY', 0.5),
+    ],
+
     'logging' => [
         'agent_requests' => env('LARACLAW_LOG_AGENT_REQUESTS', false),
     ],

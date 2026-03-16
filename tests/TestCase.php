@@ -39,6 +39,10 @@ abstract class TestCase extends BaseTestCase
         // Use Laravel's base User model for tests
         $app['config']->set('laraclaw.auth.user_model', User::class);
 
+        // Use array cache so embedding cache calls do not require a database table
+        $app['config']->set('cache.default', 'array');
+        $app['config']->set('ai.caching.embeddings.store', 'array');
+
         // Disable boot-time config validation (only fires outside console anyway)
         $app['config']->set('laraclaw.connectors.telegram.enabled', false);
         $app['config']->set('laraclaw.connectors.slack.enabled', false);
