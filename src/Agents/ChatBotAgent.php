@@ -27,14 +27,16 @@ use Laravel\Ai\Concerns\RemembersConversations;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\Conversational;
 use Laravel\Ai\Contracts\HasMiddleware;
+use Laravel\Ai\Contracts\HasProviderOptions;
 use Laravel\Ai\Contracts\HasTools;
 use Laravel\Ai\Contracts\Providers\SupportsWebSearch;
 use Laravel\Ai\Contracts\Tool;
+use Laravel\Ai\Enums\Lab;
 use Laravel\Ai\Promptable;
 use Laravel\Ai\Providers\Tools\WebSearch;
 use RuntimeException;
 
-class ChatBotAgent implements Agent, Conversational, HasMiddleware, HasTools
+class ChatBotAgent implements Agent, Conversational, HasMiddleware, HasProviderOptions, HasTools
 {
     use Promptable, RemembersConversations;
 
@@ -129,6 +131,25 @@ class ChatBotAgent implements Agent, Conversational, HasMiddleware, HasTools
         return [
             new TranscribeAudio($this->message),
         ];
+    }
+
+    /**
+     * Opt into prompt caching for providers that support it.
+     *
+     * Anthropic does not cache by default; the top-level cache_control hint
+     * tells it to place an automatic cache breakpoint on the longest cacheable
+     * prefix (system prompt and tool definitions).
+     *
+     * OpenAI caches automatically; prompt_cache_key just routes our requests to
+     * the same cache shard so the hit rate stays high across users.
+     */
+    public function providerOptions(Lab|string $provider): array
+    {
+        return match ($provider) {
+            Lab::Anthropic => ['cache_control' => ['type' => 'ephemeral']],
+            Lab::OpenAI => ['prompt_cache_key' => 'laraclaw-chatbot'],
+            default => [],
+        };
     }
 
     /**

@@ -5,7 +5,6 @@ namespace LaraClaw;
 use DirectoryTree\ImapEngine\Laravel\Events\MessageReceived;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Console\Scheduling\Schedule;
-use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
@@ -26,7 +25,6 @@ use LaraClaw\Console\Commands\SetupFiles;
 use LaraClaw\Console\Commands\SetupMemory;
 use LaraClaw\Console\Commands\SetupWizard;
 use LaraClaw\Events\TelegramMessageReceived;
-use LaraClaw\Gateway\Anthropic\CachedAnthropicGateway;
 use LaraClaw\Http\Middleware\VerifyApiToken;
 use LaraClaw\Http\Middleware\VerifySlackSignature;
 use LaraClaw\Listeners\EmailListener;
@@ -40,9 +38,7 @@ use LaraClaw\Services\Memory\ContentChunker;
 use LaraClaw\Services\Memory\EmbedContent;
 use LaraClaw\Skills\SkillRegistry;
 use LaraClaw\Tools\ToolRegistry;
-use Laravel\Ai\AiManager;
 use Laravel\Ai\Events\AgentPrompted;
-use Laravel\Ai\Providers\AnthropicProvider;
 use Override;
 use RuntimeException;
 use Spatie\GoogleCalendar\GoogleCalendar;
@@ -75,8 +71,6 @@ class LaraclawServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        $this->extendAiManager();
-
         if (! $this->app->runningInConsole()) {
             $this->validateConfiguration();
         }
@@ -156,24 +150,6 @@ class LaraclawServiceProvider extends ServiceProvider
                 . 'Set AI_DEFAULT_FOR_EMBEDDINGS in your .env (e.g. openai, voyage, ollama).'
             );
         }
-    }
-
-    /**
-     * Swap in CachedAnthropicGateway by re-binding AiManager with the Anthropic driver overridden.
-     */
-    private function extendAiManager(): void
-    {
-        $this->app->singleton(AiManager::class, fn ($app): AiManager => new class($app) extends AiManager
-        {
-            public function createAnthropicDriver(array $config): AnthropicProvider
-            {
-                return new AnthropicProvider(
-                    new CachedAnthropicGateway($this->app['events']),
-                    $config,
-                    $this->app->make(Dispatcher::class),
-                );
-            }
-        });
     }
 
     /**
