@@ -50,17 +50,13 @@ LaraClaw has a single owner — one user who controls the bot. All connectors ro
 
 ### Telegram
 
-You'll need a bot token from [@BotFather](https://t.me/BotFather). After setup, register the webhook:
+You'll need a bot token from [@BotFather](https://t.me/BotFather). The setup wizard will prompt for it and print the webhook URL you need to register with Telegram:
 
-```bash
-php artisan nutgram:register-webhook
+```
+https://your-app.com/telegram/webhook
 ```
 
-For local development without a public URL, use long-polling instead:
-
-```bash
-php artisan nutgram:run
-```
+Point your bot at it with a one-off `setWebhook` call (curl, Postman, or `Telegram::setWebhook(['url' => ...])` from Tinker).
 
 ### Slack
 
@@ -149,14 +145,21 @@ laraclaw/
 Set a default in your `.env`:
 
 ```env
-LARACLAW_PERSONA=assistant
+LARACLAW_PERSONAS_DEFAULT=assistant
 ```
 
 Users can switch personas at runtime just by asking the bot. Pretty neat, right?
 
 ## Skills
 
-Skills are Markdown files with YAML frontmatter that give the agent reusable instructions. Place them in `laraclaw/skills/`:
+Skills are Markdown files with YAML frontmatter that give the agent reusable instructions. Each skill lives in its own directory under `laraclaw/skills/` as a `SKILL.md` file:
+
+```
+laraclaw/
+  skills/
+    summarise/
+      SKILL.md
+```
 
 ```markdown
 ---

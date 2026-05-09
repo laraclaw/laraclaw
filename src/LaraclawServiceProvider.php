@@ -26,7 +26,7 @@ use LaraClaw\Console\Commands\SetupFiles;
 use LaraClaw\Console\Commands\SetupMemory;
 use LaraClaw\Console\Commands\SetupWizard;
 use LaraClaw\Events\TelegramMessageReceived;
-use LaraClaw\Gateway\Prism\CachedPrismGateway;
+use LaraClaw\Gateway\Anthropic\CachedAnthropicGateway;
 use LaraClaw\Http\Middleware\VerifyApiToken;
 use LaraClaw\Http\Middleware\VerifySlackSignature;
 use LaraClaw\Listeners\EmailListener;
@@ -75,7 +75,7 @@ class LaraclawServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        $this->registerCachedGateway();
+        $this->extendAiManager();
 
         if (! $this->app->runningInConsole()) {
             $this->validateConfiguration();
@@ -159,21 +159,16 @@ class LaraclawServiceProvider extends ServiceProvider
     }
 
     /**
-     * Override the Anthropic driver in AiManager to use CachedPrismGateway.
-     *
-     * Laravel AI hardcodes `new PrismGateway` inside each driver factory method,
-     * so the only way to swap in our caching gateway is to re-register AiManager
-     * with the Anthropic driver overridden. Other providers are unaffected because
-     * prompt caching with cache_control is an Anthropic specific feature.
+     * Swap in CachedAnthropicGateway by re-binding AiManager with the Anthropic driver overridden.
      */
-    private function registerCachedGateway(): void
+    private function extendAiManager(): void
     {
-        $this->app->scoped(AiManager::class, fn ($app): AiManager => new class($app) extends AiManager
+        $this->app->singleton(AiManager::class, fn ($app): AiManager => new class($app) extends AiManager
         {
             public function createAnthropicDriver(array $config): AnthropicProvider
             {
                 return new AnthropicProvider(
-                    new CachedPrismGateway($this->app['events']),
+                    new CachedAnthropicGateway($this->app['events']),
                     $config,
                     $this->app->make(Dispatcher::class),
                 );

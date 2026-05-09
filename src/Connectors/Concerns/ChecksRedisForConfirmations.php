@@ -48,7 +48,7 @@ trait ChecksRedisForConfirmations
         $confirmKey = self::CONFIRM_KEY . $key;
 
         // Signal to the handler that the next message is a confirmation reply
-        Redis::set($awaitingKey, 1, 'EX', $timeout);
+        Redis::set($awaitingKey, 1, 'EX');
 
         // Clear any stale replies
         Redis::del($confirmKey);
