@@ -1,11 +1,11 @@
 <?php
 
-namespace LaraClaw\Tools;
+namespace Laraclaw\Tools;
 
 use Exception;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
-use LaraClaw\DTOs\IncomingMessage;
-use LaraClaw\Services\Attachments;
+use Laraclaw\DTOs\IncomingMessage;
+use Laraclaw\Services\Attachments;
 use Laravel\Ai\Audio;
 use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Tools\Request;

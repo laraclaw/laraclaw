@@ -1,6 +1,6 @@
 <?php
 
-namespace LaraClaw\Tools;
+namespace Laraclaw\Tools;
 
 use DirectoryTree\ImapEngine\Address;
 use DirectoryTree\ImapEngine\FolderInterface;
@@ -11,12 +11,12 @@ use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
-use LaraClaw\DTOs\IncomingMessage;
+use Laraclaw\DTOs\IncomingMessage;
 use Laravel\Ai\Tools\Request;
 use Override;
 use Stringable;
 
-use function LaraClaw\Support\stripHtml;
+use function Laraclaw\Support\stripHtml;
 
 /**
  * Agent tool for reading, sending, and managing email via IMAP and Laravel Mail.

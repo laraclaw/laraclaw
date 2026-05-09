@@ -1,10 +1,10 @@
 <?php
 
-namespace LaraClaw\Models;
+namespace Laraclaw\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use LaraClaw\Enums\ConnectorType;
+use Laraclaw\Enums\ConnectorType;
 use Override;
 
 /**

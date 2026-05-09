@@ -1,9 +1,9 @@
 <?php
 
-namespace LaraClaw\Listeners;
+namespace Laraclaw\Listeners;
 
-use LaraClaw\Agents\ChatBotAgent;
-use LaraClaw\Services\Memory\EmbedContent;
+use Laraclaw\Agents\ChatBotAgent;
+use Laraclaw\Services\Memory\EmbedContent;
 use Laravel\Ai\Events\AgentPrompted;
 
 class EmbedConversation

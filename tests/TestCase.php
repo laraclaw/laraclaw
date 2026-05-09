@@ -1,13 +1,13 @@
 <?php
 
-namespace LaraClaw\Tests;
+namespace Laraclaw\Tests;
 
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use LaraClaw\LaraclawServiceProvider;
-use LaraClaw\Tests\Fixtures\FakeConversationStore;
+use Laraclaw\LaraclawServiceProvider;
+use Laraclaw\Tests\Fixtures\FakeConversationStore;
 use Laravel\Ai\AiServiceProvider;
 use Laravel\Ai\Contracts\ConversationStore;
 use Orchestra\Testbench\TestCase as BaseTestCase;

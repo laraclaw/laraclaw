@@ -1,10 +1,10 @@
 <?php
 
-namespace LaraClaw\Console\Commands;
+namespace Laraclaw\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Process;
-use LaraClaw\Console\Concerns\ConfiguresEnv;
+use Laraclaw\Console\Concerns\ConfiguresEnv;
 use Laravel\Ai\Ai;
 use Laravel\Ai\Contracts\Providers\EmbeddingProvider;
 use Spatie\PdfToText\Pdf;
@@ -18,7 +18,7 @@ use function Laravel\Prompts\spin;
 use function Laravel\Prompts\warning;
 
 /**
- * Configure long term memory for LaraClaw.
+ * Configure long term memory for Laraclaw.
  */
 class SetupMemory extends Command
 {

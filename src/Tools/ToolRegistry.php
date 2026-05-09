@@ -1,10 +1,10 @@
 <?php
 
-namespace LaraClaw\Tools;
+namespace Laraclaw\Tools;
 
 use Closure;
-use LaraClaw\DTOs\IncomingMessage;
-use LaraClaw\Models\Thread;
+use Laraclaw\DTOs\IncomingMessage;
+use Laraclaw\Models\Thread;
 use Laravel\Ai\Contracts\Tool;
 
 /**

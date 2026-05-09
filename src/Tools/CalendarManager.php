@@ -1,14 +1,14 @@
 <?php
 
-namespace LaraClaw\Tools;
+namespace Laraclaw\Tools;
 
 use Carbon\Carbon;
 use DateTimeImmutable;
 use Exception;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
-use LaraClaw\DTOs\CalendarEvent;
-use LaraClaw\DTOs\IncomingMessage;
-use LaraClaw\Services\Calendar\Contracts\CalendarDriver;
+use Laraclaw\DTOs\CalendarEvent;
+use Laraclaw\DTOs\IncomingMessage;
+use Laraclaw\Services\Calendar\Contracts\CalendarDriver;
 use Laravel\Ai\Tools\Request;
 use Override;
 use Stringable;

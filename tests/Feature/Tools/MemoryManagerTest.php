@@ -1,7 +1,7 @@
 <?php
 
-use LaraClaw\Models\Embedding;
-use LaraClaw\Tools\MemoryManager;
+use Laraclaw\Models\Embedding;
+use Laraclaw\Tools\MemoryManager;
 use Laravel\Ai\Embeddings;
 use Laravel\Ai\Tools\Request;
 

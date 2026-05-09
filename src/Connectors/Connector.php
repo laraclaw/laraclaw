@@ -1,13 +1,13 @@
 <?php
 
-namespace LaraClaw\Connectors;
+namespace Laraclaw\Connectors;
 
 use Illuminate\Support\Collection;
-use LaraClaw\Enums\ConnectorType;
-use LaraClaw\Models\Thread;
+use Laraclaw\Enums\ConnectorType;
+use Laraclaw\Models\Thread;
 
 /**
- * Base class for all LaraClaw connector implementations.
+ * Base class for all Laraclaw connector implementations.
  */
 abstract class Connector
 {

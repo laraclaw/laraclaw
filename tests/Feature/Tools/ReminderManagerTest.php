@@ -1,9 +1,9 @@
 <?php
 
-use LaraClaw\DTOs\IncomingMessage;
-use LaraClaw\Enums\ConnectorType;
-use LaraClaw\Models\Reminder;
-use LaraClaw\Tools\ReminderManager;
+use Laraclaw\DTOs\IncomingMessage;
+use Laraclaw\Enums\ConnectorType;
+use Laraclaw\Models\Reminder;
+use Laraclaw\Tools\ReminderManager;
 use Laravel\Ai\Tools\Request;
 
 function reminderRequest(array $data): Request

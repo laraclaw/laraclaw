@@ -1,6 +1,6 @@
 <?php
 
-namespace LaraClaw\Commands;
+namespace Laraclaw\Commands;
 
 /**
  * Holds registered chat commands and matches inbound text against them.

@@ -1,11 +1,11 @@
 <?php
 
-use LaraClaw\DTOs\IncomingMessage;
-use LaraClaw\Enums\ConnectorType;
-use LaraClaw\Enums\MemorySourceType;
-use LaraClaw\Models\Embedding;
-use LaraClaw\Models\Thread;
-use LaraClaw\Services\Memory\EmbedContent;
+use Laraclaw\DTOs\IncomingMessage;
+use Laraclaw\Enums\ConnectorType;
+use Laraclaw\Enums\MemorySourceType;
+use Laraclaw\Models\Embedding;
+use Laraclaw\Models\Thread;
+use Laraclaw\Services\Memory\EmbedContent;
 use Laravel\Ai\Embeddings;
 
 beforeEach(function () {

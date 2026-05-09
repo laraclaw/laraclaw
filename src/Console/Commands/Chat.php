@@ -1,14 +1,14 @@
 <?php
 
-namespace LaraClaw\Console\Commands;
+namespace Laraclaw\Console\Commands;
 
 use Exception;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Auth\Authenticatable;
-use LaraClaw\Agents\ChatBotAgent;
-use LaraClaw\Connectors\Terminal;
-use LaraClaw\Models\Account;
-use LaraClaw\Models\Thread;
+use Laraclaw\Agents\ChatBotAgent;
+use Laraclaw\Connectors\Terminal;
+use Laraclaw\Models\Account;
+use Laraclaw\Models\Thread;
 
 use function Laravel\Prompts\info;
 

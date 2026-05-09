@@ -1,16 +1,16 @@
 <?php
 
-namespace LaraClaw\Connectors;
+namespace Laraclaw\Connectors;
 
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
-use LaraClaw\Connectors\Contracts\SupportsConfirmation;
-use LaraClaw\DTOs\IncomingMessage;
-use LaraClaw\Enums\ConnectorType;
-use LaraClaw\Models\Thread;
+use Laraclaw\Connectors\Contracts\SupportsConfirmation;
+use Laraclaw\DTOs\IncomingMessage;
+use Laraclaw\Enums\ConnectorType;
+use Laraclaw\Models\Thread;
 
-use function LaraClaw\Support\markdownToAnsi;
+use function Laraclaw\Support\markdownToAnsi;
 use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\note;
 

@@ -1,10 +1,10 @@
 <?php
 
-namespace LaraClaw\Tools;
+namespace Laraclaw\Tools;
 
 use Cron\CronExpression;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
-use LaraClaw\Models\Heartbeat;
+use Laraclaw\Models\Heartbeat;
 use Laravel\Ai\Tools\Request;
 use Stringable;
 

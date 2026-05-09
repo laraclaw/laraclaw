@@ -1,10 +1,10 @@
 <?php
 
 use Illuminate\Support\Facades\File;
-use LaraClaw\DTOs\IncomingMessage;
-use LaraClaw\Enums\ConnectorType;
-use LaraClaw\Models\Thread;
-use LaraClaw\Tools\Persona;
+use Laraclaw\DTOs\IncomingMessage;
+use Laraclaw\Enums\ConnectorType;
+use Laraclaw\Models\Thread;
+use Laraclaw\Tools\Persona;
 use Laravel\Ai\Tools\Request;
 
 function personaRequest(array $data): Request

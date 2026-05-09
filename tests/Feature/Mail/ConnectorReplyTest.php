@@ -1,6 +1,6 @@
 <?php
 
-use LaraClaw\Mail\ConnectorReply;
+use Laraclaw\Mail\ConnectorReply;
 
 it('builds an envelope without threading headers when no in-reply-to', function () {
     $mailable = new ConnectorReply(body: '<p>Hello</p>');

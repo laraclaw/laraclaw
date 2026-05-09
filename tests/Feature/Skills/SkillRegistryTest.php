@@ -1,7 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\File;
-use LaraClaw\Skills\SkillRegistry;
+use Laraclaw\Skills\SkillRegistry;
 
 beforeEach(function () {
     $this->skillsPath = storage_path('test-skills');

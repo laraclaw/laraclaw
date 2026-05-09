@@ -1,9 +1,9 @@
 <?php
 
-namespace LaraClaw\Console\Commands;
+namespace Laraclaw\Console\Commands;
 
 use Illuminate\Console\Command;
-use LaraClaw\Console\Concerns\ConfiguresEnv;
+use Laraclaw\Console\Concerns\ConfiguresEnv;
 
 use function Laravel\Prompts\info;
 use function Laravel\Prompts\select;
@@ -18,7 +18,7 @@ class SetupAgent extends Command
 
     protected $signature = 'laraclaw:setup-agent';
 
-    protected $description = 'Set the LaraClaw agent name';
+    protected $description = 'Set the Laraclaw agent name';
 
     public function handle(): int
     {

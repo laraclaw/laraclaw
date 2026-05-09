@@ -1,7 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Artisan;
-use LaraClaw\Tools\Tinker;
+use Laraclaw\Tools\Tinker;
 use Laravel\Ai\Tools\Request;
 
 function tinkerRequest(array $data): Request

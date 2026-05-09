@@ -10,10 +10,10 @@ use DirectoryTree\ImapEngine\MessageQueryInterface;
 use Illuminate\Mail\Events\MessageSending;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Storage;
-use LaraClaw\DTOs\Attachment;
-use LaraClaw\DTOs\IncomingMessage;
-use LaraClaw\Enums\ConnectorType;
-use LaraClaw\Tools\EmailManager;
+use Laraclaw\DTOs\Attachment;
+use Laraclaw\DTOs\IncomingMessage;
+use Laraclaw\Enums\ConnectorType;
+use Laraclaw\Tools\EmailManager;
 use Laravel\Ai\Tools\Request;
 use Symfony\Component\Mime\Email;
 

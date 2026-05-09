@@ -1,13 +1,13 @@
 <?php
 
-namespace LaraClaw\Services\Memory;
+namespace Laraclaw\Services\Memory;
 
 use Exception;
 use Illuminate\Support\Facades\Log;
-use LaraClaw\DTOs\IncomingMessage;
-use LaraClaw\Enums\MemorySourceType;
-use LaraClaw\Models\Embedding;
-use LaraClaw\Models\Thread;
+use Laraclaw\DTOs\IncomingMessage;
+use Laraclaw\Enums\MemorySourceType;
+use Laraclaw\Models\Embedding;
+use Laraclaw\Models\Thread;
 use Laravel\Ai\Embeddings;
 
 class EmbedContent

@@ -1,6 +1,6 @@
 <?php
 
-use LaraClaw\Services\Memory\ContentChunker;
+use Laraclaw\Services\Memory\ContentChunker;
 
 beforeEach(fn () => $this->chunker = new ContentChunker);
 

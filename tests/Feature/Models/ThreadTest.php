@@ -1,9 +1,9 @@
 <?php
 
-use LaraClaw\DTOs\IncomingMessage;
-use LaraClaw\Enums\ConnectorType;
-use LaraClaw\Models\Account;
-use LaraClaw\Models\Thread;
+use Laraclaw\DTOs\IncomingMessage;
+use Laraclaw\Enums\ConnectorType;
+use Laraclaw\Models\Account;
+use Laraclaw\Models\Thread;
 
 beforeEach(function () {
     $this->user = $this->createUser();

@@ -1,11 +1,11 @@
 <?php
 
-namespace LaraClaw\Console\Commands;
+namespace Laraclaw\Console\Commands;
 
 use Cron\CronExpression;
 use Illuminate\Console\Command;
-use LaraClaw\Jobs\SendHeartbeat;
-use LaraClaw\Models\Heartbeat;
+use Laraclaw\Jobs\SendHeartbeat;
+use Laraclaw\Models\Heartbeat;
 
 /**
  * Artisan command that dispatches SendHeartbeat jobs for active heartbeats whose cron is due.

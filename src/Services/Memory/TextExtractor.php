@@ -1,10 +1,10 @@
 <?php
 
-namespace LaraClaw\Services\Memory;
+namespace Laraclaw\Services\Memory;
 
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
-use LaraClaw\DTOs\Attachment;
+use Laraclaw\DTOs\Attachment;
 use Spatie\PdfToText\Pdf;
 use thiagoalessio\TesseractOCR\TesseractOCR;
 use Throwable;

@@ -1,11 +1,11 @@
 <?php
 
-namespace LaraClaw\Tools;
+namespace Laraclaw\Tools;
 
-use LaraClaw\Models\Embedding;
+use Laraclaw\Models\Embedding;
 use Laravel\Ai\Tools\SimilaritySearch;
 
-use function LaraClaw\Support\databaseUsesPgVector;
+use function Laraclaw\Support\databaseUsesPgVector;
 
 /**
  * Searches the memory for relevant past conversations and documents.

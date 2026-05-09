@@ -1,11 +1,11 @@
 <?php
 
-namespace LaraClaw\Console\Commands;
+namespace Laraclaw\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Database\UniqueConstraintViolationException;
-use LaraClaw\Enums\ConnectorType;
-use LaraClaw\Models\Account;
+use Laraclaw\Enums\ConnectorType;
+use Laraclaw\Models\Account;
 
 use function Laravel\Prompts\error;
 use function Laravel\Prompts\info;

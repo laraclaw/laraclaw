@@ -1,6 +1,6 @@
 <?php
 
-namespace LaraClaw\Enums;
+namespace Laraclaw\Enums;
 
 /**
  * Classification of embedded content by origin.

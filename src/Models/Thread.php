@@ -1,11 +1,11 @@
 <?php
 
-namespace LaraClaw\Models;
+namespace Laraclaw\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use LaraClaw\Connectors\Connector;
-use LaraClaw\DTOs\IncomingMessage;
-use LaraClaw\Enums\ConnectorType;
+use Laraclaw\Connectors\Connector;
+use Laraclaw\DTOs\IncomingMessage;
+use Laraclaw\Enums\ConnectorType;
 use Override;
 
 /**

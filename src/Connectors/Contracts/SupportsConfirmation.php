@@ -1,8 +1,8 @@
 <?php
 
-namespace LaraClaw\Connectors\Contracts;
+namespace Laraclaw\Connectors\Contracts;
 
-use LaraClaw\DTOs\IncomingMessage;
+use Laraclaw\DTOs\IncomingMessage;
 
 interface SupportsConfirmation
 {

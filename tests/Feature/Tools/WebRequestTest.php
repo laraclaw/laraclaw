@@ -1,9 +1,9 @@
 <?php
 
 use Illuminate\Support\Facades\Http;
-use LaraClaw\DTOs\IncomingMessage;
-use LaraClaw\Enums\ConnectorType;
-use LaraClaw\Tools\WebRequest;
+use Laraclaw\DTOs\IncomingMessage;
+use Laraclaw\Enums\ConnectorType;
+use Laraclaw\Tools\WebRequest;
 use Laravel\Ai\Tools\Request;
 
 function webRequest(array $data): Request

@@ -1,9 +1,9 @@
 <?php
 
-namespace LaraClaw\Console\Commands;
+namespace Laraclaw\Console\Commands;
 
 use Illuminate\Console\Command;
-use LaraClaw\Console\Concerns\ConfiguresEnv;
+use Laraclaw\Console\Concerns\ConfiguresEnv;
 
 use function Laravel\Prompts\info;
 use function Laravel\Prompts\select;
@@ -11,7 +11,7 @@ use function Laravel\Prompts\spin;
 use function Laravel\Prompts\text;
 
 /**
- * Configure the LaraClaw Calendar Manager tool.
+ * Configure the Laraclaw Calendar Manager tool.
  */
 class SetupCalendar extends Command
 {
@@ -19,7 +19,7 @@ class SetupCalendar extends Command
 
     protected $signature = 'laraclaw:setup-calendar';
 
-    protected $description = 'Configure the LaraClaw Calendar Manager tool';
+    protected $description = 'Configure the Laraclaw Calendar Manager tool';
 
     public function handle(): int
     {

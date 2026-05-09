@@ -1,9 +1,9 @@
 <?php
 
-namespace LaraClaw\Tools;
+namespace Laraclaw\Tools;
 
 use Illuminate\Contracts\JsonSchema\JsonSchema;
-use LaraClaw\Skills\SkillRegistry;
+use Laraclaw\Skills\SkillRegistry;
 use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Tools\Request;
 use Stringable;

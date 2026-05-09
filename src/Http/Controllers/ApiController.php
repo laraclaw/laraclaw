@@ -1,17 +1,17 @@
 <?php
 
-namespace LaraClaw\Http\Controllers;
+namespace Laraclaw\Http\Controllers;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Str;
-use LaraClaw\Agents\ChatBotAgent;
-use LaraClaw\Commands\CommandRegistry;
-use LaraClaw\Connectors\Api;
-use LaraClaw\DTOs\Attachment;
-use LaraClaw\Models\Thread;
-use LaraClaw\Services\Attachments;
+use Laraclaw\Agents\ChatBotAgent;
+use Laraclaw\Commands\CommandRegistry;
+use Laraclaw\Connectors\Api;
+use Laraclaw\DTOs\Attachment;
+use Laraclaw\Models\Thread;
+use Laraclaw\Services\Attachments;
 use Laravel\Ai\Responses\AgentResponse;
 
 /**

@@ -1,8 +1,8 @@
 <?php
 
-use LaraClaw\DTOs\Attachment;
-use LaraClaw\DTOs\IncomingMessage;
-use LaraClaw\Enums\ConnectorType;
+use Laraclaw\DTOs\Attachment;
+use Laraclaw\DTOs\IncomingMessage;
+use Laraclaw\Enums\ConnectorType;
 
 it('generates a uuid when none is provided', function () {
     $msg = new IncomingMessage(text: 'hi', connector: ConnectorType::Telegram, key: '123');

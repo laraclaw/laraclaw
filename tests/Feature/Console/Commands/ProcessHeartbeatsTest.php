@@ -2,9 +2,9 @@
 
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Queue;
-use LaraClaw\Console\Commands\ProcessHeartbeats;
-use LaraClaw\Jobs\SendHeartbeat;
-use LaraClaw\Models\Heartbeat;
+use Laraclaw\Console\Commands\ProcessHeartbeats;
+use Laraclaw\Jobs\SendHeartbeat;
+use Laraclaw\Models\Heartbeat;
 
 beforeEach(function () {
     Queue::fake();

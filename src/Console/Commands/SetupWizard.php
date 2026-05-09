@@ -1,9 +1,9 @@
 <?php
 
-namespace LaraClaw\Console\Commands;
+namespace Laraclaw\Console\Commands;
 
 use Illuminate\Console\Command;
-use LaraClaw\Console\Concerns\ConfiguresEnv;
+use Laraclaw\Console\Concerns\ConfiguresEnv;
 
 use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\info;
@@ -19,7 +19,7 @@ class SetupWizard extends Command
 
     protected $signature = 'laraclaw:setup';
 
-    protected $description = 'Interactive setup wizard for LaraClaw';
+    protected $description = 'Interactive setup wizard for Laraclaw';
 
     public function handle(): int
     {
@@ -27,7 +27,7 @@ class SetupWizard extends Command
 
         spin(fn () => $this->callSilently('migrate', ['--force' => true]), 'Running migrations…');
 
-        info('Welcome! LaraClaw is an AI-assistant that runs in your Laravel app.');
+        info('Welcome! Laraclaw is an AI-assistant that runs in your Laravel app.');
 
         $this->call('laraclaw:setup-admin');
         $this->call('laraclaw:setup-agent');

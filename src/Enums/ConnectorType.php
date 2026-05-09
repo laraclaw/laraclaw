@@ -1,13 +1,13 @@
 <?php
 
-namespace LaraClaw\Enums;
+namespace Laraclaw\Enums;
 
-use LaraClaw\Connectors\Api;
-use LaraClaw\Connectors\Connector;
-use LaraClaw\Connectors\Email;
-use LaraClaw\Connectors\Slack;
-use LaraClaw\Connectors\Telegram;
-use LaraClaw\Connectors\Terminal;
+use Laraclaw\Connectors\Api;
+use Laraclaw\Connectors\Connector;
+use Laraclaw\Connectors\Email;
+use Laraclaw\Connectors\Slack;
+use Laraclaw\Connectors\Telegram;
+use Laraclaw\Connectors\Terminal;
 use Telegram\Bot\Api as TelegramApi;
 
 /**

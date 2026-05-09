@@ -1,7 +1,7 @@
 <?php
 
-use LaraClaw\Enums\MemorySourceType;
-use LaraClaw\Models\Embedding;
+use Laraclaw\Enums\MemorySourceType;
+use Laraclaw\Models\Embedding;
 use Laravel\Ai\Embeddings;
 
 beforeEach(function () {

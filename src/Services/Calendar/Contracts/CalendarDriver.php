@@ -1,9 +1,9 @@
 <?php
 
-namespace LaraClaw\Services\Calendar\Contracts;
+namespace Laraclaw\Services\Calendar\Contracts;
 
 use DateTimeInterface;
-use LaraClaw\DTOs\CalendarEvent;
+use Laraclaw\DTOs\CalendarEvent;
 
 interface CalendarDriver
 {

@@ -1,9 +1,9 @@
 <?php
 
-namespace LaraClaw\DTOs;
+namespace Laraclaw\DTOs;
 
 use Illuminate\Support\Str;
-use LaraClaw\Enums\ConnectorType;
+use Laraclaw\Enums\ConnectorType;
 use Laravel\Ai\Files\Document;
 use Laravel\Ai\Files\Image;
 

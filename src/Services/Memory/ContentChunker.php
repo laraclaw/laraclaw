@@ -1,6 +1,6 @@
 <?php
 
-namespace LaraClaw\Services\Memory;
+namespace Laraclaw\Services\Memory;
 
 class ContentChunker
 {

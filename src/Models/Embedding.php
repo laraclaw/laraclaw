@@ -1,11 +1,11 @@
 <?php
 
-namespace LaraClaw\Models;
+namespace Laraclaw\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use LaraClaw\Enums\MemorySourceType;
-use LaraClaw\Models\Concerns\SearchesWithCosineSimilarity;
+use Laraclaw\Enums\MemorySourceType;
+use Laraclaw\Models\Concerns\SearchesWithCosineSimilarity;
 use Override;
 
 /**

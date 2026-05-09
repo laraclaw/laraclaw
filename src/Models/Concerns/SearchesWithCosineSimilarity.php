@@ -1,6 +1,6 @@
 <?php
 
-namespace LaraClaw\Models\Concerns;
+namespace Laraclaw\Models\Concerns;
 
 use Illuminate\Support\Facades\Log;
 use Laravel\Ai\Embeddings;

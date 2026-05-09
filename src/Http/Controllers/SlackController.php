@@ -1,17 +1,17 @@
 <?php
 
-namespace LaraClaw\Http\Controllers;
+namespace Laraclaw\Http\Controllers;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
-use LaraClaw\Agents\ChatBotAgent;
-use LaraClaw\Commands\CommandRegistry;
-use LaraClaw\Connectors\Slack;
-use LaraClaw\Models\Thread;
-use LaraClaw\Services\Attachments;
+use Laraclaw\Agents\ChatBotAgent;
+use Laraclaw\Commands\CommandRegistry;
+use Laraclaw\Connectors\Slack;
+use Laraclaw\Models\Thread;
+use Laraclaw\Services\Attachments;
 use Laravel\Ai\Responses\AgentResponse;
 use Throwable;
 

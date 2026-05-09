@@ -1,10 +1,10 @@
 <?php
 
-namespace LaraClaw\Console\Commands;
+namespace Laraclaw\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Hash;
-use LaraClaw\Console\Concerns\ConfiguresEnv;
+use Laraclaw\Console\Concerns\ConfiguresEnv;
 
 use function Laravel\Prompts\info;
 use function Laravel\Prompts\password;
@@ -12,7 +12,7 @@ use function Laravel\Prompts\select;
 use function Laravel\Prompts\text;
 
 /**
- * Provision or update the LaraClaw owner account.
+ * Provision or update the Laraclaw owner account.
  */
 class SetupAdmin extends Command
 {
@@ -20,7 +20,7 @@ class SetupAdmin extends Command
 
     protected $signature = 'laraclaw:setup-admin';
 
-    protected $description = 'Set up the LaraClaw admin user account';
+    protected $description = 'Set up the Laraclaw admin user account';
 
     public function handle(): int
     {

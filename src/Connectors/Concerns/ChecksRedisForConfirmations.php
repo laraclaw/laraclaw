@@ -1,10 +1,10 @@
 <?php
 
-namespace LaraClaw\Connectors\Concerns;
+namespace Laraclaw\Connectors\Concerns;
 
 use Illuminate\Support\Facades\Redis;
-use LaraClaw\DTOs\IncomingMessage;
-use LaraClaw\Models\Thread;
+use Laraclaw\DTOs\IncomingMessage;
+use Laraclaw\Models\Thread;
 
 trait ChecksRedisForConfirmations
 {

@@ -1,6 +1,6 @@
 <?php
 
-namespace LaraClaw\Tools;
+namespace Laraclaw\Tools;
 
 use Illuminate\Console\OutputStyle;
 use Illuminate\Contracts\JsonSchema\JsonSchema;

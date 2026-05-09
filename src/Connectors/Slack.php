@@ -1,6 +1,6 @@
 <?php
 
-namespace LaraClaw\Connectors;
+namespace Laraclaw\Connectors;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -11,18 +11,18 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
-use LaraClaw\Connectors\Concerns\ChecksRedisForConfirmations;
-use LaraClaw\Connectors\Contracts\SupportsConfirmation;
-use LaraClaw\DTOs\Attachment;
-use LaraClaw\DTOs\IncomingMessage;
-use LaraClaw\Enums\ConnectorType;
-use LaraClaw\Models\Account;
-use LaraClaw\Models\Thread;
-use LaraClaw\Services\Attachments;
+use Laraclaw\Connectors\Concerns\ChecksRedisForConfirmations;
+use Laraclaw\Connectors\Contracts\SupportsConfirmation;
+use Laraclaw\DTOs\Attachment;
+use Laraclaw\DTOs\IncomingMessage;
+use Laraclaw\Enums\ConnectorType;
+use Laraclaw\Models\Account;
+use Laraclaw\Models\Thread;
+use Laraclaw\Services\Attachments;
 use RuntimeException;
 use Throwable;
 
-use function LaraClaw\Support\markdownToMrkdwn;
+use function Laraclaw\Support\markdownToMrkdwn;
 
 class Slack extends Connector implements SupportsConfirmation
 {

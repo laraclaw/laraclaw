@@ -1,4 +1,4 @@
-# LaraClaw
+# Laraclaw
 
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/laraclaw/laraclaw.svg)](https://packagist.org/packages/laraclaw/laraclaw)
 [![Laravel](https://img.shields.io/badge/Laravel-12-red.svg)](https://laravel.com)
@@ -7,7 +7,7 @@
 [![Tests](https://img.shields.io/github/actions/workflow/status/laraclaw/laraclaw/tests.yml?branch=main)](https://github.com/laraclaw/laraclaw/actions)
 [![License](https://img.shields.io/github/license/laraclaw/laraclaw)](https://github.com/laraclaw/laraclaw/blob/main/LICENSE)
 
-What if your Laravel app could talk back? LaraClaw is an AI chatbot package that connects your agent to **Telegram, Slack, Email, and the terminal** — with persistent memory, file handling, calendar access, reminders, and more.
+What if your Laravel app could talk back? Laraclaw is an AI chatbot package that connects your agent to **Telegram, Slack, Email, and the terminal** — with persistent memory, file handling, calendar access, reminders, and more.
 
 Built on [laravel/ai](https://github.com/laravel/ai).
 
@@ -34,7 +34,7 @@ The wizard will walk you through migrations, owner account creation, connector c
 
 ## Connectors
 
-LaraClaw has a single owner — one user who controls the bot. All connectors route messages through that user.
+Laraclaw has a single owner — one user who controls the bot. All connectors route messages through that user.
 
 | Connector | Who can message | Threading | Conversation scope |
 |---|---|---|---|
@@ -108,7 +108,7 @@ Pass the returned `key` in your next request to continue the conversation.
 
 ### Email
 
-LaraClaw uses its own SMTP and IMAP config, so it won't interfere with your app's existing mail setup. The setup wizard will prompt you for both. After that, start the IMAP listener:
+Laraclaw uses its own SMTP and IMAP config, so it won't interfere with your app's existing mail setup. The setup wizard will prompt you for both. After that, start the IMAP listener:
 
 ```bash
 php artisan imap:watch default --with=headers,body

@@ -1,12 +1,12 @@
 <?php
 
-namespace LaraClaw\Tools;
+namespace Laraclaw\Tools;
 
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Facades\Storage;
-use LaraClaw\DTOs\IncomingMessage;
-use LaraClaw\Services\Attachments;
+use Laraclaw\DTOs\IncomingMessage;
+use Laraclaw\Services\Attachments;
 use Laravel\Ai\Tools\Request;
 use Override;
 use RuntimeException;

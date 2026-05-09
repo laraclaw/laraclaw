@@ -1,6 +1,6 @@
 <?php
 
-namespace LaraClaw\Console\Commands;
+namespace Laraclaw\Console\Commands;
 
 use Google_Client;
 use Google_Service_Calendar;

@@ -1,9 +1,9 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use LaraClaw\Events\TelegramMessageReceived;
-use LaraClaw\Http\Controllers\ApiController;
-use LaraClaw\Http\Controllers\SlackController;
+use Laraclaw\Events\TelegramMessageReceived;
+use Laraclaw\Http\Controllers\ApiController;
+use Laraclaw\Http\Controllers\SlackController;
 use Telegram\Bot\Api;
 
 if (config('laraclaw.connectors.telegram.enabled')) {

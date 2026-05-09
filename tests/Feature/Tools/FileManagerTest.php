@@ -1,10 +1,10 @@
 <?php
 
 use Illuminate\Support\Facades\Storage;
-use LaraClaw\DTOs\IncomingMessage;
-use LaraClaw\Enums\ConnectorType;
-use LaraClaw\Services\Attachments;
-use LaraClaw\Tools\FileManager;
+use Laraclaw\DTOs\IncomingMessage;
+use Laraclaw\Enums\ConnectorType;
+use Laraclaw\Services\Attachments;
+use Laraclaw\Tools\FileManager;
 use Laravel\Ai\Tools\Request;
 
 function fileRequest(array $data): Request

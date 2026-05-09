@@ -1,11 +1,11 @@
 <?php
 
-namespace LaraClaw\Services;
+namespace Laraclaw\Services;
 
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
-use LaraClaw\DTOs\Attachment;
+use Laraclaw\DTOs\Attachment;
 
 /**
  * Reads and writes inbound and outbound attachment files, scoped to a message UUID.

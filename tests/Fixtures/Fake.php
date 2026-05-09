@@ -1,11 +1,11 @@
 <?php
 
-namespace LaraClaw\Tests\Fixtures;
+namespace Laraclaw\Tests\Fixtures;
 
 use Illuminate\Support\Collection;
-use LaraClaw\Connectors\Connector;
-use LaraClaw\Enums\ConnectorType;
-use LaraClaw\Models\Thread;
+use Laraclaw\Connectors\Connector;
+use Laraclaw\Enums\ConnectorType;
+use Laraclaw\Models\Thread;
 
 /**
  * Minimal in-memory connector for testing. Records sent messages for assertion.

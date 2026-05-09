@@ -1,6 +1,6 @@
 <?php
 
-use LaraClaw\DTOs\Attachment;
+use Laraclaw\DTOs\Attachment;
 
 it('detects audio files', function () {
     $a = new Attachment(path: 'test.mp3', disk: 'local', mimeType: 'audio/mpeg');

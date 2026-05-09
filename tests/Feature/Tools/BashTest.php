@@ -1,6 +1,6 @@
 <?php
 
-use LaraClaw\Tools\Bash;
+use Laraclaw\Tools\Bash;
 use Laravel\Ai\Tools\Request;
 
 function bashRequest(array $data): Request

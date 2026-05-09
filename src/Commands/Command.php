@@ -1,9 +1,9 @@
 <?php
 
-namespace LaraClaw\Commands;
+namespace Laraclaw\Commands;
 
-use LaraClaw\DTOs\IncomingMessage;
-use LaraClaw\Models\Thread;
+use Laraclaw\DTOs\IncomingMessage;
+use Laraclaw\Models\Thread;
 
 interface Command
 {

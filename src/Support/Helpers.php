@@ -1,6 +1,6 @@
 <?php
 
-namespace LaraClaw\Support;
+namespace Laraclaw\Support;
 
 use Illuminate\Database\PostgresConnection;
 use Illuminate\Support\Facades\Schema;

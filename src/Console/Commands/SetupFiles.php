@@ -1,9 +1,9 @@
 <?php
 
-namespace LaraClaw\Console\Commands;
+namespace Laraclaw\Console\Commands;
 
 use Illuminate\Console\Command;
-use LaraClaw\Console\Concerns\ConfiguresEnv;
+use Laraclaw\Console\Concerns\ConfiguresEnv;
 
 use function Laravel\Prompts\info;
 use function Laravel\Prompts\multiselect;
@@ -18,7 +18,7 @@ class SetupFiles extends Command
 
     protected $signature = 'laraclaw:setup-files';
 
-    protected $description = 'Configure the LaraClaw File Manager tool';
+    protected $description = 'Configure the Laraclaw File Manager tool';
 
     public function handle(): int
     {

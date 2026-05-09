@@ -1,6 +1,6 @@
 <?php
 
-namespace LaraClaw\Mail;
+namespace Laraclaw\Mail;
 
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;

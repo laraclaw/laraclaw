@@ -1,9 +1,9 @@
 <?php
 
 use Illuminate\Support\Facades\Queue;
-use LaraClaw\Console\Commands\SendReminders;
-use LaraClaw\Jobs\SendReminder;
-use LaraClaw\Models\Reminder;
+use Laraclaw\Console\Commands\SendReminders;
+use Laraclaw\Jobs\SendReminder;
+use Laraclaw\Models\Reminder;
 
 beforeEach(function () {
     Queue::fake();

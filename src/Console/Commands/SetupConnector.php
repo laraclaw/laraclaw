@@ -1,20 +1,20 @@
 <?php
 
-namespace LaraClaw\Console\Commands;
+namespace Laraclaw\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
-use LaraClaw\Console\Concerns\ConfiguresEnv;
-use LaraClaw\Enums\ConnectorType;
-use LaraClaw\Models\Account;
+use Laraclaw\Console\Concerns\ConfiguresEnv;
+use Laraclaw\Enums\ConnectorType;
+use Laraclaw\Models\Account;
 
 use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\info;
 use function Laravel\Prompts\text;
 
 /**
- * Configure a single LaraClaw connector: telegram, slack, email, or api.
+ * Configure a single Laraclaw connector: telegram, slack, email, or api.
  */
 class SetupConnector extends Command
 {
@@ -22,7 +22,7 @@ class SetupConnector extends Command
 
     protected $signature = 'laraclaw:setup-connector {connector : The connector to configure (telegram, slack, email, api)}';
 
-    protected $description = 'Configure a LaraClaw connector';
+    protected $description = 'Configure a Laraclaw connector';
 
     public function handle(): int
     {

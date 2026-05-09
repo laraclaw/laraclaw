@@ -1,14 +1,14 @@
 <?php
 
-namespace LaraClaw\Tools;
+namespace Laraclaw\Tools;
 
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use LaraClaw\DTOs\IncomingMessage;
-use LaraClaw\Services\Attachments;
+use Laraclaw\DTOs\IncomingMessage;
+use Laraclaw\Services\Attachments;
 use Laravel\Ai\Tools\Request;
 use Override;
 use Stringable;

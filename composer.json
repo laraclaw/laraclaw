@@ -21,7 +21,7 @@
             "src/Support/Helpers.php"
         ],
         "psr-4": {
-            "LaraClaw\\": "src/"
+            "Laraclaw\\": "src/"
         }
     },
     "suggest": {
@@ -31,7 +31,7 @@
     "extra": {
         "laravel": {
             "providers": [
-                "LaraClaw\\LaraclawServiceProvider"
+                "Laraclaw\\LaraclawServiceProvider"
             ]
         }
     },
@@ -56,7 +56,7 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "LaraClaw\\Tests\\": "tests/"
+            "Laraclaw\\Tests\\": "tests/"
         }
     },
     "scripts": {

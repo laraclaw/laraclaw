@@ -4,8 +4,8 @@ use DirectoryTree\ImapEngine\Address;
 use DirectoryTree\ImapEngine\Laravel\Events\MessageReceived;
 use DirectoryTree\ImapEngine\MessageInterface;
 use Illuminate\Support\Facades\Log;
-use LaraClaw\Enums\ConnectorType;
-use LaraClaw\Models\Account;
+use Laraclaw\Enums\ConnectorType;
+use Laraclaw\Models\Account;
 
 function makeRawEmail(string $from, string $subject = 'Hello', string $authResults = 'dkim=pass spf=pass'): MessageInterface
 {
@@ -52,7 +52,7 @@ beforeEach(function () {
 it('ignores emails from the bot itself to prevent loops', function () {
     $raw = makeRawEmail('bot@example.com');
 
-    app(LaraClaw\Listeners\EmailListener::class)(makeEvent($raw));
+    app(Laraclaw\Listeners\EmailListener::class)(makeEvent($raw));
 
     Log::shouldHaveReceived('debug')
         ->once()
@@ -62,7 +62,7 @@ it('ignores emails from the bot itself to prevent loops', function () {
 it('ignores senders without a registered account', function () {
     $raw = makeRawEmail('stranger@example.com');
 
-    app(LaraClaw\Listeners\EmailListener::class)(makeEvent($raw));
+    app(Laraclaw\Listeners\EmailListener::class)(makeEvent($raw));
 
     Log::shouldHaveReceived('debug')
         ->once()
@@ -74,7 +74,7 @@ it('rejects and logs a warning when DKIM/SPF authentication fails', function () 
 
     $raw = makeRawEmail('allowed@example.com', 'Test', 'dkim=fail spf=fail');
 
-    app(LaraClaw\Listeners\EmailListener::class)(makeEvent($raw));
+    app(Laraclaw\Listeners\EmailListener::class)(makeEvent($raw));
 
     Log::shouldHaveReceived('warning')
         ->once()
@@ -87,7 +87,7 @@ it('accepts emails that fail DKIM/SPF when verification is disabled', function (
 
     $raw = makeRawEmail('allowed@example.com', 'Test', 'dkim=fail spf=fail');
 
-    app(LaraClaw\Listeners\EmailListener::class)(makeEvent($raw));
+    app(Laraclaw\Listeners\EmailListener::class)(makeEvent($raw));
 
     Log::shouldNotHaveReceived('debug');
 })->todo('assert agent is queued once agent queue testing is set up');
@@ -97,7 +97,7 @@ it('does nothing when the email connector is disabled', function () {
 
     $raw = makeRawEmail('allowed@example.com');
 
-    app(LaraClaw\Listeners\EmailListener::class)(makeEvent($raw));
+    app(Laraclaw\Listeners\EmailListener::class)(makeEvent($raw));
 
     Log::shouldHaveReceived('debug')
         ->once()

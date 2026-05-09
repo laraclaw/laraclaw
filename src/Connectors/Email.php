@@ -1,6 +1,6 @@
 <?php
 
-namespace LaraClaw\Connectors;
+namespace Laraclaw\Connectors;
 
 use DirectoryTree\ImapEngine\Attachment as ImapAttachment;
 use DirectoryTree\ImapEngine\Enums\ImapFlag;
@@ -12,18 +12,18 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
-use LaraClaw\Connectors\Concerns\ChecksRedisForConfirmations;
-use LaraClaw\Connectors\Contracts\SupportsConfirmation;
-use LaraClaw\DTOs\Attachment;
-use LaraClaw\DTOs\IncomingMessage;
-use LaraClaw\Enums\ConnectorType;
-use LaraClaw\Mail\ConnectorReply;
-use LaraClaw\Models\Account;
-use LaraClaw\Models\Thread;
-use LaraClaw\Services\Attachments;
+use Laraclaw\Connectors\Concerns\ChecksRedisForConfirmations;
+use Laraclaw\Connectors\Contracts\SupportsConfirmation;
+use Laraclaw\DTOs\Attachment;
+use Laraclaw\DTOs\IncomingMessage;
+use Laraclaw\Enums\ConnectorType;
+use Laraclaw\Mail\ConnectorReply;
+use Laraclaw\Models\Account;
+use Laraclaw\Models\Thread;
+use Laraclaw\Services\Attachments;
 use League\CommonMark\CommonMarkConverter;
 
-use function LaraClaw\Support\stripHtml;
+use function Laraclaw\Support\stripHtml;
 
 class Email extends Connector implements SupportsConfirmation
 {
@@ -66,7 +66,7 @@ class Email extends Connector implements SupportsConfirmation
         }
 
         if (config('laraclaw.connectors.email.verify_sender_dkim_and_spf') && ! self::passesAuthCheck($message)) {
-            Log::warning('LaraClaw: email rejected due to failed DKIM or SPF authentication', [
+            Log::warning('Laraclaw: email rejected due to failed DKIM or SPF authentication', [
                 'from' => $fromEmail,
                 'subject' => $message->subject() ?? '(no subject)',
             ]);

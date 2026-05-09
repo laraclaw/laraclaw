@@ -1,7 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Storage;
-use LaraClaw\Services\Attachments;
+use Laraclaw\Services\Attachments;
 
 beforeEach(function () {
     Storage::fake('local');

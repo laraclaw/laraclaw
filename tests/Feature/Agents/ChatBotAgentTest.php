@@ -1,13 +1,13 @@
 <?php
 
 use Illuminate\Support\Facades\File;
-use LaraClaw\Agents\ChatBotAgent;
-use LaraClaw\DTOs\IncomingMessage;
-use LaraClaw\Enums\ConnectorType;
-use LaraClaw\Models\Account;
-use LaraClaw\Models\Thread;
-use LaraClaw\Skills\SkillRegistry;
-use LaraClaw\Tools\ToolRegistry;
+use Laraclaw\Agents\ChatBotAgent;
+use Laraclaw\DTOs\IncomingMessage;
+use Laraclaw\Enums\ConnectorType;
+use Laraclaw\Models\Account;
+use Laraclaw\Models\Thread;
+use Laraclaw\Skills\SkillRegistry;
+use Laraclaw\Tools\ToolRegistry;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\Conversational;
 use Laravel\Ai\Contracts\HasMiddleware;
@@ -122,13 +122,13 @@ it('exposes the always-on tools regardless of config', function () {
     $tools = collect(makeAgent()->tools())->map(fn ($t): string => $t::class);
 
     expect($tools)->toContain(
-        \LaraClaw\Tools\UseSkill::class,
-        \LaraClaw\Tools\Persona::class,
-        \LaraClaw\Tools\ImageManager::class,
-        \LaraClaw\Tools\FileManager::class,
-        \LaraClaw\Tools\ReminderManager::class,
-        \LaraClaw\Tools\HeartbeatManager::class,
-        \LaraClaw\Tools\WebRequest::class,
+        \Laraclaw\Tools\UseSkill::class,
+        \Laraclaw\Tools\Persona::class,
+        \Laraclaw\Tools\ImageManager::class,
+        \Laraclaw\Tools\FileManager::class,
+        \Laraclaw\Tools\ReminderManager::class,
+        \Laraclaw\Tools\HeartbeatManager::class,
+        \Laraclaw\Tools\WebRequest::class,
     );
 });
 
@@ -144,11 +144,11 @@ it('omits opt-in tools when their config flags are false', function () {
     $tools = collect($agent->tools())->map(fn ($t): string => $t::class);
 
     expect($tools)->not->toContain(
-        \LaraClaw\Tools\Bash::class,
-        \LaraClaw\Tools\Tinker::class,
-        \LaraClaw\Tools\TextToSpeech::class,
-        \LaraClaw\Tools\MemoryManager::class,
-        \LaraClaw\Tools\EmailManager::class,
+        \Laraclaw\Tools\Bash::class,
+        \Laraclaw\Tools\Tinker::class,
+        \Laraclaw\Tools\TextToSpeech::class,
+        \Laraclaw\Tools\MemoryManager::class,
+        \Laraclaw\Tools\EmailManager::class,
     );
 });
 
@@ -160,9 +160,9 @@ it('adds the opt-in tools when their config flags are true', function () {
     ])->tools())->map(fn ($t): string => $t::class);
 
     expect($tools)->toContain(
-        \LaraClaw\Tools\Bash::class,
-        \LaraClaw\Tools\Tinker::class,
-        \LaraClaw\Tools\TextToSpeech::class,
+        \Laraclaw\Tools\Bash::class,
+        \Laraclaw\Tools\Tinker::class,
+        \Laraclaw\Tools\TextToSpeech::class,
     );
 });
 
@@ -183,5 +183,5 @@ it('returns the TranscribeAudio middleware', function () {
     $middleware = makeAgent()->middleware();
 
     expect($middleware)->toHaveCount(1);
-    expect($middleware[0])->toBeInstanceOf(LaraClaw\Agents\Middleware\TranscribeAudio::class);
+    expect($middleware[0])->toBeInstanceOf(Laraclaw\Agents\Middleware\TranscribeAudio::class);
 });

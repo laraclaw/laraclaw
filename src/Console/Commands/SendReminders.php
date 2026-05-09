@@ -1,10 +1,10 @@
 <?php
 
-namespace LaraClaw\Console\Commands;
+namespace Laraclaw\Console\Commands;
 
 use Illuminate\Console\Command;
-use LaraClaw\Jobs\SendReminder;
-use LaraClaw\Models\Reminder;
+use Laraclaw\Jobs\SendReminder;
+use Laraclaw\Models\Reminder;
 
 /**
  * Artisan command that dispatches SendReminder jobs for all overdue reminders.

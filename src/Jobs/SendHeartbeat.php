@@ -1,6 +1,6 @@
 <?php
 
-namespace LaraClaw\Jobs;
+namespace Laraclaw\Jobs;
 
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -8,12 +8,12 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
-use LaraClaw\Agents\ChatBotAgent;
-use LaraClaw\DTOs\IncomingMessage;
-use LaraClaw\Enums\ConnectorType;
-use LaraClaw\Models\Heartbeat;
-use LaraClaw\Models\Thread;
-use LaraClaw\Services\Attachments;
+use Laraclaw\Agents\ChatBotAgent;
+use Laraclaw\DTOs\IncomingMessage;
+use Laraclaw\Enums\ConnectorType;
+use Laraclaw\Models\Heartbeat;
+use Laraclaw\Models\Thread;
+use Laraclaw\Services\Attachments;
 use Throwable;
 
 /**

@@ -1,18 +1,18 @@
 <?php
 
-namespace LaraClaw\Tools;
+namespace Laraclaw\Tools;
 
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Storage;
-use LaraClaw\Connectors\Connector;
-use LaraClaw\Connectors\Contracts\SupportsConfirmation;
-use LaraClaw\DTOs\IncomingMessage;
-use LaraClaw\Models\Account;
+use Laraclaw\Connectors\Connector;
+use Laraclaw\Connectors\Contracts\SupportsConfirmation;
+use Laraclaw\DTOs\IncomingMessage;
+use Laraclaw\Models\Account;
 use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Tools\Request;
 use Stringable;
 
-use function LaraClaw\Support\interpolate;
+use function Laraclaw\Support\interpolate;
 
 /**
  * Base class for tools that dispatch named operations, with built-in confirmation, storage, and connector helpers.

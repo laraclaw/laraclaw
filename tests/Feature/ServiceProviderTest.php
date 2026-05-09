@@ -1,6 +1,6 @@
 <?php
 
-use LaraClaw\LaraclawServiceProvider;
+use Laraclaw\LaraclawServiceProvider;
 
 it('throws when Telegram is enabled but admin_user_id is not set', function () {
     config(['laraclaw.connectors.telegram.enabled' => true]);

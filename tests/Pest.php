@@ -1,3 +1,3 @@
 <?php
 
-uses(LaraClaw\Tests\TestCase::class)->in('Feature');
+uses(Laraclaw\Tests\TestCase::class)->in('Feature');

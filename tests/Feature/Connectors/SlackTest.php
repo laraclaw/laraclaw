@@ -2,9 +2,9 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
-use LaraClaw\Connectors\Slack;
-use LaraClaw\Enums\ConnectorType;
-use LaraClaw\Models\Account;
+use Laraclaw\Connectors\Slack;
+use Laraclaw\Enums\ConnectorType;
+use Laraclaw\Models\Account;
 
 function slackRequest(array $payload): Request
 {

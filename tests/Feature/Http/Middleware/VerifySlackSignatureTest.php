@@ -1,7 +1,7 @@
 <?php
 
 use Illuminate\Http\Request;
-use LaraClaw\Http\Middleware\VerifySlackSignature;
+use Laraclaw\Http\Middleware\VerifySlackSignature;
 
 beforeEach(function () {
     config(['laraclaw.connectors.slack.signing_secret' => 'test-secret']);

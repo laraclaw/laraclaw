@@ -1,9 +1,9 @@
 <?php
 
-namespace LaraClaw\Console\Concerns;
+namespace Laraclaw\Console\Concerns;
 
 use Closure;
-use LaraClaw\Models\Account;
+use Laraclaw\Models\Account;
 
 use function Laravel\Prompts\password;
 use function Laravel\Prompts\select;

@@ -1,11 +1,11 @@
 <?php
 
-namespace LaraClaw\Http\Middleware;
+namespace Laraclaw\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
-use LaraClaw\Enums\ConnectorType;
-use LaraClaw\Models\Account;
+use Laraclaw\Enums\ConnectorType;
+use Laraclaw\Models\Account;
 use Symfony\Component\HttpFoundation\Response;
 
 /**

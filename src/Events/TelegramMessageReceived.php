@@ -1,6 +1,6 @@
 <?php
 
-namespace LaraClaw\Events;
+namespace Laraclaw\Events;
 
 use Telegram\Bot\Api;
 use Telegram\Bot\Objects\Message;

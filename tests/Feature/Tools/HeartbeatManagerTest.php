@@ -1,9 +1,9 @@
 <?php
 
-use LaraClaw\DTOs\IncomingMessage;
-use LaraClaw\Enums\ConnectorType;
-use LaraClaw\Models\Heartbeat;
-use LaraClaw\Tools\HeartbeatManager;
+use Laraclaw\DTOs\IncomingMessage;
+use Laraclaw\Enums\ConnectorType;
+use Laraclaw\Models\Heartbeat;
+use Laraclaw\Tools\HeartbeatManager;
 use Laravel\Ai\Tools\Request;
 
 function heartbeatRequest(array $data): Request

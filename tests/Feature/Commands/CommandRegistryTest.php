@@ -1,7 +1,7 @@
 <?php
 
-use LaraClaw\Commands\Command;
-use LaraClaw\Commands\CommandRegistry;
+use Laraclaw\Commands\Command;
+use Laraclaw\Commands\CommandRegistry;
 
 it('matches a registered command case-insensitively', function () {
     $registry = new CommandRegistry;

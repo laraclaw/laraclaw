@@ -1,8 +1,8 @@
 <?php
 
 use Illuminate\Support\Facades\File;
-use LaraClaw\Skills\SkillRegistry;
-use LaraClaw\Tools\UseSkill;
+use Laraclaw\Skills\SkillRegistry;
+use Laraclaw\Tools\UseSkill;
 use Laravel\Ai\Tools\Request;
 
 function skillRequest(array $data): Request

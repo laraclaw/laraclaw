@@ -1,15 +1,15 @@
 <?php
 
-namespace LaraClaw\Connectors;
+namespace Laraclaw\Connectors;
 
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
-use LaraClaw\DTOs\Attachment;
-use LaraClaw\DTOs\IncomingMessage;
-use LaraClaw\Enums\ConnectorType;
-use LaraClaw\Models\Thread;
-use LaraClaw\Services\Attachments;
+use Laraclaw\DTOs\Attachment;
+use Laraclaw\DTOs\IncomingMessage;
+use Laraclaw\Enums\ConnectorType;
+use Laraclaw\Models\Thread;
+use Laraclaw\Services\Attachments;
 
 class Api extends Connector
 {

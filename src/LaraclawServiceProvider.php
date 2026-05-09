@@ -1,6 +1,6 @@
 <?php
 
-namespace LaraClaw;
+namespace Laraclaw;
 
 use DirectoryTree\ImapEngine\Laravel\Events\MessageReceived;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -10,41 +10,41 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
-use LaraClaw\Commands\CommandRegistry;
-use LaraClaw\Commands\NewConversation;
-use LaraClaw\Console\Commands\Chat;
-use LaraClaw\Console\Commands\ConnectorAddCommand;
-use LaraClaw\Console\Commands\GoogleCalendarAuth;
-use LaraClaw\Console\Commands\ProcessHeartbeats;
-use LaraClaw\Console\Commands\SendReminders;
-use LaraClaw\Console\Commands\SetupAdmin;
-use LaraClaw\Console\Commands\SetupAgent;
-use LaraClaw\Console\Commands\SetupCalendar;
-use LaraClaw\Console\Commands\SetupConnector;
-use LaraClaw\Console\Commands\SetupFiles;
-use LaraClaw\Console\Commands\SetupMemory;
-use LaraClaw\Console\Commands\SetupWizard;
-use LaraClaw\Events\TelegramMessageReceived;
-use LaraClaw\Http\Middleware\VerifyApiToken;
-use LaraClaw\Http\Middleware\VerifySlackSignature;
-use LaraClaw\Listeners\EmailListener;
-use LaraClaw\Listeners\EmbedConversation;
-use LaraClaw\Listeners\LogAgentRequest;
-use LaraClaw\Listeners\TelegramListener;
-use LaraClaw\Services\Calendar\AppleCalendarDriver;
-use LaraClaw\Services\Calendar\Contracts\CalendarDriver;
-use LaraClaw\Services\Calendar\GoogleCalendarDriver;
-use LaraClaw\Services\Memory\ContentChunker;
-use LaraClaw\Services\Memory\EmbedContent;
-use LaraClaw\Skills\SkillRegistry;
-use LaraClaw\Tools\ToolRegistry;
+use Laraclaw\Commands\CommandRegistry;
+use Laraclaw\Commands\NewConversation;
+use Laraclaw\Console\Commands\Chat;
+use Laraclaw\Console\Commands\ConnectorAddCommand;
+use Laraclaw\Console\Commands\GoogleCalendarAuth;
+use Laraclaw\Console\Commands\ProcessHeartbeats;
+use Laraclaw\Console\Commands\SendReminders;
+use Laraclaw\Console\Commands\SetupAdmin;
+use Laraclaw\Console\Commands\SetupAgent;
+use Laraclaw\Console\Commands\SetupCalendar;
+use Laraclaw\Console\Commands\SetupConnector;
+use Laraclaw\Console\Commands\SetupFiles;
+use Laraclaw\Console\Commands\SetupMemory;
+use Laraclaw\Console\Commands\SetupWizard;
+use Laraclaw\Events\TelegramMessageReceived;
+use Laraclaw\Http\Middleware\VerifyApiToken;
+use Laraclaw\Http\Middleware\VerifySlackSignature;
+use Laraclaw\Listeners\EmailListener;
+use Laraclaw\Listeners\EmbedConversation;
+use Laraclaw\Listeners\LogAgentRequest;
+use Laraclaw\Listeners\TelegramListener;
+use Laraclaw\Services\Calendar\AppleCalendarDriver;
+use Laraclaw\Services\Calendar\Contracts\CalendarDriver;
+use Laraclaw\Services\Calendar\GoogleCalendarDriver;
+use Laraclaw\Services\Memory\ContentChunker;
+use Laraclaw\Services\Memory\EmbedContent;
+use Laraclaw\Skills\SkillRegistry;
+use Laraclaw\Tools\ToolRegistry;
 use Laravel\Ai\Events\AgentPrompted;
 use Override;
 use RuntimeException;
 use Spatie\GoogleCalendar\GoogleCalendar;
 
 /**
- * Registers and boots all LaraClaw services, bindings, routes, and scheduled commands.
+ * Registers and boots all Laraclaw services, bindings, routes, and scheduled commands.
  */
 class LaraclawServiceProvider extends ServiceProvider
 {
@@ -134,19 +134,19 @@ class LaraclawServiceProvider extends ServiceProvider
 
         if ($needsOwner && ! config('laraclaw.auth.admin_user_id')) {
             throw new RuntimeException(
-                'LaraClaw: LARACLAW_ADMIN_USER_ID must be set when Telegram or Slack connectors are enabled.'
+                'Laraclaw: LARACLAW_ADMIN_USER_ID must be set when Telegram or Slack connectors are enabled.'
             );
         }
 
         if (config('laraclaw.connectors.slack.enabled') && empty(config('laraclaw.connectors.slack.signing_secret'))) {
             throw new RuntimeException(
-                'LaraClaw: LARACLAW_SLACK_SIGNING_SECRET must be set when the Slack connector is enabled.'
+                'Laraclaw: LARACLAW_SLACK_SIGNING_SECRET must be set when the Slack connector is enabled.'
             );
         }
 
         if (config('laraclaw.memory.enabled') && ! config('ai.default_for_embeddings')) {
             throw new RuntimeException(
-                'LaraClaw: ai.default_for_embeddings must be configured when the memory is enabled. '
+                'Laraclaw: ai.default_for_embeddings must be configured when the memory is enabled. '
                 . 'Set AI_DEFAULT_FOR_EMBEDDINGS in your .env (e.g. openai, voyage, ollama).'
             );
         }
@@ -196,7 +196,7 @@ class LaraclawServiceProvider extends ServiceProvider
     }
 
     /**
-     * Copy email SMTP and IMAP credentials from the LaraClaw config into Laravel's mail and IMAP configs.
+     * Copy email SMTP and IMAP credentials from the Laraclaw config into Laravel's mail and IMAP configs.
      */
     private function configureEmailConnector(): void
     {

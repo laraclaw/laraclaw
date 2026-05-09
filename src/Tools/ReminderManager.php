@@ -1,10 +1,10 @@
 <?php
 
-namespace LaraClaw\Tools;
+namespace Laraclaw\Tools;
 
 use Carbon\Carbon;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
-use LaraClaw\Models\Reminder;
+use Laraclaw\Models\Reminder;
 use Laravel\Ai\Tools\Request;
 use Stringable;
 use Throwable;

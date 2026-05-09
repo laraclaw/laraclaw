@@ -1,10 +1,10 @@
 <?php
 
-namespace LaraClaw\Agents\Middleware;
+namespace Laraclaw\Agents\Middleware;
 
 use Closure;
-use LaraClaw\DTOs\Attachment;
-use LaraClaw\DTOs\IncomingMessage;
+use Laraclaw\DTOs\Attachment;
+use Laraclaw\DTOs\IncomingMessage;
 use Laravel\Ai\Prompts\AgentPrompt;
 use Laravel\Ai\Transcription;
 

@@ -1,15 +1,15 @@
 <?php
 
-namespace LaraClaw\Listeners;
+namespace Laraclaw\Listeners;
 
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
-use LaraClaw\Agents\ChatBotAgent;
-use LaraClaw\Commands\CommandRegistry;
-use LaraClaw\Connectors\Telegram;
-use LaraClaw\Events\TelegramMessageReceived;
-use LaraClaw\Models\Thread;
-use LaraClaw\Services\Attachments;
+use Laraclaw\Agents\ChatBotAgent;
+use Laraclaw\Commands\CommandRegistry;
+use Laraclaw\Connectors\Telegram;
+use Laraclaw\Events\TelegramMessageReceived;
+use Laraclaw\Models\Thread;
+use Laraclaw\Services\Attachments;
 use Laravel\Ai\Responses\AgentResponse;
 use Throwable;
 

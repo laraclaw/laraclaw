@@ -1,6 +1,6 @@
 <?php
 
-namespace LaraClaw\Http\Middleware;
+namespace Laraclaw\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;

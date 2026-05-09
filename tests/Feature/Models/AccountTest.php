@@ -1,7 +1,7 @@
 <?php
 
-use LaraClaw\Enums\ConnectorType;
-use LaraClaw\Models\Account;
+use Laraclaw\Enums\ConnectorType;
+use Laraclaw\Models\Account;
 
 it('scopes queries by connector and account', function () {
     $user = $this->createUser();

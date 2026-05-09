@@ -1,6 +1,6 @@
 <?php
 
-namespace LaraClaw\Tools;
+namespace Laraclaw\Tools;
 
 use Exception;
 use Illuminate\Contracts\JsonSchema\JsonSchema;

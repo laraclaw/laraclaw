@@ -4,7 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-use function LaraClaw\Support\databaseUsesPgVector;
+use function Laraclaw\Support\databaseUsesPgVector;
 
 return new class extends Migration
 {

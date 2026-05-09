@@ -1,6 +1,6 @@
 <?php
 
-namespace LaraClaw\Services\Calendar;
+namespace Laraclaw\Services\Calendar;
 
 use DateTimeImmutable;
 use DateTimeInterface;
@@ -9,8 +9,8 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
-use LaraClaw\DTOs\CalendarEvent;
-use LaraClaw\Services\Calendar\Contracts\CalendarDriver;
+use Laraclaw\DTOs\CalendarEvent;
+use Laraclaw\Services\Calendar\Contracts\CalendarDriver;
 use RuntimeException;
 use Sabre\VObject\Component\VCalendar;
 use Sabre\VObject\Reader;

@@ -1,10 +1,10 @@
 <?php
 
-use LaraClaw\Commands\NewConversation;
-use LaraClaw\DTOs\IncomingMessage;
-use LaraClaw\Enums\ConnectorType;
-use LaraClaw\Models\Thread;
-use LaraClaw\Tests\Fixtures\Fake;
+use Laraclaw\Commands\NewConversation;
+use Laraclaw\DTOs\IncomingMessage;
+use Laraclaw\Enums\ConnectorType;
+use Laraclaw\Models\Thread;
+use Laraclaw\Tests\Fixtures\Fake;
 
 it('clears the conversation id and returns null', function () {
     $user = $this->createUser();
