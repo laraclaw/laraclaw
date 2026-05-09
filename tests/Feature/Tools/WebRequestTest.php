@@ -1,0 +1,176 @@
+<?php
+
+use Illuminate\Support\Facades\Http;
+use LaraClaw\DTOs\IncomingMessage;
+use LaraClaw\Enums\ConnectorType;
+use LaraClaw\Tools\WebRequest;
+use Laravel\Ai\Tools\Request;
+
+function webRequest(array $data): Request
+{
+    $mock = Mockery::mock(Request::class);
+    $mock->allows('offsetGet')->andReturnUsing(fn ($key) => $data[$key] ?? null);
+    $mock->allows('offsetExists')->andReturnUsing(fn ($key) => array_key_exists($key, $data));
+
+    return $mock;
+}
+
+function webTool(): WebRequest
+{
+    return new WebRequest(new IncomingMessage(
+        text: 'test',
+        connector: ConnectorType::Terminal,
+        key: 'user',
+        isDirectMessage: true,
+    ));
+}
+
+beforeEach(function () {
+    Http::preventStrayRequests();
+});
+
+it('rejects an invalid URL', function () {
+    $result = webTool()->handle(webRequest([
+        'operation' => 'get',
+        'url' => 'not a url',
+    ]));
+
+    expect($result)->toContain('Invalid URL');
+});
+
+it('blocks loopback addresses', function () {
+    $result = webTool()->handle(webRequest([
+        'operation' => 'get',
+        'url' => 'http://127.0.0.1/admin',
+    ]));
+
+    expect($result)->toBe('Requests to private/internal network addresses are not allowed.');
+});
+
+it('blocks private RFC1918 addresses', function () {
+    $result = webTool()->handle(webRequest([
+        'operation' => 'get',
+        'url' => 'http://10.0.0.1/',
+    ]));
+
+    expect($result)->toBe('Requests to private/internal network addresses are not allowed.');
+});
+
+it('blocks link-local metadata addresses', function () {
+    $result = webTool()->handle(webRequest([
+        'operation' => 'get',
+        'url' => 'http://169.254.169.254/latest/meta-data/',
+    ]));
+
+    expect($result)->toBe('Requests to private/internal network addresses are not allowed.');
+});
+
+it('returns an error when the operation is unknown', function () {
+    Http::fake(['example.com/*' => Http::response('ok')]);
+
+    $result = webTool()->handle(webRequest([
+        'operation' => 'options',
+        'url' => 'https://example.com/',
+    ]));
+
+    expect($result)->toContain("Unknown operation 'options'");
+});
+
+it('issues a GET and serializes the response as JSON', function () {
+    Http::fake([
+        'example.com/data' => Http::response('{"hello":"world"}', 200, [
+            'Content-Type' => 'application/json',
+        ]),
+    ]);
+
+    $result = webTool()->handle(webRequest([
+        'operation' => 'get',
+        'url' => 'https://example.com/data',
+    ]));
+
+    $decoded = json_decode($result, true);
+    expect($decoded['status'])->toBe(200);
+    expect(array_change_key_case($decoded['headers']))->toHaveKey('content-type');
+    expect($decoded['body'])->toBe('{"hello":"world"}');
+});
+
+it('issues a HEAD and returns only status and headers', function () {
+    Http::fake([
+        'example.com/h' => Http::response('', 204, ['X-Request-Id' => 'abc']),
+    ]);
+
+    $result = webTool()->handle(webRequest([
+        'operation' => 'head',
+        'url' => 'https://example.com/h',
+    ]));
+
+    $decoded = json_decode($result, true);
+    expect($decoded)->toHaveKeys(['status', 'headers']);
+    expect($decoded)->not->toHaveKey('body');
+    expect($decoded['status'])->toBe(204);
+});
+
+it('sends a JSON body with application/json content type', function () {
+    Http::fake(['example.com/post' => Http::response('ok', 201)]);
+
+    $result = webTool()->handle(webRequest([
+        'operation' => 'post',
+        'url' => 'https://example.com/post',
+        'body' => '{"a":1}',
+    ]));
+
+    expect(json_decode($result, true)['status'])->toBe(201);
+
+    Http::assertSent(fn ($request): bool => $request->method() === 'POST'
+        && $request->body() === '{"a":1}'
+        && $request->header('Content-Type')[0] === 'application/json');
+});
+
+it('sends a non-JSON body with text/plain content type', function () {
+    Http::fake(['example.com/post' => Http::response('ok')]);
+
+    webTool()->handle(webRequest([
+        'operation' => 'post',
+        'url' => 'https://example.com/post',
+        'body' => 'plain old text',
+    ]));
+
+    Http::assertSent(fn ($request): bool => $request->header('Content-Type')[0] === 'text/plain');
+});
+
+it('forwards custom request headers', function () {
+    Http::fake(['example.com/*' => Http::response('ok')]);
+
+    webTool()->handle(webRequest([
+        'operation' => 'get',
+        'url' => 'https://example.com/x',
+        'headers' => ['X-Token' => 'shh'],
+    ]));
+
+    Http::assertSent(fn ($request): bool => $request->header('X-Token')[0] === 'shh');
+});
+
+it('truncates response bodies larger than 100KB', function () {
+    $oversized = str_repeat('a', 110 * 1024);
+    Http::fake(['example.com/big' => Http::response($oversized)]);
+
+    $result = webTool()->handle(webRequest([
+        'operation' => 'get',
+        'url' => 'https://example.com/big',
+    ]));
+
+    $decoded = json_decode($result, true);
+    expect($decoded['body'])->toContain('[Truncated: response exceeds 100KB]');
+    expect(strlen($decoded['body']))->toBeLessThan(strlen($oversized));
+});
+
+it('returns a friendly error when the HTTP request throws', function () {
+    Http::fake(fn () => throw new RuntimeException('connection refused'));
+
+    $result = webTool()->handle(webRequest([
+        'operation' => 'get',
+        'url' => 'https://example.com/dead',
+    ]));
+
+    expect($result)->toContain('HTTP request failed: connection refused');
+});
