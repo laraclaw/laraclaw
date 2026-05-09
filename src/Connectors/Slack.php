@@ -27,9 +27,10 @@ use function Laraclaw\Support\markdownToMrkdwn;
 class Slack extends Connector implements SupportsConfirmation
 {
     use ChecksRedisForConfirmations;
-    public $channelId;
 
-    public $threadTs;
+    public ?string $channelId = null;
+
+    public ?string $threadTs = null;
 
     public ConnectorType $type {
         get {

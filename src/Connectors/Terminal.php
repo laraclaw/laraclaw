@@ -50,9 +50,9 @@ class Terminal extends Connector implements SupportsConfirmation
     /**
      * Render the response to the terminal with ANSI formatting.
      */
-    public function reply(?Thread $thread, string $text, ?Collection $attachments = null)
+    public function reply(?Thread $thread, string $text, ?Collection $attachments = null): void
     {
-        return note(markdownToAnsi($text));
+        note(markdownToAnsi($text));
     }
 
     /**

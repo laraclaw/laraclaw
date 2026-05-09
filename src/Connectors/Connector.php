@@ -19,7 +19,7 @@ abstract class Connector
     /**
      * Send a reply to the given thread, optionally with file attachments.
      */
-    abstract public function reply(?Thread $thread, string $text, ?Collection $attachments = null);
+    abstract public function reply(?Thread $thread, string $text, ?Collection $attachments = null): void;
 
     /**
      * Determine if the given key represents a direct message conversation.
