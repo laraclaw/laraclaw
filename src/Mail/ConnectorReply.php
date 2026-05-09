@@ -12,6 +12,9 @@ use Symfony\Component\Mime\Email;
  */
 class ConnectorReply extends Mailable
 {
+    /**
+     * Capture the rendered HTML body and an optional Message-Id to thread off of.
+     */
     public function __construct(public string $body, public ?string $inReplyTo = null) {}
 
     /**

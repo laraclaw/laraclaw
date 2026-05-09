@@ -1,5 +1,6 @@
 {
     "exclude": [
-        "src/Connectors/Connector.php"
+        "src/Connectors/Connector.php",
+        "src/Mail/ConnectorReply.php"
     ]
 }
