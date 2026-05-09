@@ -17,11 +17,17 @@ class Bash implements Tool
 
     private const int MAX_OUTPUT_BYTES = 100 * 1024;
 
+    /**
+     * Return the tool description shown to the agent.
+     */
     public function description(): Stringable|string
     {
         return 'Execute shell commands and scripts. Returns stdout, stderr, and the exit code as JSON.';
     }
 
+    /**
+     * Define the input schema for this tool.
+     */
     public function schema(JsonSchema $schema): array
     {
         return [
@@ -31,6 +37,9 @@ class Bash implements Tool
         ];
     }
 
+    /**
+     * Run the requested shell command and return stdout, stderr, and the exit code as JSON.
+     */
     public function handle(Request $request): Stringable|string
     {
         $command = $request['command'] ?? '';

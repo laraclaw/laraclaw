@@ -61,6 +61,9 @@ trait ConfiguresEnv
         );
     }
 
+    /**
+     * Return the current value for the env key, or null when the key is missing or blank.
+     */
     private function readEnv(string $key): ?string
     {
         $escaped = preg_quote($key, '/');
@@ -72,6 +75,11 @@ trait ConfiguresEnv
         return null;
     }
 
+    /**
+     * Write each key/value pair into the .env file in one batch.
+     *
+     * @param  array<string, string|int>  $values
+     */
     private function saveEnv(array $values): void
     {
         foreach ($values as $key => $value) {
@@ -79,6 +87,9 @@ trait ConfiguresEnv
         }
     }
 
+    /**
+     * Upsert a single key/value pair in the .env file, quoting values that contain whitespace.
+     */
     private function writeEnv(string $key, string|int $value): void
     {
         $path = base_path('.env');
@@ -93,6 +104,9 @@ trait ConfiguresEnv
         file_put_contents($path, $content);
     }
 
+    /**
+     * Print a bold heading to the console with surrounding whitespace.
+     */
     private function heading(string $text): void
     {
         echo "\033[1m{$text}\033[0m" . PHP_EOL . PHP_EOL;

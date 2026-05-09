@@ -56,6 +56,9 @@ class IncomingMessage
         return trim("{$this->text}\n\nAttached files:\n{$meta}");
     }
 
+    /**
+     * Return the fields persisted when this DTO is queued, including the resolved UUID.
+     */
     public function __serialize(): array
     {
         return [
@@ -68,6 +71,9 @@ class IncomingMessage
         ];
     }
 
+    /**
+     * Restore the readonly properties from the serialized payload after a job thaw.
+     */
     public function __unserialize(array $data): void
     {
         $this->uuid = $data['uuid'];

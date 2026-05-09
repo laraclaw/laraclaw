@@ -10,6 +10,9 @@ use Laravel\Ai\Files\Image;
  */
 class Attachment
 {
+    /**
+     * Build an attachment record pointing at a file on a Laravel disk.
+     */
     public function __construct(
         public readonly string $path,
         public readonly string $disk,

@@ -28,6 +28,9 @@ class SetupMemory extends Command
 
     protected $description = 'Configures long term memory';
 
+    /**
+     * Toggle the memory feature, picking an embedding provider and extraction dependencies as needed.
+     */
     public function handle(): int
     {
         $this->heading('📒 Memory');
@@ -51,6 +54,9 @@ class SetupMemory extends Command
         return self::SUCCESS;
     }
 
+    /**
+     * Verify that an embedding provider exists and offer to install optional extraction dependencies.
+     */
     private function checkRequirements(): bool
     {
         if (! $this->configureEmbeddingProvider()) {
@@ -62,6 +68,9 @@ class SetupMemory extends Command
         return true;
     }
 
+    /**
+     * Offer to composer require optional PDF and OCR libraries used by the text extractor.
+     */
     private function installExtractionDependencies(): void
     {
         info('Great! I can also extract text from attachments and make it part of my memory.');
@@ -99,6 +108,9 @@ class SetupMemory extends Command
         ));
     }
 
+    /**
+     * Pick a configured embedding provider and write it to AI_DEFAULT_FOR_EMBEDDINGS, or fail if none exist.
+     */
     private function configureEmbeddingProvider(): bool
     {
         $current = config('ai.default_for_embeddings');

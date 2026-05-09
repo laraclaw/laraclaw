@@ -21,6 +21,9 @@ class SetupCalendar extends Command
 
     protected $description = 'Configure the Laraclaw Calendar Manager tool';
 
+    /**
+     * Prompt for a calendar driver and run its specific configuration flow.
+     */
     public function handle(): int
     {
         $this->heading('📅 Calendar Manager');
@@ -41,6 +44,9 @@ class SetupCalendar extends Command
         return self::SUCCESS;
     }
 
+    /**
+     * Walk through Google OAuth credentials, persist the env values, and trigger the auth handshake.
+     */
     private function setupGoogleCalendar(): void
     {
         $calendarId = $this->askEnv('Google Calendar ID (normally, your email address)', 'LARACLAW_GOOGLE_CALENDAR_ID', placeholder: 'you@gmail.com');
@@ -75,6 +81,9 @@ class SetupCalendar extends Command
         $this->call('laraclaw:google-calendar-auth');
     }
 
+    /**
+     * Collect Apple CalDAV server, username, password, and calendar name into the env file.
+     */
     private function setupAppleCalendar(): void
     {
         $server = $this->askEnv('CalDAV server URL', 'LARACLAW_APPLE_CALDAV_SERVER', input: fn (): string => text('CalDAV server URL', default: 'https://caldav.icloud.com', required: true));

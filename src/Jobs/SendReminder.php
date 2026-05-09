@@ -21,6 +21,9 @@ class SendReminder implements ShouldQueue
 
     public int $tries = 1;
 
+    /**
+     * Bind the reminder row this job will deliver when it runs.
+     */
     public function __construct(
         private Reminder $reminder,
     ) {}

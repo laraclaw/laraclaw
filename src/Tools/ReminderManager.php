@@ -4,6 +4,7 @@ namespace Laraclaw\Tools;
 
 use Carbon\Carbon;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
+use Laraclaw\Enums\ConnectorType;
 use Laraclaw\Models\Reminder;
 use Laravel\Ai\Tools\Request;
 use Stringable;
@@ -69,6 +70,10 @@ class ReminderManager extends BaseTool
         }
 
         [$connector, $key] = $this->resolveConnector($request['connector'] ?? null);
+
+        if ($connector === ConnectorType::Api) {
+            return 'API threads cannot receive scheduled reminders because the HTTP request closes before the reminder fires. Pick telegram, slack, or email.';
+        }
 
         Reminder::create([
             'user_id' => config('laraclaw.auth.admin_user_id'),

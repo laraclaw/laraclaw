@@ -16,6 +16,9 @@ use Stringable;
  */
 class TextToSpeech implements Tool
 {
+    /**
+     * Bind the inbound message and the attachment writer used to stage the generated audio.
+     */
     public function __construct(private readonly IncomingMessage $message, private readonly Attachments $attachments) {}
 
     /**

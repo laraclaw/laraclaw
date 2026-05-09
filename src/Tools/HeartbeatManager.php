@@ -4,6 +4,7 @@ namespace Laraclaw\Tools;
 
 use Cron\CronExpression;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
+use Laraclaw\Enums\ConnectorType;
 use Laraclaw\Models\Heartbeat;
 use Laravel\Ai\Tools\Request;
 use Stringable;
@@ -69,6 +70,10 @@ class HeartbeatManager extends BaseTool
         }
 
         [$connector, $key] = $this->resolveConnector($request['connector'] ?? null);
+
+        if ($connector === ConnectorType::Api) {
+            return 'API threads cannot receive heartbeats because the HTTP request closes before each tick fires. Pick telegram, slack, or email.';
+        }
 
         Heartbeat::create([
             'user_id' => config('laraclaw.auth.admin_user_id'),

@@ -23,16 +23,25 @@ class CalendarManager extends BaseTool
         'delete' => 'Delete event "{title}"?',
     ];
 
+    /**
+     * Bind the inbound message and the resolved calendar driver (Google or Apple).
+     */
     public function __construct(
         protected IncomingMessage $message,
         private readonly CalendarDriver $driver,
     ) {}
 
+    /**
+     * Return the tool description shown to the agent.
+     */
     public function description(): Stringable|string
     {
         return 'Manage calendar events. Operations: ' . implode(', ', $this->operations()) . '. Dates can be natural language ("tomorrow 3pm") or ISO 8601.';
     }
 
+    /**
+     * Define the input schema for this tool.
+     */
     public function schema(JsonSchema $schema): array
     {
         return [

@@ -15,6 +15,9 @@ class Attachments
     private string $uuid;
     private string $base;
 
+    /**
+     * Scope subsequent reads and writes to the inbound folder for the given message UUID.
+     */
     public function inbound(string $uuid): static
     {
         $this->uuid = $uuid;
@@ -23,6 +26,9 @@ class Attachments
         return $this;
     }
 
+    /**
+     * Scope subsequent reads and writes to the outbound folder for the given message UUID.
+     */
     public function outbound(string $uuid): static
     {
         $this->uuid = $uuid;
@@ -77,6 +83,9 @@ class Attachments
             ));
     }
 
+    /**
+     * Return the configured Laravel disk name used for both inbound and outbound storage.
+     */
     private function disk(): string
     {
         return config('laraclaw.filesystem.attachments_disk', 'local');

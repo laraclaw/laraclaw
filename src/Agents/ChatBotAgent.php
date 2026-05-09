@@ -40,6 +40,9 @@ class ChatBotAgent implements Agent, Conversational, HasMiddleware, HasProviderO
 {
     use Promptable, RemembersConversations;
 
+    /**
+     * Resolve the owner from the thread and bind the existing conversation, if any.
+     */
     public function __construct(
         public readonly IncomingMessage $message,
         private SkillRegistry $skillRegistry,

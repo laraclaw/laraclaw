@@ -37,6 +37,9 @@ class Embedding extends Model
         return $this->belongsTo(config('laraclaw.auth.user_model'));
     }
 
+    /**
+     * Cast the source enum and the JSON columns used for the vector and metadata.
+     */
     #[Override]
     protected function casts(): array
     {

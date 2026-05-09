@@ -37,6 +37,9 @@ class Account extends Model
         return $this->belongsTo(config('laraclaw.auth.user_model'));
     }
 
+    /**
+     * Cast the connector column to its enum type.
+     */
     #[Override]
     protected function casts(): array
     {

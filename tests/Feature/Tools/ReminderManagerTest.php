@@ -68,6 +68,25 @@ it('returns an error when remind_at is missing from create', function () {
     expect(Reminder::count())->toBe(0);
 });
 
+it('refuses to create a reminder for an API thread', function () {
+    $message = new IncomingMessage(
+        text: 'test',
+        connector: ConnectorType::Api,
+        key: 'token-abc',
+        isDirectMessage: true,
+    );
+    $tool = new ReminderManager($message);
+
+    $result = $tool->handle(reminderRequest([
+        'operation' => 'create',
+        'message' => 'Take your meds',
+        'remind_at' => now()->addHour()->toIso8601String(),
+    ]));
+
+    expect($result)->toContain('API threads cannot receive scheduled reminders');
+    expect(Reminder::count())->toBe(0);
+});
+
 // ── list ───────────────────────────────────────────────────────────────────
 
 it('lists pending reminders as JSON', function () {

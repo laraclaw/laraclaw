@@ -12,6 +12,9 @@ use Laravel\Ai\Embeddings;
 
 class EmbedContent
 {
+    /**
+     * Inject the chunker that splits text and the extractor that pulls text out of attachments.
+     */
     public function __construct(
         private readonly ContentChunker $chunker,
         private readonly TextExtractor $extractor,

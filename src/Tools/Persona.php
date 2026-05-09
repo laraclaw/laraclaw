@@ -14,6 +14,9 @@ use Stringable;
  */
 class Persona implements Tool
 {
+    /**
+     * Bind the active thread so persona switches and clears can be persisted on it.
+     */
     public function __construct(private readonly ?Thread $thread = null) {}
 
     /**

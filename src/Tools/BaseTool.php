@@ -23,6 +23,9 @@ abstract class BaseTool implements Tool
 
     protected ?Connector $connector = null;
 
+    /**
+     * Bind the inbound message so tool operations can resolve the active connector and key.
+     */
     public function __construct(protected IncomingMessage $message) {}
 
     /**

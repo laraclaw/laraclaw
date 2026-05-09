@@ -20,6 +20,9 @@ class SetupAgent extends Command
 
     protected $description = 'Set the Laraclaw agent name';
 
+    /**
+     * Prompt the operator for the agent's display name and write it to the env file.
+     */
     public function handle(): int
     {
         $this->heading('🤖 Agent Name');

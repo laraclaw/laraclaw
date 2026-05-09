@@ -18,11 +18,17 @@ class Tinker implements Tool
 {
     private const int MAX_OUTPUT_BYTES = 100 * 1024;
 
+    /**
+     * Return the tool description shown to the agent.
+     */
     public function description(): Stringable|string
     {
         return 'Execute PHP code in the context of your Laravel application using Tinker. Returns the output as JSON.';
     }
 
+    /**
+     * Define the input schema for this tool.
+     */
     public function schema(JsonSchema $schema): array
     {
         return [
@@ -30,6 +36,9 @@ class Tinker implements Tool
         ];
     }
 
+    /**
+     * Run the supplied PHP via Tinker and return the buffered output and exit code as JSON.
+     */
     public function handle(Request $request): Stringable|string
     {
         $code = (string) ($request['code'] ?? '');

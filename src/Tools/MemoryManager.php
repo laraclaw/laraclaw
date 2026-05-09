@@ -13,6 +13,9 @@ use function Laraclaw\Support\databaseUsesPgVector;
  */
 class MemoryManager extends SimilaritySearch
 {
+    /**
+     * Wire up the similarity search backend, picking pgvector when available and falling back to PHP cosine.
+     */
     public function __construct()
     {
         $userId = (int) config('laraclaw.auth.admin_user_id');

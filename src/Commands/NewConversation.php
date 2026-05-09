@@ -10,11 +10,17 @@ use Laraclaw\Models\Thread;
  */
 class NewConversation implements Command
 {
+    /**
+     * Return the exact text that activates this command.
+     */
     public function trigger(): string
     {
         return '!new';
     }
 
+    /**
+     * Clear the thread's conversation pointer and confirm the reset back to the user.
+     */
     public function handle(IncomingMessage $message, Thread $thread): ?string
     {
         $thread->update(['conversation_id' => null]);

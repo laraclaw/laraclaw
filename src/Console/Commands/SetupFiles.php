@@ -20,6 +20,9 @@ class SetupFiles extends Command
 
     protected $description = 'Configure the Laraclaw File Manager tool';
 
+    /**
+     * Choose which Laravel disks the File Manager may access and persist the allowlist.
+     */
     public function handle(): int
     {
         $this->heading('📁 File Manager');

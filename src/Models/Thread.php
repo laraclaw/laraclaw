@@ -60,6 +60,9 @@ class Thread extends Model
         return $userModel::find(config('laraclaw.auth.admin_user_id'));
     }
 
+    /**
+     * Cast the connector enum and the direct-message flag.
+     */
     #[Override]
     protected function casts(): array
     {

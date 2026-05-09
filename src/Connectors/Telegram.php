@@ -34,6 +34,9 @@ class Telegram extends Connector implements SupportsConfirmation
         }
     }
 
+    /**
+     * Bind the target chat ID and the configured Telegram bot client.
+     */
     public function __construct(
         private int|string $chatId,
         private Api $bot,

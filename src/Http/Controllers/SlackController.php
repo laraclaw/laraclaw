@@ -20,6 +20,9 @@ use Throwable;
  */
 class SlackController extends Controller
 {
+    /**
+     * Inject the attachment writer, the outbound Slack client, and the command registry.
+     */
     public function __construct(
         private readonly Attachments $attachments,
         private readonly Slack $connector,

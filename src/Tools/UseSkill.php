@@ -13,6 +13,9 @@ use Stringable;
  */
 class UseSkill implements Tool
 {
+    /**
+     * Inject the skill registry that holds the parsed SKILL.md catalogue.
+     */
     public function __construct(private readonly SkillRegistry $registry) {}
 
     /**

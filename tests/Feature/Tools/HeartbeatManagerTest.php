@@ -78,6 +78,25 @@ it('returns an error when cron is missing from create', function () {
     expect(Heartbeat::count())->toBe(0);
 });
 
+it('refuses to create a heartbeat for an API thread', function () {
+    $message = new IncomingMessage(
+        text: 'test',
+        connector: ConnectorType::Api,
+        key: 'token-abc',
+        isDirectMessage: true,
+    );
+    $tool = new HeartbeatManager($message);
+
+    $result = $tool->handle(heartbeatRequest([
+        'operation' => 'create',
+        'prompt' => 'Daily briefing',
+        'cron' => '0 9 * * *',
+    ]));
+
+    expect($result)->toContain('API threads cannot receive heartbeats');
+    expect(Heartbeat::count())->toBe(0);
+});
+
 // ── list ───────────────────────────────────────────────────────────────────
 
 it('lists active heartbeats as JSON', function () {

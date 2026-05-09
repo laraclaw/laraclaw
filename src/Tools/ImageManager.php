@@ -21,6 +21,9 @@ use Stringable;
  */
 class ImageManager extends BaseTool
 {
+    /**
+     * Bind the inbound message and the attachment writer used to stage outbound images.
+     */
     public function __construct(protected IncomingMessage $message, private readonly Attachments $attachments) {}
 
     /**

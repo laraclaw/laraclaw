@@ -22,6 +22,9 @@ class SetupAdmin extends Command
 
     protected $description = 'Set up the Laraclaw admin user account';
 
+    /**
+     * Resolve or create the owner user and persist their ID to the env file.
+     */
     public function handle(): int
     {
         $this->heading('⭐ Admin Account');
@@ -45,6 +48,9 @@ class SetupAdmin extends Command
         return self::SUCCESS;
     }
 
+    /**
+     * Walk the operator through name, email, and password prompts and persist the new user.
+     */
     private function createUser(string $userModel): mixed
     {
         $name = text("👤 What's your name?", placeholder: 'E.g. Alex', required: true);

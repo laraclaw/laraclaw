@@ -33,6 +33,9 @@ class Reminder extends Model
         return $this->belongsTo(config('laraclaw.auth.user_model'));
     }
 
+    /**
+     * Cast the connector enum and the schedule and delivery timestamps.
+     */
     #[Override]
     protected function casts(): array
     {

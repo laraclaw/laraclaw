@@ -38,6 +38,9 @@ class Email extends Connector implements SupportsConfirmation
     /** @var Attachment[] */
     private array $attachments = [];
 
+    /**
+     * Capture the recipient's address and the headers needed to thread the reply.
+     */
     public function __construct(
         private string $senderEmail,
         private ?string $senderName = null,
@@ -197,6 +200,9 @@ class Email extends Connector implements SupportsConfirmation
         $this->send($text);
     }
 
+    /**
+     * Append outbound attachments to the staging list before the reply is sent.
+     */
     private function handleAttachments(Collection $attachments): void
     {
         $this->attachments = array_merge($this->attachments, $attachments->all());

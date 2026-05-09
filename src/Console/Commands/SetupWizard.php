@@ -21,6 +21,9 @@ class SetupWizard extends Command
 
     protected $description = 'Interactive setup wizard for Laraclaw';
 
+    /**
+     * Run the full interactive wizard, chaining the focused setup commands in order.
+     */
     public function handle(): int
     {
         echo file_get_contents(__DIR__ . '/../../../resources/ascii/logo.md');
@@ -49,6 +52,11 @@ class SetupWizard extends Command
         return self::SUCCESS;
     }
 
+    /**
+     * Ask which inbound connectors to configure, defaulting to the ones already populated in the env.
+     *
+     * @return string[]
+     */
     private function selectConnectors(): array
     {
         $this->heading('📫 Connectors');
@@ -74,6 +82,9 @@ class SetupWizard extends Command
         );
     }
 
+    /**
+     * Offer to enable the HTTP API connector and run its sub-wizard if accepted.
+     */
     private function setupApiEndpoint(): bool
     {
         $this->heading('🌐 API');
@@ -94,6 +105,9 @@ class SetupWizard extends Command
         return true;
     }
 
+    /**
+     * Pick which optional tools (File Manager, Calendar) to enable and run their sub-wizards.
+     */
     private function selectTools(): void
     {
         $this->heading('🧰 Tools');
@@ -129,6 +143,9 @@ class SetupWizard extends Command
         }
     }
 
+    /**
+     * Toggle the Bash and Tinker superpowers, warning about the trust implications.
+     */
     private function selectSuperpowers(): void
     {
         $this->heading('🦸 Superpowers');
@@ -158,6 +175,11 @@ class SetupWizard extends Command
         ]);
     }
 
+    /**
+     * Print the closing summary with webhook URLs for any connectors the user enabled.
+     *
+     * @param  string[]  $connectors
+     */
     private function finish(array $connectors, bool $apiEnabled): void
     {
         $appUrl = config('app.url', 'https://your-app.com');

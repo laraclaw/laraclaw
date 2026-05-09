@@ -18,6 +18,9 @@ use Throwable;
  */
 class TelegramListener
 {
+    /**
+     * Inject the attachment writer and the command registry consulted before dispatching to the agent.
+     */
     public function __construct(
         private readonly Attachments $attachments,
         private readonly CommandRegistry $commands,

@@ -24,6 +24,9 @@ class SetupConnector extends Command
 
     protected $description = 'Configure a Laraclaw connector';
 
+    /**
+     * Dispatch to the per-connector setup flow named by the command argument.
+     */
     public function handle(): int
     {
         $connector = $this->argument('connector');
@@ -54,6 +57,9 @@ class SetupConnector extends Command
         return self::SUCCESS;
     }
 
+    /**
+     * Capture the bot token and chat ID for the Telegram connector and bind the owner's account.
+     */
     private function setupTelegram(mixed $user): void
     {
         $this->heading('✨ Telegram');
@@ -69,6 +75,9 @@ class SetupConnector extends Command
         );
     }
 
+    /**
+     * Capture Slack tokens and bind the owner's Slack user ID to their account.
+     */
     private function setupSlack(mixed $user): void
     {
         $this->heading('✨ Slack');
@@ -91,6 +100,9 @@ class SetupConnector extends Command
         );
     }
 
+    /**
+     * Collect IMAP and SMTP settings, then register the owner's allowlisted email addresses.
+     */
     private function setupEmail(mixed $user): void
     {
         $this->heading('✨ Email');
@@ -138,6 +150,9 @@ class SetupConnector extends Command
         ]));
     }
 
+    /**
+     * Generate or rotate the owner's API bearer token and store its hash in the accounts table.
+     */
     private function setupApi(mixed $user): void
     {
         $existing = Account::where('user_id', $user->getAuthIdentifier())

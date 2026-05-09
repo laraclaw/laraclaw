@@ -34,6 +34,9 @@ class Heartbeat extends Model
         return $this->belongsTo(config('laraclaw.auth.user_model'));
     }
 
+    /**
+     * Cast the connector enum, the active flag, and the last-run timestamp.
+     */
     #[Override]
     protected function casts(): array
     {

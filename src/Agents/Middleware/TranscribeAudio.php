@@ -10,6 +10,9 @@ use Laravel\Ai\Transcription;
 
 class TranscribeAudio
 {
+    /**
+     * Bind the inbound message so audio attachments can be located when the prompt is empty.
+     */
     public function __construct(
         private readonly IncomingMessage $message,
     ) {}

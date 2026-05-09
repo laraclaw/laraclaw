@@ -14,6 +14,9 @@ class SkillRegistry
     /** @var array<string, array{name: string, description: string, content: string}>|null */
     private ?array $skills = null;
 
+    /**
+     * Bind the directory that will be scanned for SKILL.md files on first access.
+     */
     public function __construct(
         private readonly string $basePath,
     ) {}
@@ -40,6 +43,8 @@ class SkillRegistry
     }
 
     /**
+     * Lazily scan the skills directory once per process and cache the parsed entries.
+     *
      * @return array<string, array{name: string, description: string, content: string}>
      */
     private function load(): array
@@ -71,6 +76,8 @@ class SkillRegistry
     }
 
     /**
+     * Parse the YAML frontmatter of a SKILL.md file, returning null when name or description is missing.
+     *
      * @return array{name: string, description: string, content: string}|null
      */
     private function parseFrontmatter(string $raw): ?array

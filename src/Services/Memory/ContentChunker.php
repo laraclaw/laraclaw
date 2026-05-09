@@ -43,6 +43,9 @@ class ContentChunker
         return array_values(array_filter($chunks));
     }
 
+    /**
+     * Trim a chunk back to the nearest paragraph or sentence boundary so embeddings stay coherent.
+     */
     private function breakAtBoundary(string $text): string
     {
         $minPosition = (int) (self::SIZE * 0.3);

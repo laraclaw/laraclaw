@@ -29,6 +29,9 @@ class EmailManager extends BaseTool
 
     protected array $requiresConfirmation = [];
 
+    /**
+     * Bind the inbound message and IMAP mailbox name, then register the per-message delete confirmation.
+     */
     public function __construct(
         protected IncomingMessage $message,
         private readonly string $mailbox,

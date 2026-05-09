@@ -25,6 +25,9 @@ class SendHeartbeat implements ShouldQueue
 
     public int $tries = 2;
 
+    /**
+     * Bind the heartbeat row that this job will fire on dispatch.
+     */
     public function __construct(
         private Heartbeat $heartbeat,
     ) {}

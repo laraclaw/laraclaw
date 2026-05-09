@@ -22,6 +22,9 @@ class FileManager extends BaseTool
 
     protected array $requiresConfirmation = [];
 
+    /**
+     * Bind the inbound message and the attachment writer, then register the delete confirmation prompt.
+     */
     public function __construct(protected IncomingMessage $message, private readonly Attachments $attachments)
     {
         $this->requiresConfirmation['delete'] = function (Request $request): string {

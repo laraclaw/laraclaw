@@ -37,6 +37,9 @@ class TextExtractor
         };
     }
 
+    /**
+     * Run OCR over an image, returning null when the optional Tesseract package is missing.
+     */
     private function ocr(string $path): ?string
     {
         if (! class_exists(TesseractOCR::class)) {
@@ -46,6 +49,9 @@ class TextExtractor
         return $this->tryExtract(fn (): string => new TesseractOCR($path)->run(), $path);
     }
 
+    /**
+     * Extract the text layer of a PDF, returning null when spatie/pdf-to-text is not installed.
+     */
     private function pdf(string $path): ?string
     {
         if (! class_exists(Pdf::class)) {
@@ -55,11 +61,17 @@ class TextExtractor
         return $this->tryExtract(fn (): string => Pdf::getText($path), $path);
     }
 
+    /**
+     * Read a plain text file from disk and return its contents.
+     */
     private function text(string $path): ?string
     {
         return $this->tryExtract(fn (): string => file_get_contents($path), $path);
     }
 
+    /**
+     * Run an extractor closure, returning the trimmed text or null if it threw or produced nothing.
+     */
     private function tryExtract(callable $fn, string $path): ?string
     {
         try {
@@ -73,6 +85,9 @@ class TextExtractor
         }
     }
 
+    /**
+     * Log a missing-extension warning the first time it happens, then stay silent for the rest of the process.
+     */
     private function warnOnce(bool &$flag, string $message): null
     {
         if (! $flag) {
