@@ -13,9 +13,7 @@ use Override;
  */
 class Thread extends Model
 {
-    const string TABLE = 'laraclaw_threads';
-
-    protected $table = self::TABLE;
+    protected $table = 'laraclaw_threads';
 
     protected $fillable = ['connector', 'key', 'conversation_id', 'is_direct_message', 'persona'];
 

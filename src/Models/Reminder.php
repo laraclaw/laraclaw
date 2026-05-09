@@ -12,9 +12,7 @@ use Override;
  */
 class Reminder extends Model
 {
-    const string TABLE = 'laraclaw_reminders';
-
-    protected $table = self::TABLE;
+    protected $table = 'laraclaw_reminders';
 
     protected $fillable = [
         'user_id',

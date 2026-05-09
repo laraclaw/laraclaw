@@ -14,9 +14,7 @@ use Override;
  */
 class Account extends Model
 {
-    const string TABLE = 'laraclaw_accounts';
-
-    protected $table = self::TABLE;
+    protected $table = 'laraclaw_accounts';
 
     protected $fillable = ['user_id', 'connector', 'account'];
 

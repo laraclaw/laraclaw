@@ -15,9 +15,7 @@ class Embedding extends Model
 {
     use SearchesWithCosineSimilarity;
 
-    const string TABLE = 'laraclaw_embeddings';
-
-    protected $table = self::TABLE;
+    protected $table = 'laraclaw_embeddings';
 
     protected $fillable = [
         'user_id',

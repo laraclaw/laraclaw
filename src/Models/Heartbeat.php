@@ -12,9 +12,7 @@ use Override;
  */
 class Heartbeat extends Model
 {
-    const string TABLE = 'laraclaw_heartbeats';
-
-    protected $table = self::TABLE;
+    protected $table = 'laraclaw_heartbeats';
 
     protected $fillable = [
         'user_id',
