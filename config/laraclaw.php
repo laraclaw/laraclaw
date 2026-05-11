@@ -48,10 +48,6 @@ return [
             'driver' => env('LARACLAW_IMAGE_DRIVER', 'imagick'),
         ],
 
-        'bash' => [
-            'enabled' => env('LARACLAW_BASH_ENABLED', false),
-        ],
-
         'tinker' => [
             'enabled' => env('LARACLAW_TINKER_ENABLED', false),
         ],

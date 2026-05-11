@@ -23,7 +23,7 @@ class Tinker implements Tool
      */
     public function description(): Stringable|string
     {
-        return 'Execute PHP code in the context of your Laravel application using Tinker. Returns the output as JSON.';
+        return 'Evaluate PHP in the context of the running Laravel app via Tinker. The full app is booted, so you can use Eloquent models, the container, config, cache, etc. Shell commands are available via `Process::run("...")`. Returns the buffered output and exit code as JSON.';
     }
 
     /**

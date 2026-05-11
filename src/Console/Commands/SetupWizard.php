@@ -46,7 +46,7 @@ class SetupWizard extends Command
         $this->call('laraclaw:setup-memory');
 
         $this->selectTools();
-        $this->selectSuperpowers();
+        $this->selectTinker();
         $this->finish($connectors, $apiEnabled);
 
         return self::SUCCESS;
@@ -155,34 +155,22 @@ class SetupWizard extends Command
     }
 
     /**
-     * Toggle the Bash and Tinker superpowers, warning about the trust implications.
+     * Toggle the Tinker tool, warning about the trust implications.
      */
-    private function selectSuperpowers(): void
+    private function selectTinker(): void
     {
-        $this->heading('🦸 Superpowers');
+        $this->heading('🧪 Tinker');
 
-        $powers = implode(PHP_EOL, [
-            '  - Execute Bash commands',
-            '  - Use Artisan Tinker to interact with your Laravel app',
-        ]);
-        info('With superpowers, I can:' . PHP_EOL . PHP_EOL . $powers);
-        info('But with great power comes great responsibility. Allowing the agent to execute these commands could in some cases result in unintended negative consequences.');
+        info('With Tinker I can evaluate PHP in the context of your running Laravel app: query Eloquent models, inspect config, hit the cache, and run shell commands via `Process::run(...)`.');
+        info('But with great power comes great responsibility. Allowing the agent to execute code could in some cases result in unintended negative consequences.');
 
-        $defaults = collect([
-            'bash' => $this->readEnv('LARACLAW_BASH_ENABLED') === 'true',
-            'tinker' => $this->readEnv('LARACLAW_TINKER_ENABLED') === 'true',
-        ])->filter()->keys()->all();
-
-        $selected = multiselect(
-            label: 'Which superpowers do you want to enable?',
-            options: ['bash' => 'Allow the agent to execute Bash commands', 'tinker' => 'Allow the agent to run Artisan Tinker'],
-            default: $defaults,
-            required: false,
+        $enabled = confirm(
+            label: 'Enable Tinker for the agent?',
+            default: $this->readEnv('LARACLAW_TINKER_ENABLED') === 'true',
         );
 
         $this->saveEnv([
-            'LARACLAW_BASH_ENABLED' => in_array('bash', $selected) ? 'true' : 'false',
-            'LARACLAW_TINKER_ENABLED' => in_array('tinker', $selected) ? 'true' : 'false',
+            'LARACLAW_TINKER_ENABLED' => $enabled ? 'true' : 'false',
         ]);
     }
 

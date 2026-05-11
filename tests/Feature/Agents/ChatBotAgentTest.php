@@ -136,7 +136,6 @@ it('exposes the always-on tools regardless of config', function () {
 
 it('omits opt-in tools when their config flags are false', function () {
     $agent = makeAgent([
-        'laraclaw.tools.bash.enabled' => false,
         'laraclaw.tools.tinker.enabled' => false,
         'laraclaw.tools.tts.enabled' => false,
         'laraclaw.memory.enabled' => false,
@@ -146,7 +145,6 @@ it('omits opt-in tools when their config flags are false', function () {
     $tools = collect($agent->tools())->map(fn ($t): string => $t::class);
 
     expect($tools)->not->toContain(
-        \Laraclaw\Tools\Bash::class,
         \Laraclaw\Tools\Tinker::class,
         \Laraclaw\Tools\TextToSpeech::class,
         \Laraclaw\Tools\MemoryManager::class,
@@ -156,13 +154,11 @@ it('omits opt-in tools when their config flags are false', function () {
 
 it('adds the opt-in tools when their config flags are true', function () {
     $tools = collect(makeAgent([
-        'laraclaw.tools.bash.enabled' => true,
         'laraclaw.tools.tinker.enabled' => true,
         'laraclaw.tools.tts.enabled' => true,
     ])->tools())->map(fn ($t): string => $t::class);
 
     expect($tools)->toContain(
-        \Laraclaw\Tools\Bash::class,
         \Laraclaw\Tools\Tinker::class,
         \Laraclaw\Tools\TextToSpeech::class,
     );
