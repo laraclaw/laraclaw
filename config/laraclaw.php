@@ -56,6 +56,17 @@ return [
             'enabled' => env('LARACLAW_TINKER_ENABLED', false),
         ],
 
+        'read_database' => [
+            'enabled' => env('LARACLAW_READ_DATABASE_ENABLED', false),
+
+            // Credentials for the readonly DB user on MySQL and Postgres. Set during the wizard.
+            'username' => env('LARACLAW_READ_DATABASE_USERNAME'),
+            'password' => env('LARACLAW_READ_DATABASE_PASSWORD'),
+
+            // Per-query timeout for MySQL and Postgres. 0 disables the cap.
+            'timeout_seconds' => env('LARACLAW_READ_DATABASE_TIMEOUT_SECONDS', 10),
+        ],
+
         'calendar_manager' => [
             // Driver to use for calendar processing ('google' or 'apple', null for disabling calendar support)
             'driver' => env('LARACLAW_CALENDAR_DRIVER'),

@@ -125,11 +125,16 @@ class SetupWizard extends Command
         $defaults = collect([
             'files' => $this->readEnv('LARACLAW_ALLOWED_DISKS'),
             'calendar' => $this->readEnv('LARACLAW_CALENDAR_DRIVER'),
+            'read_database' => $this->readEnv('LARACLAW_READ_DATABASE_ENABLED') === 'true' ? '1' : null,
         ])->filter()->keys()->all();
 
         $tools = multiselect(
             label: 'Which optional tools do you want to enable?',
-            options: ['files' => 'File Manager', 'calendar' => 'Calendar Manager'],
+            options: [
+                'files' => 'File Manager',
+                'calendar' => 'Calendar Manager',
+                'read_database' => 'Read Database (run SELECT queries against your database)',
+            ],
             default: $defaults,
             required: false,
         );
@@ -140,6 +145,12 @@ class SetupWizard extends Command
 
         if (in_array('calendar', $tools)) {
             $this->call('laraclaw:setup-calendar');
+        }
+
+        if (in_array('read_database', $tools)) {
+            $this->call('laraclaw:setup-read-database');
+        } else {
+            $this->saveEnv(['LARACLAW_READ_DATABASE_ENABLED' => 'false']);
         }
     }
 
