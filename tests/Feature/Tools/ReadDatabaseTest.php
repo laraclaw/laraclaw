@@ -157,6 +157,41 @@ it('blocks writes through the readonly SQLite driver', function () {
     expect($stillOriginal)->toBe('Original');
 });
 
+it('re-asserts query_only between calls so an agent cannot disable it', function () {
+    DB::connection(ReadDatabase::CONNECTION_NAME)->table('users')->insert(['name' => 'Original', 'email' => 'o@example.com']);
+    DB::purge(ReadDatabase::CONNECTION_NAME);
+
+    config(['database.connections.' . ReadDatabase::CONNECTION_NAME => [
+        'driver' => 'laraclaw_sqlite_readonly',
+        'database' => $this->readonlyDbPath,
+        'prefix' => '',
+    ]]);
+
+    (new ReadDatabase)->handle(readDatabaseRequest([
+        'query' => 'PRAGMA query_only = OFF',
+    ]));
+
+    $result = (new ReadDatabase)->handle(readDatabaseRequest([
+        'query' => "update users set name = 'Hacked' where email = 'o@example.com'",
+    ]));
+
+    expect(json_decode($result, true))->toHaveKey('error');
+
+    DB::purge(ReadDatabase::CONNECTION_NAME);
+    config(['database.connections.' . ReadDatabase::CONNECTION_NAME => [
+        'driver' => 'sqlite',
+        'database' => $this->readonlyDbPath,
+        'prefix' => '',
+    ]]);
+
+    $stillOriginal = DB::connection(ReadDatabase::CONNECTION_NAME)
+        ->table('users')
+        ->where('email', 'o@example.com')
+        ->value('name');
+
+    expect($stillOriginal)->toBe('Original');
+});
+
 it('blocks writes to ATTACH-ed databases on SQLite', function () {
     $attachPath = tempnam(sys_get_temp_dir(), 'laraclaw_attach_') . '.sqlite';
     touch($attachPath);

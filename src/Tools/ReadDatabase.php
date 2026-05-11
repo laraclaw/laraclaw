@@ -63,10 +63,10 @@ class ReadDatabase implements Tool
             return 'The "query" parameter is required and cannot be empty.';
         }
 
-        $connection = $this->connection();
-        $this->applyStatementTimeout($connection);
-
         try {
+            $connection = $this->connection();
+            $this->prepareConnection($connection);
+
             $rows = [];
             $bytes = 2;
             $truncated = false;
@@ -74,31 +74,39 @@ class ReadDatabase implements Tool
             foreach ($connection->cursor(rtrim($query, "; \t\n\r\0\x0B")) as $row) {
                 $rowArray = (array) $row;
                 $rowBytes = strlen((string) json_encode($rowArray, JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE));
+                $delimiter = $rows === [] ? 0 : 1;
 
-                if ($bytes + $rowBytes + ($rows === [] ? 0 : 1) > self::MAX_OUTPUT_BYTES) {
+                if ($bytes + $rowBytes + $delimiter > self::MAX_OUTPUT_BYTES) {
                     $truncated = true;
                     break;
                 }
 
                 $rows[] = $rowArray;
-                $bytes += $rowBytes + ($rows === [] ? 0 : 1);
+                $bytes += $rowBytes + $delimiter;
             }
         } catch (Throwable $e) {
-            return (string) json_encode(['error' => $e->getMessage()], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+            return (string) json_encode(['error' => $e->getMessage()], JSON_UNESCAPED_SLASHES);
         }
 
         $payload = $truncated
             ? ['rows' => $rows, 'truncated' => true, 'note' => 'Result set exceeded 100KB; remaining rows were omitted.']
             : $rows;
 
-        return (string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+        return (string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
     }
 
     /**
-     * Cap how long a single query can run. SQLite has no equivalent and is left to PHP's time limit.
+     * Re-assert read-only invariants and apply per-driver query timeouts before each query.
+     *
+     * SQLite's query_only is a mutable per-connection PRAGMA, so an agent could disable it in one
+     * call and write in the next unless we set it again here.
      */
-    private function applyStatementTimeout(ConnectionInterface $connection): void
+    private function prepareConnection(ConnectionInterface $connection): void
     {
+        if ($connection->getDriverName() === 'sqlite') {
+            $connection->statement('PRAGMA query_only = ON');
+        }
+
         $seconds = (int) config('laraclaw.tools.read_database.timeout_seconds', 10);
 
         if ($seconds <= 0) {
@@ -112,7 +120,7 @@ class ReadDatabase implements Tool
                 default => null,
             };
         } catch (Throwable) {
-            // A failed timeout-set should not block the query.
+            // A failed timeout setting should not block the query.
         }
     }
 

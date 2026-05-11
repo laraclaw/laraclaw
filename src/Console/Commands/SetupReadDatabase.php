@@ -165,7 +165,9 @@ class SetupReadDatabase extends Command
                 $rows = $connection->select($probe);
 
                 if ($rows === []) {
-                    throw new RuntimeException('Connected, but the user has no SELECT grants on any table.');
+                    throw new RuntimeException(
+                        'Connected, but no readable tables were found. Either the user has no SELECT grants, or the database has no tables yet.'
+                    );
                 }
 
                 return true;
