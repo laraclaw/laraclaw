@@ -2,7 +2,7 @@
 
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Laraclaw\Database\ReadOnlySchemaSnapshot;
+use Laraclaw\Services\DatabaseSchemaReader;
 use Laraclaw\Tools\ReadDatabase;
 use Laravel\Ai\Tools\Request;
 
@@ -85,15 +85,15 @@ it('returns a structured error when the database raises an exception', function 
 });
 
 it('exposes a schema snapshot built from the readonly connection', function () {
-    $snapshot = (new ReadOnlySchemaSnapshot)->render();
+    $snapshot = (new DatabaseSchemaReader)->render();
 
     expect($snapshot)->toContain('users');
     expect($snapshot)->toContain('email');
 });
 
-it('returns valid JSON when output is truncated', function () {
-    $rows = collect(range(1, 5000))
-        ->map(fn (int $i): array => ['name' => 'user-' . str_repeat('x', 50), 'email' => "u{$i}@example.com"])
+it('caps oversize result sets and marks them truncated', function () {
+    $rows = collect(range(1, 600))
+        ->map(fn (int $i): array => ['name' => "user-{$i}", 'email' => "u{$i}@example.com"])
         ->all();
 
     DB::connection(ReadDatabase::CONNECTION_NAME)->table('users')->insert($rows);
@@ -105,9 +105,8 @@ it('returns valid JSON when output is truncated', function () {
     $decoded = json_decode($result, true);
 
     expect(json_last_error())->toBe(JSON_ERROR_NONE);
-    expect($decoded)->toHaveKey('truncated');
     expect($decoded['truncated'])->toBeTrue();
-    expect($decoded['rows'])->toBeArray()->not->toBeEmpty();
+    expect($decoded['rows'])->toHaveCount(500);
 });
 
 it('encodes binary and invalid UTF-8 columns without failing', function () {

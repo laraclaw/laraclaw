@@ -3,10 +3,10 @@
 namespace Laraclaw\Agents;
 
 use Laraclaw\Agents\Middleware\TranscribeAudio;
-use Laraclaw\Database\ReadOnlySchemaSnapshot;
 use Laraclaw\DTOs\IncomingMessage;
 use Laraclaw\Models\Thread;
 use Laraclaw\Services\Calendar\Contracts\CalendarDriver;
+use Laraclaw\Services\DatabaseSchemaReader;
 use Laraclaw\Skills\SkillRegistry;
 use Laraclaw\Tools\BaseTool;
 use Laraclaw\Tools\Bash;
@@ -50,7 +50,7 @@ class ChatBotAgent implements Agent, Conversational, HasMiddleware, HasProviderO
         private SkillRegistry $skillRegistry,
         private ToolRegistry $toolRegistry,
         public readonly Thread $thread,
-        private ReadOnlySchemaSnapshot $schemaSnapshot,
+        private DatabaseSchemaReader $schemaReader,
         private ?CalendarDriver $calendarDriver = null,
     ) {
         $user = $this->thread->user() ?? throw new RuntimeException('No user found for thread.');
@@ -198,7 +198,7 @@ class ChatBotAgent implements Agent, Conversational, HasMiddleware, HasProviderO
             return '';
         }
 
-        $snapshot = $this->schemaSnapshot->render();
+        $snapshot = $this->schemaReader->render();
 
         if ($snapshot === '') {
             return '';

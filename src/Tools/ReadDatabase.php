@@ -17,7 +17,7 @@ class ReadDatabase implements Tool
 {
     public const string CONNECTION_NAME = 'laraclaw_readonly';
 
-    private const int MAX_OUTPUT_BYTES = 100 * 1024;
+    private const int MAX_ROWS = 500;
 
     /**
      * Build a readonly connection config from the primary connection and readonly credentials.
@@ -68,28 +68,22 @@ class ReadDatabase implements Tool
             $this->prepareConnection($connection);
 
             $rows = [];
-            $bytes = 2;
             $truncated = false;
 
             foreach ($connection->cursor(rtrim($query, "; \t\n\r\0\x0B")) as $row) {
-                $rowArray = (array) $row;
-                $rowBytes = strlen((string) json_encode($rowArray, JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE));
-                $delimiter = $rows === [] ? 0 : 1;
-
-                if ($bytes + $rowBytes + $delimiter > self::MAX_OUTPUT_BYTES) {
+                if (count($rows) >= self::MAX_ROWS) {
                     $truncated = true;
                     break;
                 }
 
-                $rows[] = $rowArray;
-                $bytes += $rowBytes + $delimiter;
+                $rows[] = (array) $row;
             }
         } catch (Throwable $e) {
             return (string) json_encode(['error' => $e->getMessage()], JSON_UNESCAPED_SLASHES);
         }
 
         $payload = $truncated
-            ? ['rows' => $rows, 'truncated' => true, 'note' => 'Result set exceeded 100KB; remaining rows were omitted.']
+            ? ['rows' => $rows, 'truncated' => true, 'note' => 'Result exceeded ' . self::MAX_ROWS . ' rows; add LIMIT or refine the query to see the rest.']
             : $rows;
 
         return (string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);

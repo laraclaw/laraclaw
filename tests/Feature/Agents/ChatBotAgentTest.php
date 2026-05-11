@@ -2,11 +2,11 @@
 
 use Illuminate\Support\Facades\File;
 use Laraclaw\Agents\ChatBotAgent;
-use Laraclaw\Database\ReadOnlySchemaSnapshot;
 use Laraclaw\DTOs\IncomingMessage;
 use Laraclaw\Enums\ConnectorType;
 use Laraclaw\Models\Account;
 use Laraclaw\Models\Thread;
+use Laraclaw\Services\DatabaseSchemaReader;
 use Laraclaw\Skills\SkillRegistry;
 use Laraclaw\Tools\ToolRegistry;
 use Laravel\Ai\Contracts\Agent;
@@ -43,7 +43,7 @@ function makeAgent(array $config = []): ChatBotAgent
         skillRegistry: app(SkillRegistry::class),
         toolRegistry: app(ToolRegistry::class),
         thread: $thread,
-        schemaSnapshot: app(ReadOnlySchemaSnapshot::class),
+        schemaReader: app(DatabaseSchemaReader::class),
     );
 }
 
