@@ -16,8 +16,7 @@ function readDatabaseRequest(array $data): Request
 }
 
 beforeEach(function () {
-    $this->readonlyDbPath = tempnam(sys_get_temp_dir(), 'laraclaw_ro_') . '.sqlite';
-    touch($this->readonlyDbPath);
+    $this->readonlyDbPath = tempnam(sys_get_temp_dir(), 'laraclaw_ro_');
 
     config(['database.connections.' . ReadDatabase::CONNECTION_NAME => [
         'driver' => 'sqlite',
@@ -92,11 +91,12 @@ it('exposes a schema snapshot built from the readonly connection', function () {
 });
 
 it('caps oversize result sets and marks them truncated', function () {
-    $rows = collect(range(1, 600))
+    collect(range(1, 600))
         ->map(fn (int $i): array => ['name' => "user-{$i}", 'email' => "u{$i}@example.com"])
-        ->all();
-
-    DB::connection(ReadDatabase::CONNECTION_NAME)->table('users')->insert($rows);
+        ->chunk(200)
+        ->each(fn ($chunk) => DB::connection(ReadDatabase::CONNECTION_NAME)
+            ->table('users')
+            ->insert($chunk->all()));
 
     $result = (new ReadDatabase)->handle(readDatabaseRequest([
         'query' => 'select name, email from users',
@@ -117,9 +117,9 @@ it('encodes binary and invalid UTF-8 columns without failing', function () {
         'query' => "select name, email from users where email = 'binary@example.com'",
     ]));
 
-    expect(json_last_error())->toBe(JSON_ERROR_NONE);
-
     $decoded = json_decode($result, true);
+
+    expect(json_last_error())->toBe(JSON_ERROR_NONE);
     expect($decoded[0]['email'])->toBe('binary@example.com');
 });
 
@@ -192,8 +192,7 @@ it('re-asserts query_only between calls so an agent cannot disable it', function
 });
 
 it('blocks writes to ATTACH-ed databases on SQLite', function () {
-    $attachPath = tempnam(sys_get_temp_dir(), 'laraclaw_attach_') . '.sqlite';
-    touch($attachPath);
+    $attachPath = tempnam(sys_get_temp_dir(), 'laraclaw_attach_');
 
     try {
         config(['database.connections.laraclaw_attach_writable' => [
