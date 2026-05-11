@@ -9,7 +9,6 @@ use Laraclaw\Services\Calendar\Contracts\CalendarDriver;
 use Laraclaw\Services\DatabaseSchemaReader;
 use Laraclaw\Skills\SkillRegistry;
 use Laraclaw\Tools\BaseTool;
-use Laraclaw\Tools\Bash;
 use Laraclaw\Tools\CalendarManager;
 use Laraclaw\Tools\EmailManager;
 use Laraclaw\Tools\FileManager;
@@ -107,10 +106,6 @@ class ChatBotAgent implements Agent, Conversational, HasMiddleware, HasProviderO
 
         if (config('laraclaw.tools.tts.enabled')) {
             $tools[] = resolve(TextToSpeech::class, ['message' => $this->message]);
-        }
-
-        if (config('laraclaw.tools.bash.enabled')) {
-            $tools[] = resolve(Bash::class);
         }
 
         if (config('laraclaw.tools.tinker.enabled')) {
