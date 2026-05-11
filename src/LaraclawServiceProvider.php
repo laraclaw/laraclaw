@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Laraclaw\Commands\CommandRegistry;
 use Laraclaw\Commands\NewConversation;
+use Laraclaw\Concerns\RegistersReadOnlyDatabase;
 use Laraclaw\Console\Commands\Chat;
 use Laraclaw\Console\Commands\ConnectorAddCommand;
 use Laraclaw\Console\Commands\GoogleCalendarAuth;
@@ -23,6 +24,7 @@ use Laraclaw\Console\Commands\SetupCalendar;
 use Laraclaw\Console\Commands\SetupConnector;
 use Laraclaw\Console\Commands\SetupFiles;
 use Laraclaw\Console\Commands\SetupMemory;
+use Laraclaw\Console\Commands\SetupReadDatabase;
 use Laraclaw\Console\Commands\SetupWizard;
 use Laraclaw\Events\TelegramMessageReceived;
 use Laraclaw\Http\Middleware\VerifyApiToken;
@@ -48,6 +50,8 @@ use Spatie\GoogleCalendar\GoogleCalendar;
  */
 class LaraclawServiceProvider extends ServiceProvider
 {
+    use RegistersReadOnlyDatabase;
+
     /**
      * Bind services, configure connectors, and register the calendar driver.
      */
@@ -76,6 +80,7 @@ class LaraclawServiceProvider extends ServiceProvider
         }
 
         $this->configureRateLimiting();
+        $this->registerReadOnlyDatabaseConnection();
 
         $this->loadRoutesFrom(__DIR__ . '/../routes/laraclaw.php');
         $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
@@ -292,6 +297,7 @@ class LaraclawServiceProvider extends ServiceProvider
             SetupConnector::class,
             SetupFiles::class,
             SetupMemory::class,
+            SetupReadDatabase::class,
             Chat::class,
         ]);
     }

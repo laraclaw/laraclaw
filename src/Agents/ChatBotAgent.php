@@ -6,6 +6,7 @@ use Laraclaw\Agents\Middleware\TranscribeAudio;
 use Laraclaw\DTOs\IncomingMessage;
 use Laraclaw\Models\Thread;
 use Laraclaw\Services\Calendar\Contracts\CalendarDriver;
+use Laraclaw\Services\DatabaseSchemaReader;
 use Laraclaw\Skills\SkillRegistry;
 use Laraclaw\Tools\BaseTool;
 use Laraclaw\Tools\Bash;
@@ -16,6 +17,7 @@ use Laraclaw\Tools\HeartbeatManager;
 use Laraclaw\Tools\ImageManager;
 use Laraclaw\Tools\MemoryManager;
 use Laraclaw\Tools\Persona;
+use Laraclaw\Tools\ReadDatabase;
 use Laraclaw\Tools\ReminderManager;
 use Laraclaw\Tools\TextToSpeech;
 use Laraclaw\Tools\Tinker;
@@ -48,6 +50,7 @@ class ChatBotAgent implements Agent, Conversational, HasMiddleware, HasProviderO
         private SkillRegistry $skillRegistry,
         private ToolRegistry $toolRegistry,
         public readonly Thread $thread,
+        private DatabaseSchemaReader $schemaReader,
         private ?CalendarDriver $calendarDriver = null,
     ) {
         $user = $this->thread->user() ?? throw new RuntimeException('No user found for thread.');
@@ -66,8 +69,9 @@ class ChatBotAgent implements Agent, Conversational, HasMiddleware, HasProviderO
     {
         $base = $this->buildSystemPrompt();
         $persona = $this->resolvePersona();
+        $schema = $this->resolveDatabaseSchema();
 
-        return $base . $persona;
+        return $base . $persona . $schema;
     }
 
     /**
@@ -111,6 +115,10 @@ class ChatBotAgent implements Agent, Conversational, HasMiddleware, HasProviderO
 
         if (config('laraclaw.tools.tinker.enabled')) {
             $tools[] = resolve(Tinker::class);
+        }
+
+        if (config('laraclaw.tools.read_database.enabled')) {
+            $tools[] = resolve(ReadDatabase::class);
         }
 
         $all = array_merge($tools, $this->toolRegistry->resolve(
@@ -179,6 +187,24 @@ class ChatBotAgent implements Agent, Conversational, HasMiddleware, HasProviderO
         }
 
         return file_get_contents($personasPath . '/' . $stem . '.md');
+    }
+
+    /**
+     * Append the readonly DB schema to the system prompt when the Read Database tool is enabled.
+     */
+    private function resolveDatabaseSchema(): string
+    {
+        if (! config('laraclaw.tools.read_database.enabled')) {
+            return '';
+        }
+
+        $snapshot = $this->schemaReader->render();
+
+        if ($snapshot === '') {
+            return '';
+        }
+
+        return PHP_EOL . PHP_EOL . 'Database schema (tables, columns, and foreign keys):' . PHP_EOL . PHP_EOL . $snapshot;
     }
 
     /**
