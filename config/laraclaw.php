@@ -52,6 +52,14 @@ return [
             'enabled' => env('LARACLAW_TINKER_ENABLED', false),
         ],
 
+        'browser' => [
+            // Headless browser tool backed by ferdiunal/larapanda (Lightpanda).
+            // Requires `composer require ferdiunal/larapanda` and either a Lightpanda
+            // CLI binary or a Docker daemon. Runtime, binary path, and proxy are
+            // configured via the LARAPANDA_* env vars that larapanda reads directly.
+            'enabled' => env('LARACLAW_BROWSER_ENABLED', false),
+        ],
+
         'read_database' => [
             'enabled' => env('LARACLAW_READ_DATABASE_ENABLED', false),
 

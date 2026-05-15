@@ -2,6 +2,7 @@
 
 namespace Laraclaw\Agents;
 
+use Ferdiunal\Larapanda\Integrations\Ai\LarapandaAiTools;
 use Laraclaw\Agents\Middleware\TranscribeAudio;
 use Laraclaw\DTOs\IncomingMessage;
 use Laraclaw\Models\Thread;
@@ -114,6 +115,10 @@ class ChatBotAgent implements Agent, Conversational, HasMiddleware, HasProviderO
 
         if (config('laraclaw.tools.read_database.enabled')) {
             $tools[] = resolve(ReadDatabase::class);
+        }
+
+        if (config('laraclaw.tools.browser.enabled') && class_exists(LarapandaAiTools::class)) {
+            $tools = [...$tools, ...resolve(LarapandaAiTools::class)->make()];
         }
 
         $all = array_merge($tools, $this->toolRegistry->resolve(

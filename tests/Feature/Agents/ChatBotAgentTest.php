@@ -164,6 +164,14 @@ it('adds the opt-in tools when their config flags are true', function () {
     );
 });
 
+it('skips Lightpanda tools gracefully when ferdiunal/larapanda is not installed', function () {
+    // Test env does not require the larapanda package, so flipping the flag should not crash.
+    $tools = collect(makeAgent(['laraclaw.tools.browser.enabled' => true])->tools())
+        ->map(fn ($t): string => $t::class);
+
+    expect($tools->filter(fn (string $name): bool => str_contains($name, 'Lightpanda')))->toBeEmpty();
+});
+
 it('omits WebSearch when the active provider does not support it', function () {
     $tools = collect(makeAgent()->tools())->map(fn ($t): string => $t::class);
 

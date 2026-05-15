@@ -126,6 +126,7 @@ class SetupWizard extends Command
             'files' => $this->readEnv('LARACLAW_ALLOWED_DISKS'),
             'calendar' => $this->readEnv('LARACLAW_CALENDAR_DRIVER'),
             'read_database' => $this->readEnv('LARACLAW_READ_DATABASE_ENABLED') === 'true' ? '1' : null,
+            'browser' => $this->readEnv('LARACLAW_BROWSER_ENABLED') === 'true' ? '1' : null,
         ])->filter()->keys()->all();
 
         $tools = multiselect(
@@ -134,6 +135,7 @@ class SetupWizard extends Command
                 'files' => 'File Manager',
                 'calendar' => 'Calendar Manager',
                 'read_database' => 'Read Database (run SELECT queries against your database)',
+                'browser' => 'Headless Browser (fetch and interact with JS-rendered pages)',
             ],
             default: $defaults,
             required: false,
@@ -151,6 +153,12 @@ class SetupWizard extends Command
             $this->call('laraclaw:setup-read-database');
         } else {
             $this->saveEnv(['LARACLAW_READ_DATABASE_ENABLED' => 'false']);
+        }
+
+        if (in_array('browser', $tools)) {
+            $this->call('laraclaw:setup-browser');
+        } else {
+            $this->saveEnv(['LARACLAW_BROWSER_ENABLED' => 'false']);
         }
     }
 

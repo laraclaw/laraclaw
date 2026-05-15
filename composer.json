@@ -25,6 +25,7 @@
         }
     },
     "suggest": {
+        "ferdiunal/larapanda": "Required for the headless web browser tool (Lightpanda SDK, ^1.0; needs PHP ^8.5)",
         "spatie/pdf-to-text": "Required for PDF text extraction in memory (~^1.0)",
         "thiagoalessio/tesseract_ocr": "Required for image OCR in memory (~^2.0)"
     },

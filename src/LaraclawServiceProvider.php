@@ -20,6 +20,7 @@ use Laraclaw\Console\Commands\ProcessHeartbeats;
 use Laraclaw\Console\Commands\SendReminders;
 use Laraclaw\Console\Commands\SetupAdmin;
 use Laraclaw\Console\Commands\SetupAgent;
+use Laraclaw\Console\Commands\SetupBrowser;
 use Laraclaw\Console\Commands\SetupCalendar;
 use Laraclaw\Console\Commands\SetupConnector;
 use Laraclaw\Console\Commands\SetupFiles;
@@ -298,6 +299,7 @@ class LaraclawServiceProvider extends ServiceProvider
             SetupFiles::class,
             SetupMemory::class,
             SetupReadDatabase::class,
+            SetupBrowser::class,
             Chat::class,
         ]);
     }
