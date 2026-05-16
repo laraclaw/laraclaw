@@ -124,6 +124,16 @@ it('does not share threads between users that send the same client key', functio
     expect(Thread::where('connector', ConnectorType::Api)->count())->toBe(2);
 });
 
+it('generates a new key when an explicit null is sent', function () {
+    authenticatedUser();
+    mockAgent();
+
+    $response = $this->postJson('/api/message', ['text' => 'Hello', 'key' => null], apiHeaders());
+
+    $response->assertOk();
+    expect($response->json('key'))->toBeString()->not->toBeEmpty();
+});
+
 it('continues an existing thread when key is provided', function () {
     authenticatedUser();
     mockAgent();
