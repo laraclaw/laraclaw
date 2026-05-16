@@ -11,7 +11,11 @@ it('embeds a saved fact and recalls it in a fresh conversation', function (): vo
     $save = $this->postMessage('Remember this for later: my favourite colour is teal.');
 
     expect($save['success'])->toBeTrue();
-    expect(Embedding::count())->toBeGreaterThanOrEqual(2);
+
+    // The save turn must have produced at least one embedding whose content actually
+    // mentions the fact. Counting all embeddings would also pass for the auto-embed
+    // of the recall turn or for an unrelated message, so we filter by content.
+    expect(Embedding::where('content', 'like', '%teal%')->exists())->toBeTrue();
 
     // Start a fresh conversation by sending without a key.
     $recall = $this->postMessage('What is my favourite colour?');

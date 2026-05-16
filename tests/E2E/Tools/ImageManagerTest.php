@@ -23,7 +23,10 @@ it('resizes an attached image and returns it as an outbound attachment', functio
 
         $upload = new UploadedFile($tmp, 'input.jpg', 'image/jpeg', null, true);
 
-        $response = $this->postJson('/api/message', [
+        // postJson() serializes the body as application/json, which strips
+        // UploadedFile instances. post() sends multipart/form-data, which is what
+        // ApiController's $request->file('attachments') actually expects.
+        $response = $this->post('/api/message', [
             'text' => 'Use ImageManager to resize the attached image to 200x200 and send the resized version back.',
             'attachments' => [$upload],
         ], $this->apiHeaders());

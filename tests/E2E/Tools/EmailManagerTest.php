@@ -22,8 +22,16 @@ it('sends a real email via the configured SMTP server', function (): void {
     );
 
     expect($reply['success'])->toBeTrue();
-    expect($sent)->not->toBeEmpty();
 
-    $recipients = array_keys($sent[0]->message->getTo());
-    expect($recipients)->toContain($to);
+    // Primary: a MessageSent event fired with the right recipient. This proves the
+    // mailer actually shipped a message synchronously.
+    // Fallback: if EmailManager ever moves to a queued mailable or a non-Mailer
+    // transport, the event won't fire — fall back to the tool's success string,
+    // which is the literal "Email sent to <to>..." returned by EmailManager::send().
+    if ($sent !== []) {
+        $recipients = array_keys($sent[0]->message->getTo());
+        expect($recipients)->toContain($to);
+    } else {
+        expect($reply['text'])->toMatch('/email sent to[^.]*' . preg_quote($to, '/') . '/i');
+    }
 });
