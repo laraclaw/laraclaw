@@ -16,7 +16,13 @@ beforeEach(function (): void {
 });
 
 it('creates a real reminder row over a two-turn conversation', function (): void {
-    $first = $this->postMessage('Set a one-off reminder for tomorrow at 9:00 AM that says: Stand-up meeting.');
+    // Anchor on a specific UTC instant in the prompt so neither the model's
+    // timezone inference nor the app timezone can shift the stored value.
+    $when = now('UTC')->addDay()->setTime(9, 0);
+
+    $first = $this->postMessage(
+        "Set a one-off reminder for {$when->format('Y-m-d')} at 09:00 UTC that says: Stand-up meeting."
+    );
     expect($first['success'])->toBeTrue();
 
     $second = $this->postMessage('Use email please.', $first['key']);
@@ -26,5 +32,5 @@ it('creates a real reminder row over a two-turn conversation', function (): void
     expect($reminder)->not->toBeNull();
     expect($reminder->connector)->toBe(ConnectorType::Email);
     expect(strtolower($reminder->message))->toContain('stand-up');
-    expect($reminder->remind_at->format('H:i'))->toBe('09:00');
+    expect($reminder->remind_at->utc()->format('Y-m-d H:i'))->toBe($when->format('Y-m-d H:i'));
 });

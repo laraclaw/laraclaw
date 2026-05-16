@@ -227,8 +227,16 @@ abstract class E2ETestCase extends BaseTestCase
      * Read a key from .env.e2e (loaded into $_ENV via Dotenv). Bypasses config()
      * because these values are test-only knobs, not part of the package's config schema.
      *
-     * Coerces "true" / "false" / "null" / "empty" to their PHP equivalents and treats
-     * blank values as missing so the default kicks in, matching Laravel's env() helper.
+     * Returns the same shape Laravel's env() helper does:
+     *   "true" / "(true)"   -> bool true
+     *   "false" / "(false)" -> bool false
+     *   "null" / "(null)"   -> null
+     *   "empty" / "(empty)" -> ""
+     *   ""                  -> default (treat blanks as missing)
+     *   anything else       -> the raw string
+     * For boolean-shaped values that the package's config does not coerce on its
+     * own (e.g. "1", "yes", "on"), use FILTER_VALIDATE_BOOL at the call site or
+     * route through a typed helper like isDestructiveEnabled().
      */
     protected function envValue(string $key, mixed $default = null): mixed
     {
@@ -267,10 +275,10 @@ abstract class E2ETestCase extends BaseTestCase
     }
 
     /**
-     * Recreate the SQLite file from scratch so each test starts on an empty schema and migrations
-     * can run cleanly. The file is gitignored; deleting it on every setUp prevents cross-test bleed
-     * for any table that defineDatabaseMigrations() does not explicitly truncate, and avoids the
-     * "table already exists" path on the existing file.
+     * Wipe and recreate the SQLite file each setUp so every test starts on an empty
+     * schema with no leftover rows from earlier tests in the same Pest invocation.
+     * The cost is dominated by the real AI calls each test makes (5 to 15 seconds),
+     * so the extra migration time per test is in the noise.
      */
     private function ensureSqliteFile(): void
     {

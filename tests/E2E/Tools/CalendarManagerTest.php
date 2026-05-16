@@ -1,8 +1,10 @@
 <?php
 
+use Spatie\GoogleCalendar\Event;
+
 beforeEach(function (): void {
     $this->requireDestructive();
-    $this->requireEnv('ANTHROPIC_API_KEY', 'LARACLAW_GOOGLE_CALENDAR_ID', 'LARACLAW_GOOGLE_CREDENTIALS_JSON');
+    $this->requireEnv('ANTHROPIC_API_KEY', 'LARACLAW_CALENDAR_DRIVER', 'LARACLAW_GOOGLE_CALENDAR_ID', 'LARACLAW_GOOGLE_CREDENTIALS_JSON');
     $this->authenticatedUser();
 });
 
@@ -16,6 +18,16 @@ it('creates a real Google Calendar event', function (): void {
     );
 
     expect($reply['success'])->toBeTrue();
-    // Google Calendar event ids are lowercase base32-ish, 5+ chars.
-    expect($reply['text'])->toMatch('/[a-z0-9]{5,}/');
+
+    // Google Calendar event ids are lowercase base32-ish (alphabet [a-v0-9]) and
+    // typically 20+ chars. Requiring word boundaries plus length keeps the assertion
+    // from matching prose like "event" or "calendar".
+    expect($reply['text'])->toMatch('/\b[a-v0-9]{20,}\b/');
+
+    // Cross-check against Google Calendar so a model that hallucinates an id-shaped
+    // string in a failure reply still fails the test.
+    $eventIds = collect(Event::get())
+        ->pluck('id')
+        ->all();
+    expect($eventIds)->toContain(trim($reply['text']));
 });
