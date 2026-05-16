@@ -39,7 +39,7 @@ class ApiController extends Controller
             'attachments.*' => ['file'],
         ]);
 
-        $clientKey = $request->input('key', (string) Str::uuid());
+        $clientKey = blank($request->input('key')) ? (string) Str::uuid() : $request->input('key');
 
         // Scope the thread lookup key to the authenticated user so two API users
         // who happen to send the same client-supplied key never share a thread row,
