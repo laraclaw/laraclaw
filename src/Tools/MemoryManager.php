@@ -19,7 +19,7 @@ class MemoryManager extends SimilaritySearch
     public function __construct()
     {
         $userId = (int) config('laraclaw.auth.admin_user_id');
-        $minSimilarity = (float) config('laraclaw.memory.min_similarity', 0.5);
+        $minSimilarity = (float) config('laraclaw.memory.min_similarity', 0.3);
         $limit = (int) config('laraclaw.memory.max_results', 5);
 
         if (databaseUsesPgVector()) {
