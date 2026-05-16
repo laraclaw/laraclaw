@@ -134,6 +134,16 @@ it('generates a new key when an explicit null is sent', function () {
     expect($response->json('key'))->toBeString()->not->toBeEmpty();
 });
 
+it('preserves a literal "0" string as a valid key', function () {
+    authenticatedUser();
+    mockAgent();
+
+    $response = $this->postJson('/api/message', ['text' => 'Hello', 'key' => '0'], apiHeaders());
+
+    $response->assertOk();
+    expect($response->json('key'))->toBe('0');
+});
+
 it('continues an existing thread when key is provided', function () {
     authenticatedUser();
     mockAgent();
