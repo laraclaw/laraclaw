@@ -41,7 +41,9 @@ jobs:
             "orchestra/testbench:${{ matrix.testbench }}"
 
       - name: Install dependencies
-        run: composer update --no-interaction --prefer-dist
+        run: |
+          composer update --no-interaction --prefer-dist \
+            laravel/framework orchestra/testbench --with-all-dependencies
 
       - name: Run tests
         run: vendor/bin/pest
