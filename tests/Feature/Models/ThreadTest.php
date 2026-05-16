@@ -52,3 +52,20 @@ it('returns the registered account owner for DM threads', function () {
 
     expect($user->getAuthIdentifier())->toBe($this->user->id);
 });
+
+it('returns the authenticated request user for API threads', function () {
+    // API auth tokens live on an Account row keyed by hash(token), not by the
+    // thread key (which is the conversation UUID). Thread::user() must resolve
+    // the user via the authenticated request, otherwise every API call 404s.
+    $msg = new IncomingMessage(
+        text: 'hi',
+        connector: ConnectorType::Api,
+        key: 'conversation-uuid-not-an-account',
+        isDirectMessage: true,
+    );
+    $thread = Thread::forMessage($msg);
+
+    request()->setUserResolver(fn () => $this->user);
+
+    expect($thread->user()->getAuthIdentifier())->toBe($this->user->id);
+});

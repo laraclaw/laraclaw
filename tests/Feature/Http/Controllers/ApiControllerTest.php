@@ -106,6 +106,24 @@ it('creates a new thread for each request without a key', function () {
     expect(Thread::where('connector', ConnectorType::Api)->count())->toBe(2);
 });
 
+it('does not share threads between users that send the same client key', function () {
+    authenticatedUser();
+
+    $tokenB = 'second-user-token';
+    $userB = test()->createUser();
+    Account::updateOrCreate(
+        ['user_id' => $userB->getAuthIdentifier(), 'connector' => ConnectorType::Api],
+        ['account' => hash('sha256', $tokenB)],
+    );
+
+    mockAgent();
+
+    $this->postJson('/api/message', ['text' => 'Hello', 'key' => 'shared'], apiHeaders());
+    $this->postJson('/api/message', ['text' => 'Hello', 'key' => 'shared'], ['Authorization' => 'Bearer ' . $tokenB]);
+
+    expect(Thread::where('connector', ConnectorType::Api)->count())->toBe(2);
+});
+
 it('continues an existing thread when key is provided', function () {
     authenticatedUser();
     mockAgent();
@@ -127,11 +145,9 @@ it('stores the conversation id on the thread', function () {
     authenticatedUser();
     mockAgent('Reply', 'conv-xyz');
 
-    $response = $this->postJson('/api/message', ['text' => 'Hello'], apiHeaders());
-    $key = $response->json('key');
+    $this->postJson('/api/message', ['text' => 'Hello'], apiHeaders());
 
-    $thread = Thread::where('connector', ConnectorType::Api)->where('key', $key)->first();
-    expect($thread->conversation_id)->toBe('conv-xyz');
+    expect(Thread::where('connector', ConnectorType::Api)->where('conversation_id', 'conv-xyz')->exists())->toBeTrue();
 });
 
 it('handles commands and returns success without text', function () {

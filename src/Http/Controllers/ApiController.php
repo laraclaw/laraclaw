@@ -39,7 +39,12 @@ class ApiController extends Controller
             'attachments.*' => ['file'],
         ]);
 
-        $key = $request->input('key', (string) Str::uuid());
+        $clientKey = $request->input('key', (string) Str::uuid());
+
+        // Scope the thread lookup key to the authenticated user so two API users
+        // who happen to send the same client-supplied key never share a thread row,
+        // conversation_id, or persona. The client never sees this prefix.
+        $key = $request->user()->getAuthIdentifier() . ':' . $clientKey;
 
         $incomingMessage = Api::createIncomingMessageFrom(
             text: $request->input('text'),
@@ -63,18 +68,18 @@ class ApiController extends Controller
 
         $thread->update(['conversation_id' => $response->conversationId]);
 
-        return $this->buildResponse($response, $thread, $incomingMessage->uuid);
+        return $this->buildResponse($response, $clientKey, $incomingMessage->uuid);
     }
 
     /**
      * Build the JSON response with the agent reply and any outbound attachments.
      */
-    private function buildResponse(AgentResponse $response, Thread $thread, string $uuid): JsonResponse
+    private function buildResponse(AgentResponse $response, string $key, string $uuid): JsonResponse
     {
         return response()->json([
             'success' => true,
             'text' => $response->text,
-            'key' => $thread->key,
+            'key' => $key,
             'attachments' => $this->attachments->outbound($uuid)->getAll()
                 ->map(fn (Attachment $a): array => [
                     'filename' => $a->filename,
