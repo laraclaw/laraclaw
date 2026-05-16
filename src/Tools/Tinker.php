@@ -47,7 +47,7 @@ class Tinker implements Tool
             return 'The "code" parameter is required and cannot be empty.';
         }
 
-        if (! Artisan::has('tinker')) {
+        if (! array_key_exists('tinker', Artisan::all())) {
             return 'The Tinker command is not registered. Make sure laravel/tinker is installed.';
         }
 

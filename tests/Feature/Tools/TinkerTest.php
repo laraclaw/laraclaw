@@ -52,6 +52,12 @@ it('returns an error when code is missing', function () {
     expect($result)->toContain('"code" parameter is required');
 });
 
+it('returns a friendly error when the tinker command is not registered', function () {
+    $result = (new Tinker)->handle(tinkerRequest(['code' => 'echo 1;']));
+
+    expect($result)->toContain('Tinker command is not registered');
+})->skip(fn () => tinkerAvailable(), 'Tinker command is registered in this environment');
+
 it('returns a note when code produces no output', function () {
     $result = (new Tinker)->handle(tinkerRequest([
         'code' => '$x = 1;',
