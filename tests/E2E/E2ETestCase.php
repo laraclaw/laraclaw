@@ -268,7 +268,9 @@ abstract class E2ETestCase extends BaseTestCase
         $path = __DIR__ . '/.env.e2e';
 
         if (file_exists($path)) {
-            Dotenv::createImmutable(__DIR__, '.env.e2e')->safeLoad();
+            // Mutable so .env.e2e always wins for the e2e suite, even when the
+            // shell already exports OPENAI_API_KEY or another LARACLAW_* var.
+            Dotenv::createMutable(__DIR__, '.env.e2e')->safeLoad();
         }
 
         self::$envLoaded = true;

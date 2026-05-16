@@ -28,9 +28,13 @@ it('creates a real reminder row over a two-turn conversation', function (): void
     $second = $this->postMessage('Use email please.', $first['key']);
     expect($second['success'])->toBeTrue();
 
-    $reminder = Reminder::query()->latest('id')->first();
+    $reminder = Reminder::query()
+        ->where('user_id', config('laraclaw.auth.admin_user_id'))
+        ->where('message', 'like', '%stand-up%')
+        ->latest('id')
+        ->first();
+
     expect($reminder)->not->toBeNull();
     expect($reminder->connector)->toBe(ConnectorType::Email);
-    expect(strtolower($reminder->message))->toContain('stand-up');
     expect($reminder->remind_at->utc()->format('Y-m-d H:i'))->toBe($when->format('Y-m-d H:i'));
 });
