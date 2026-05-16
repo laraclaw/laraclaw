@@ -23,7 +23,10 @@ class Tinker implements Tool
      */
     public function description(): Stringable|string
     {
-        return 'Evaluate PHP in the context of the running Laravel app via Tinker. The full app is booted, so you can use Eloquent models, the container, config, cache, etc. Shell commands are available via `Process::run("...")`. Returns the buffered output and exit code as JSON.';
+        return 'Evaluate PHP in the context of the running Laravel app via Tinker. '
+            . 'Use this for Eloquent queries, container resolution, config inspection, cache pokes and other in-app introspection that no other tool covers. '
+            . 'Do not use it for filesystem operations (use FileManager), HTTP calls (use WebRequest), email (use EmailManager) or any task a dedicated tool already exposes. '
+            . 'Returns the buffered output and exit code as JSON.';
     }
 
     /**

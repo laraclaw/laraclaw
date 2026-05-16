@@ -41,7 +41,9 @@ class FileManager extends BaseTool
     {
         $disks = implode(', ', config('laraclaw.filesystem.allowed_disks', []));
 
-        return "Manage files on disk. Allowed disks: {$disks}. Operations: " . implode(', ', $this->operations()) . '.';
+        return 'Read, write, list, move, copy and delete files on a Laravel storage disk. '
+            . 'Use this for any plain filesystem work; do not reach for Tinker to write or read a file. '
+            . "Allowed disks: {$disks}. Operations: " . implode(', ', $this->operations()) . '.';
     }
 
     /**
