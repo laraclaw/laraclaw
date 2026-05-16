@@ -27,7 +27,7 @@ return [
         'max_results' => env('LARACLAW_MEMORY_MAX_RESULTS', 5),
 
         // Minimum similarity score (0.0 to 1.0) to include a result
-        'min_similarity' => env('LARACLAW_MEMORY_MIN_SIMILARITY', 0.5),
+        'min_similarity' => env('LARACLAW_MEMORY_MIN_SIMILARITY', 0.3),
     ],
 
     'logging' => [
