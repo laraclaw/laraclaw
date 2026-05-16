@@ -121,14 +121,12 @@ abstract class E2ETestCase extends BaseTestCase
 
     protected function defineDatabaseMigrations(): void
     {
-        if (! Schema::hasTable('users')) {
-            Schema::create('users', function (Blueprint $table): void {
-                $table->id();
-                $table->string('name')->default('Test User');
-                $table->string('email')->unique();
-                $table->timestamps();
-            });
-        }
+        Schema::create('users', function (Blueprint $table): void {
+            $table->id();
+            $table->string('name')->default('Test User');
+            $table->string('email')->unique();
+            $table->timestamps();
+        });
 
         $this->loadMigrationsFrom(__DIR__ . '/../../database/migrations');
         $this->loadMigrationsFrom(__DIR__ . '/../../vendor/laravel/ai/database/migrations');
