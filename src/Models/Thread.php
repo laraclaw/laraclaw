@@ -46,6 +46,10 @@ class Thread extends Model
      */
     public function user(): mixed
     {
+        if ($this->connector === ConnectorType::Api) {
+            return request()->user();
+        }
+
         if ($this->is_direct_message) {
             return Account::with('user')
                 ->forConnector($this->key, $this->connector)
