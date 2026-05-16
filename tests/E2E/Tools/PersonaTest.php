@@ -13,5 +13,5 @@ it('switches to a named persona and replies in character', function (): void {
     expect($reply['success'])->toBeTrue();
 
     $text = strtolower($reply['text']);
-    expect($text)->toMatch('/(arr|ahoy|matey|ye|aye|landlubber)/');
+    expect($text)->toMatch('/\b(arr+|ahoy|matey|aye|landlubber|scallywag|shipmate)\b/');
 });

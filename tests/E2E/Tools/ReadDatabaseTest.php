@@ -29,5 +29,5 @@ it('runs a read-only query and reports the row count', function (): void {
     $reply = $this->postMessage('Use ReadDatabase to count rows in the e2e_posts table and tell me the number.');
 
     expect($reply['success'])->toBeTrue();
-    expect($reply['text'])->toContain('3');
+    expect($reply['text'])->toMatch('/\b3\b/');
 });

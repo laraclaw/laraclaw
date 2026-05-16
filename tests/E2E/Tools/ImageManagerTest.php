@@ -13,33 +13,40 @@ it('resizes an attached image and returns it as an outbound attachment', functio
         $this->markTestSkipped('GD extension not available.');
     }
 
-    $img = imagecreatetruecolor(800, 600);
-    imagefill($img, 0, 0, imagecolorallocate($img, 30, 120, 200));
     $tmp = tempnam(sys_get_temp_dir(), 'laraclaw-e2e-');
-    imagejpeg($img, $tmp, 90);
-    imagedestroy($img);
 
-    $upload = new UploadedFile($tmp, 'input.jpg', 'image/jpeg', null, true);
+    try {
+        $img = imagecreatetruecolor(800, 600);
+        imagefill($img, 0, 0, imagecolorallocate($img, 30, 120, 200));
+        imagejpeg($img, $tmp, 90);
+        imagedestroy($img);
 
-    $response = $this->postJson('/api/message', [
-        'text' => 'Use ImageManager to resize the attached image to 200x200 and send the resized version back.',
-        'attachments' => [$upload],
-    ], $this->apiHeaders());
+        $upload = new UploadedFile($tmp, 'input.jpg', 'image/jpeg', null, true);
 
-    $response->assertOk();
-    $reply = $response->json();
+        $response = $this->postJson('/api/message', [
+            'text' => 'Use ImageManager to resize the attached image to 200x200 and send the resized version back.',
+            'attachments' => [$upload],
+        ], $this->apiHeaders());
 
-    expect($reply['success'])->toBeTrue();
-    expect($reply['attachments'])->not->toBeEmpty();
+        $response->assertOk();
+        $reply = $response->json();
 
-    $attachment = $reply['attachments'][0];
-    expect($attachment['mime_type'])->toBe('image/jpeg');
-    expect(Storage::disk('local')->exists($attachment['path']))->toBeTrue();
+        expect($reply['success'])->toBeTrue();
+        expect($reply['attachments'])->not->toBeEmpty();
 
-    $bytes = Storage::disk('local')->get($attachment['path']);
-    [$width, $height] = getimagesizefromstring($bytes);
+        $attachment = $reply['attachments'][0];
+        expect($attachment['mime_type'])->toBe('image/jpeg');
+        expect(Storage::disk('local')->exists($attachment['path']))->toBeTrue();
 
-    // Either dimension at 200 satisfies the request when aspect ratio is preserved.
-    expect(min($width, $height))->toBeLessThanOrEqual(200);
-    expect($width)->toBeLessThan(800);
+        $bytes = Storage::disk('local')->get($attachment['path']);
+        [$width, $height] = getimagesizefromstring($bytes);
+
+        // Either dimension at 200 satisfies the request when aspect ratio is preserved.
+        expect(min($width, $height))->toBeLessThanOrEqual(200);
+        expect($width)->toBeLessThan(800);
+    } finally {
+        if (file_exists($tmp)) {
+            unlink($tmp);
+        }
+    }
 });

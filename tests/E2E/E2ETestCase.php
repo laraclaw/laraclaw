@@ -59,6 +59,8 @@ abstract class E2ETestCase extends BaseTestCase
         $this->ensureSqliteFile();
 
         $app['config']->set('laraclaw.auth.user_model', User::class);
+        // API enablement and token are owned by the test harness — overriding from .env.e2e
+        // would just break authentication, since the bearer token used in apiHeaders() is fixed.
         $app['config']->set('laraclaw.api.enabled', true);
         $app['config']->set('laraclaw.api.token', hash('sha256', self::API_TOKEN));
 
@@ -66,7 +68,7 @@ abstract class E2ETestCase extends BaseTestCase
         // boot-time validation passes without their respective env vars.
         $app['config']->set('laraclaw.connectors.telegram.enabled', false);
         $app['config']->set('laraclaw.connectors.slack.enabled', false);
-        $app['config']->set('laraclaw.connectors.email.enabled', $this->envValue('LARACLAW_EMAIL_ENABLED', false));
+        $app['config']->set('laraclaw.connectors.email.enabled', false);
 
         $app['config']->set('cache.default', 'array');
         $app['config']->set('ai.caching.embeddings.store', 'array');
@@ -88,10 +90,11 @@ abstract class E2ETestCase extends BaseTestCase
             'driver' => 'local',
             'root' => __DIR__ . '/storage/local',
         ]);
+        // Disk config is owned by the harness — tests assert against these specific paths.
         $app['config']->set('laraclaw.filesystem.allowed_disks', ['laraclaw_files']);
         $app['config']->set('laraclaw.filesystem.attachments_disk', 'local');
 
-        $app['config']->set('laraclaw.memory.enabled', true);
+        $app['config']->set('laraclaw.memory.enabled', $this->envValue('LARACLAW_MEMORY_ENABLED', true));
         $app['config']->set('laraclaw.memory.min_similarity', 0.3);
 
         $app['config']->set('laraclaw.tools.tts.enabled', true);
@@ -99,7 +102,7 @@ abstract class E2ETestCase extends BaseTestCase
         $app['config']->set('laraclaw.tools.tinker.enabled', true);
         $app['config']->set('laraclaw.tools.read_database.enabled', true);
 
-        if ($this->envValue('LARACLAW_E2E_DESTRUCTIVE') === '1') {
+        if ($this->isDestructiveEnabled()) {
             $app['config']->set('laraclaw.connectors.email.enabled', true);
             $app['config']->set('laraclaw.connectors.email.smtp.host', $this->envValue('LARACLAW_SMTP_HOST'));
             $app['config']->set('laraclaw.connectors.email.smtp.port', (int) $this->envValue('LARACLAW_SMTP_PORT', 587));
@@ -129,17 +132,16 @@ abstract class E2ETestCase extends BaseTestCase
 
         $this->loadMigrationsFrom(__DIR__ . '/../../database/migrations');
         $this->loadMigrationsFrom(__DIR__ . '/../../vendor/laravel/ai/database/migrations');
-
-        DB::table('users')->delete();
-        DB::table('laraclaw_accounts')->delete();
-        DB::table('laraclaw_threads')->delete();
-        DB::table('laraclaw_embeddings')->delete();
-        DB::table('laraclaw_reminders')->delete();
-        DB::table('agent_conversations')->delete();
     }
 
     /**
      * Create a user and register the API token so /api/message authenticates.
+     *
+     * The returned User is a stand-in for whatever model the consumer wires up via
+     * laraclaw.auth.user_model; tests only need it for its identifier when the
+     * VerifyApiToken middleware sets $request->user(). Since database.default is
+     * the e2e connection in defineEnvironment(), any subsequent ->save() or
+     * relationship lookup against this instance will use the right connection.
      */
     protected function authenticatedUser(): User
     {
@@ -205,18 +207,45 @@ abstract class E2ETestCase extends BaseTestCase
      */
     protected function requireDestructive(): void
     {
-        if ($this->envValue('LARACLAW_E2E_DESTRUCTIVE') !== '1') {
+        if (! $this->isDestructiveEnabled()) {
             $this->markTestSkipped('Destructive E2E tests are off. Set LARACLAW_E2E_DESTRUCTIVE=1 in .env.e2e to enable.');
         }
     }
 
     /**
+     * Return true when destructive tests are opted in. Accepts truthy strings
+     * like "1", "true", "yes" so contributors do not have to remember the exact value.
+     */
+    protected function isDestructiveEnabled(): bool
+    {
+        $raw = $_ENV['LARACLAW_E2E_DESTRUCTIVE'] ?? $_SERVER['LARACLAW_E2E_DESTRUCTIVE'] ?? getenv('LARACLAW_E2E_DESTRUCTIVE');
+
+        return (bool) filter_var($raw, FILTER_VALIDATE_BOOL);
+    }
+
+    /**
      * Read a key from .env.e2e (loaded into $_ENV via Dotenv). Bypasses config()
      * because these values are test-only knobs, not part of the package's config schema.
+     *
+     * Coerces "true" / "false" / "null" / "empty" to their PHP equivalents and treats
+     * blank values as missing so the default kicks in, matching Laravel's env() helper.
      */
     protected function envValue(string $key, mixed $default = null): mixed
     {
-        return $_ENV[$key] ?? $_SERVER[$key] ?? getenv($key) ?: $default;
+        $raw = $_ENV[$key] ?? $_SERVER[$key] ?? getenv($key);
+
+        if ($raw === false || $raw === null) {
+            return $default;
+        }
+
+        return match (strtolower((string) $raw)) {
+            '' => $default,
+            'true', '(true)' => true,
+            'false', '(false)' => false,
+            'null', '(null)' => null,
+            'empty', '(empty)' => '',
+            default => $raw,
+        };
     }
 
     /**
@@ -238,14 +267,19 @@ abstract class E2ETestCase extends BaseTestCase
     }
 
     /**
-     * Create the SQLite file if it doesn't exist; touching is enough — migrations build the schema.
+     * Recreate the SQLite file from scratch so each test starts on an empty schema and migrations
+     * can run cleanly. The file is gitignored; deleting it on every setUp prevents cross-test bleed
+     * for any table that defineDatabaseMigrations() does not explicitly truncate, and avoids the
+     * "table already exists" path on the existing file.
      */
     private function ensureSqliteFile(): void
     {
         $path = __DIR__ . '/database.sqlite';
 
-        if (! file_exists($path)) {
-            touch($path);
+        if (file_exists($path)) {
+            unlink($path);
         }
+
+        touch($path);
     }
 }

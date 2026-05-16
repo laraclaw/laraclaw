@@ -6,7 +6,13 @@ beforeEach(function (): void {
     $this->requireEnv('ANTHROPIC_API_KEY');
     $this->authenticatedUser();
 
-    Storage::disk('laraclaw_files')->deleteDirectory('');
+    $disk = Storage::disk('laraclaw_files');
+    foreach ($disk->allFiles() as $file) {
+        $disk->delete($file);
+    }
+    foreach ($disk->directories() as $dir) {
+        $disk->deleteDirectory($dir);
+    }
 });
 
 it('writes a text file then reads it back over two turns', function (): void {
@@ -23,5 +29,6 @@ it('writes a text file then reads it back over two turns', function (): void {
         $write['key'],
     );
 
+    expect($read['success'])->toBeTrue();
     expect($read['text'])->toContain('Hello from the e2e suite');
 });
