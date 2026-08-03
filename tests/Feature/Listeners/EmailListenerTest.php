@@ -28,7 +28,7 @@ function makeRawEmail(string $from, string $subject = 'Hello', string $authResul
 
 function makeEvent(MessageInterface $raw): MessageReceived
 {
-    return new MessageReceived($raw);
+    return new MessageReceived($raw, 'default');
 }
 
 function registerEmailAccount(string $email): void
