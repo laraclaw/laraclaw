@@ -205,11 +205,12 @@ class LaraclawServiceProvider extends ServiceProvider
      */
     private function configureEmailConnector(): void
     {
-        // Wait until the app boots before reading the config, the same way the
-        // Telegram connector does. Callers that set laraclaw config after the
-        // provider is registered, such as the test harness, would otherwise be
-        // read too early and leave the mailer on its default transport.
-        $this->app->booting(function (): void {
+        // Read the config once the app has booted rather than during registration, so
+        // callers that set laraclaw config after this provider is registered still get
+        // their SMTP settings honoured instead of silently leaving the mailer on
+        // whatever transport the host app defaults to. booted() also fires right away
+        // when the app has already booted, which booting() does not.
+        $this->app->booted(function (): void {
             if (! config('laraclaw.connectors.email.enabled')) {
                 return;
             }

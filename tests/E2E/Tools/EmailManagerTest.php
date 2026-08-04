@@ -2,6 +2,8 @@
 
 use Illuminate\Mail\Events\MessageSent;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Mail;
+use Symfony\Component\Mailer\Transport\Smtp\EsmtpTransport;
 use Symfony\Component\Mime\Address;
 
 beforeEach(function (): void {
@@ -24,10 +26,14 @@ it('sends a real email via the configured SMTP server', function (): void {
 
     expect($reply['success'])->toBeTrue();
 
-    // Primary: a MessageSent event fired with the right recipient. This proves the
-    // mailer actually shipped a message synchronously.
-    // Fallback: if EmailManager ever moves to a queued mailable or a non-Mailer
-    // transport, the event won't fire — fall back to the tool's success string,
+    // MessageSent fires on the log and array transports too, so the event alone says
+    // nothing about delivery. Pin the transport first: once it is a real SMTP
+    // transport, Symfony throws on rejection, so a send that returned without
+    // throwing means the server accepted the message.
+    expect(Mail::mailer()->getSymfonyTransport())->toBeInstanceOf(EsmtpTransport::class);
+
+    // Fallback: if EmailManager ever moves to a queued mailable or a non Mailer
+    // transport, the event will not fire. Fall back to the tool's success string,
     // which is the literal "Email sent to <to>..." returned by EmailManager::send().
     if ($sent !== []) {
         // getTo() hands back a plain list of Address objects, so the addresses live
