@@ -69,13 +69,13 @@ abstract class E2ETestCase extends BaseTestCase
         $app['config']->set('cache.default', 'array');
         $app['config']->set('ai.caching.embeddings.store', 'array');
 
-        // AI provider keys come from .env.e2e via $_ENV.
+        // The provider keys resolve themselves, since laravel/ai's config reads
+        // OPENAI_API_KEY and ANTHROPIC_API_KEY straight from the environment. These
+        // four have no env binding of their own, so they still need setting by hand.
         $app['config']->set('ai.default', $this->envValue('AI_DEFAULT', 'anthropic'));
         $app['config']->set('ai.default_for_embeddings', $this->envValue('AI_DEFAULT_FOR_EMBEDDINGS', 'openai'));
         $app['config']->set('ai.default_for_audio', $this->envValue('AI_DEFAULT_FOR_AUDIO', 'openai'));
-        $app['config']->set('ai.providers.openai.key', $this->envValue('OPENAI_API_KEY'));
         $app['config']->set('ai.providers.openai.models.audio.default', $this->envValue('OPENAI_AUDIO_MODEL', 'gpt-4o-mini-tts'));
-        $app['config']->set('ai.providers.anthropic.key', $this->envValue('ANTHROPIC_API_KEY'));
 
         // A working filesystem disk that the FileManager test can write to.
         $app['config']->set('filesystems.disks.laraclaw_files', [
@@ -90,7 +90,9 @@ abstract class E2ETestCase extends BaseTestCase
         $app['config']->set('laraclaw.filesystem.allowed_disks', ['laraclaw_files']);
         $app['config']->set('laraclaw.filesystem.attachments_disk', 'local');
 
-        $app['config']->set('laraclaw.memory.enabled', $this->envValue('LARACLAW_MEMORY_ENABLED', true));
+        // The package ships with memory off, but the suite exercises it, so default to
+        // on here and let .env.e2e turn it off when someone wants a cheaper run.
+        $app['config']->set('laraclaw.memory.enabled', filter_var($this->envValue('LARACLAW_MEMORY_ENABLED', true), FILTER_VALIDATE_BOOL));
         $app['config']->set('laraclaw.memory.min_similarity', 0.3);
 
         $app['config']->set('laraclaw.tools.tts.enabled', true);
@@ -98,20 +100,13 @@ abstract class E2ETestCase extends BaseTestCase
         $app['config']->set('laraclaw.tools.tinker.enabled', true);
         $app['config']->set('laraclaw.tools.read_database.enabled', true);
 
+        // Everything else the destructive tests need, the SMTP block and the Google
+        // Calendar block, is already mapped to these env vars by the package's own
+        // config file, so .env.e2e reaches it without any help from here. Only the
+        // connector switch has no env var in .env.e2e, and it stays off by default so
+        // an accidental run cannot send mail.
         if ($this->isDestructiveEnabled()) {
             $app['config']->set('laraclaw.connectors.email.enabled', true);
-            $app['config']->set('laraclaw.connectors.email.smtp.host', $this->envValue('LARACLAW_SMTP_HOST'));
-            $app['config']->set('laraclaw.connectors.email.smtp.port', (int) $this->envValue('LARACLAW_SMTP_PORT', 587));
-            $app['config']->set('laraclaw.connectors.email.smtp.encryption', $this->envValue('LARACLAW_SMTP_ENCRYPTION', 'tls'));
-            $app['config']->set('laraclaw.connectors.email.smtp.username', $this->envValue('LARACLAW_SMTP_USERNAME'));
-            $app['config']->set('laraclaw.connectors.email.smtp.password', $this->envValue('LARACLAW_SMTP_PASSWORD'));
-            $app['config']->set('laraclaw.connectors.email.smtp.from_address', $this->envValue('LARACLAW_SMTP_FROM_ADDRESS'));
-            $app['config']->set('laraclaw.connectors.email.smtp.from_name', $this->envValue('LARACLAW_SMTP_FROM_NAME', 'Laraclaw E2E'));
-
-            $app['config']->set('laraclaw.tools.calendar_manager.driver', $this->envValue('LARACLAW_CALENDAR_DRIVER'));
-            $app['config']->set('laraclaw.tools.calendar_manager.google.calendar_id', $this->envValue('LARACLAW_GOOGLE_CALENDAR_ID'));
-            $app['config']->set('laraclaw.tools.calendar_manager.google.credentials_json', $this->envValue('LARACLAW_GOOGLE_CREDENTIALS_JSON'));
-            $app['config']->set('laraclaw.tools.calendar_manager.google.token_json', $this->envValue('LARACLAW_GOOGLE_TOKEN_JSON'));
         }
     }
 
@@ -212,42 +207,22 @@ abstract class E2ETestCase extends BaseTestCase
      */
     protected function isDestructiveEnabled(): bool
     {
-        $raw = $_ENV['LARACLAW_E2E_DESTRUCTIVE'] ?? $_SERVER['LARACLAW_E2E_DESTRUCTIVE'] ?? getenv('LARACLAW_E2E_DESTRUCTIVE');
-
-        return (bool) filter_var($raw, FILTER_VALIDATE_BOOL);
+        return (bool) filter_var($this->envValue('LARACLAW_E2E_DESTRUCTIVE'), FILTER_VALIDATE_BOOL);
     }
 
     /**
-     * Read a key from .env.e2e (loaded into $_ENV via Dotenv). Bypasses config()
-     * because these values are test-only knobs, not part of the package's config schema.
+     * Read a raw value from .env.e2e, which loadEnvFile() has put into $_ENV.
      *
-     * Returns the same shape Laravel's env() helper does:
-     *   "true" / "(true)"   -> bool true
-     *   "false" / "(false)" -> bool false
-     *   "null" / "(null)"   -> null
-     *   "empty" / "(empty)" -> ""
-     *   ""                  -> default (treat blanks as missing)
-     *   anything else       -> the raw string
-     * For boolean-shaped values that the package's config does not coerce on its
-     * own (e.g. "1", "yes", "on"), use FILTER_VALIDATE_BOOL at the call site or
-     * route through a typed helper like isDestructiveEnabled().
+     * The project forbids env() outside config files, hence reading the superglobals
+     * here. Blank counts as missing so a key left empty in .env.e2e falls back to the
+     * default instead of overriding it with an empty string. Values that need to be
+     * booleans go through FILTER_VALIDATE_BOOL at the call site.
      */
     protected function envValue(string $key, mixed $default = null): mixed
     {
         $raw = $_ENV[$key] ?? $_SERVER[$key] ?? getenv($key);
 
-        if ($raw === false || $raw === null) {
-            return $default;
-        }
-
-        return match (strtolower((string) $raw)) {
-            '' => $default,
-            'true', '(true)' => true,
-            'false', '(false)' => false,
-            'null', '(null)' => null,
-            'empty', '(empty)' => '',
-            default => $raw,
-        };
+        return $raw === false || $raw === '' ? $default : $raw;
     }
 
     /**
