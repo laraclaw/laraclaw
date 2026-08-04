@@ -59,10 +59,6 @@ abstract class E2ETestCase extends BaseTestCase
         $this->ensureSqliteFile();
 
         $app['config']->set('laraclaw.auth.user_model', User::class);
-        // API enablement and token are owned by the test harness — overriding from .env.e2e
-        // would just break authentication, since the bearer token used in apiHeaders() is fixed.
-        $app['config']->set('laraclaw.api.enabled', true);
-        $app['config']->set('laraclaw.api.token', hash('sha256', self::API_TOKEN));
 
         // The non-destructive defaults: connectors we don't exercise stay off so
         // boot-time validation passes without their respective env vars.
