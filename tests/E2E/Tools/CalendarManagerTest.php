@@ -34,8 +34,13 @@ it('creates a real Google Calendar event', function (): void {
         $when->copy()->addMinutes(45),
     );
 
-    expect($events->pluck('id')->all())->toContain($eventId);
+    // Spatie's Event exposes its properties through __get but does not implement
+    // __isset, so the data_get() helpers behind pluck() and firstWhere() read them
+    // as null. Reach for the property directly instead.
+    $ids = $events->map(fn (Event $event): string => $event->id)->all();
+
+    expect($ids)->toContain($eventId);
 
     // Clean up so re-running the suite does not litter the calendar.
-    $events->firstWhere('id', $eventId)?->delete();
+    $events->first(fn (Event $event): bool => $event->id === $eventId)?->delete();
 });

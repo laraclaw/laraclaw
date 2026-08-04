@@ -2,6 +2,7 @@
 
 use Illuminate\Mail\Events\MessageSent;
 use Illuminate\Support\Facades\Event;
+use Symfony\Component\Mime\Address;
 
 beforeEach(function (): void {
     $this->requireDestructive();
@@ -29,7 +30,12 @@ it('sends a real email via the configured SMTP server', function (): void {
     // transport, the event won't fire — fall back to the tool's success string,
     // which is the literal "Email sent to <to>..." returned by EmailManager::send().
     if ($sent !== []) {
-        $recipients = array_keys($sent[0]->message->getTo());
+        // getTo() hands back a plain list of Address objects, so the addresses live
+        // in the values rather than the keys.
+        $recipients = collect($sent[0]->message->getTo())
+            ->map(fn (Address $address): string => $address->getAddress())
+            ->all();
+
         expect($recipients)->toContain($to);
     } else {
         expect($reply['text'])->toMatch('/email sent to[^.]*' . preg_quote($to, '/') . '/i');
