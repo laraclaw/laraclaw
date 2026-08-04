@@ -4,6 +4,7 @@ namespace Laraclaw\Tests\Feature;
 
 use Illuminate\Support\Facades\Mail;
 use Laraclaw\Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 use Symfony\Component\Mailer\Transport\Smtp\EsmtpTransport;
 
 /**
@@ -16,9 +17,7 @@ use Symfony\Component\Mailer\Transport\Smtp\EsmtpTransport;
  */
 class EmailConnectorConfigTest extends TestCase
 {
-    /**
-     * @test
-     */
+    #[Test]
     public function it_copies_the_smtp_settings_into_the_mail_config(): void
     {
         $this->assertSame('smtp', config('mail.default'));
@@ -30,9 +29,7 @@ class EmailConnectorConfigTest extends TestCase
         $this->assertSame('Laraclaw', config('mail.from.name'));
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function the_resolved_transport_is_a_real_smtp_transport(): void
     {
         $this->assertInstanceOf(EsmtpTransport::class, Mail::mailer()->getSymfonyTransport());
