@@ -205,35 +205,42 @@ class LaraclawServiceProvider extends ServiceProvider
      */
     private function configureEmailConnector(): void
     {
-        if (! config('laraclaw.connectors.email.enabled')) {
-            return;
-        }
+        // Read the config once the app has booted rather than during registration, so
+        // callers that set laraclaw config after this provider is registered still get
+        // their SMTP settings honoured instead of silently leaving the mailer on
+        // whatever transport the host app defaults to. booted() also fires right away
+        // when the app has already booted, which booting() does not.
+        $this->app->booted(function (): void {
+            if (! config('laraclaw.connectors.email.enabled')) {
+                return;
+            }
 
-        $smtp = config('laraclaw.connectors.email.smtp');
-        if ($smtp['host']) {
-            config([
-                'mail.default' => 'smtp',
-                'mail.mailers.smtp.host' => $smtp['host'],
-                'mail.mailers.smtp.port' => $smtp['port'],
-                'mail.mailers.smtp.encryption' => $smtp['encryption'],
-                'mail.mailers.smtp.username' => $smtp['username'],
-                'mail.mailers.smtp.password' => $smtp['password'],
-                'mail.from.address' => $smtp['from_address'],
-                'mail.from.name' => $smtp['from_name'],
-            ]);
-        }
+            $smtp = config('laraclaw.connectors.email.smtp');
+            if ($smtp['host']) {
+                config([
+                    'mail.default' => 'smtp',
+                    'mail.mailers.smtp.host' => $smtp['host'],
+                    'mail.mailers.smtp.port' => $smtp['port'],
+                    'mail.mailers.smtp.encryption' => $smtp['encryption'],
+                    'mail.mailers.smtp.username' => $smtp['username'],
+                    'mail.mailers.smtp.password' => $smtp['password'],
+                    'mail.from.address' => $smtp['from_address'],
+                    'mail.from.name' => $smtp['from_name'],
+                ]);
+            }
 
-        $imap = config('laraclaw.connectors.email.imap');
-        $mailbox = config('laraclaw.connectors.email.imap.mailbox', 'default');
-        if ($imap['host']) {
-            config([
-                "imap.mailboxes.{$mailbox}.host" => $imap['host'],
-                "imap.mailboxes.{$mailbox}.port" => $imap['port'],
-                "imap.mailboxes.{$mailbox}.encryption" => $imap['encryption'],
-                "imap.mailboxes.{$mailbox}.username" => $imap['username'],
-                "imap.mailboxes.{$mailbox}.password" => $imap['password'],
-            ]);
-        }
+            $imap = config('laraclaw.connectors.email.imap');
+            $mailbox = config('laraclaw.connectors.email.imap.mailbox', 'default');
+            if ($imap['host']) {
+                config([
+                    "imap.mailboxes.{$mailbox}.host" => $imap['host'],
+                    "imap.mailboxes.{$mailbox}.port" => $imap['port'],
+                    "imap.mailboxes.{$mailbox}.encryption" => $imap['encryption'],
+                    "imap.mailboxes.{$mailbox}.username" => $imap['username'],
+                    "imap.mailboxes.{$mailbox}.password" => $imap['password'],
+                ]);
+            }
+        });
     }
 
     /**

@@ -1,6 +1,9 @@
 *.log
 .DS_Store
 .env
+/tests/E2E/.env.e2e
+/tests/E2E/database.sqlite
+/tests/E2E/storage/
 .phpunit.result.cache
 /.phpunit.cache
 /.idea
