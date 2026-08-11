@@ -9,6 +9,8 @@ use Laraclaw\Agents\ChatBotAgent;
 use Laraclaw\Connectors\Terminal;
 use Laraclaw\Models\Account;
 use Laraclaw\Models\Thread;
+use Laravel\Ai\Approvals\Decisions;
+use Laravel\Ai\Approvals\PendingApproval;
 
 use function Laravel\Prompts\info;
 
@@ -55,6 +57,23 @@ class Chat extends Command
             ]);
 
             $response = $agent->prompt(...$incomingMessage->toAgentInput());
+
+            // A gated tool call pauses the run. The terminal is interactive, so we
+            // answer the pause right here and resume rather than waiting for the
+            // next typed message like the chat connectors do.
+            while ($response->hasPendingApprovals()) {
+                $decisions = Decisions::from(
+                    $response->pendingApprovals
+                        ->mapWithKeys(fn (PendingApproval $approval): array => [
+                            $approval->id => $connector->askForApproval($approval),
+                        ])
+                        ->all()
+                );
+
+                $response = $agent
+                    ->continue($response->conversationId, as: $user)
+                    ->prompt($decisions);
+            }
 
             $thread->update(['conversation_id' => $response->conversationId]);
 

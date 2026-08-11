@@ -15,7 +15,7 @@ Built on [laravel/ai](https://github.com/laravel/ai).
 
 - PHP 8.4+
 - Laravel 12+
-- Redis
+- A queue driver (Redis, database, or anything else Laravel supports)
 
 ## Installation
 
@@ -130,6 +130,44 @@ Enable TTS in your `.env`:
 LARACLAW_TTS_ENABLED=true
 LARACLAW_TTS_VOICE=default-female
 ```
+
+## Tool Approvals
+
+Some operations are destructive enough that the agent should ask before running them. Deleting files, deleting mail, and deleting calendar events are gated by default. When the agent reaches one, the run pauses and you'll get the question first:
+
+```text
+⚠️ Delete `notes.txt` from disk "local"?
+
+Reply "yes" to approve, or tell me what to do instead.
+```
+
+Reply `yes` — or `ok`, `sure`, `go ahead` — and the run resumes and carries the operation out. Reply with anything else and the call is rejected, with your own words handed back to the agent so it can act on what you actually wanted:
+
+```text
+no, delete old-notes.txt instead
+```
+
+This is built on the human-in-the-loop approvals in [laravel/ai](https://github.com/laravel/ai). You might be wondering what happens if the worker restarts while the bot is waiting. The paused run lives in the conversation history rather than in memory, so it survives a restart or a deploy and still resumes when you answer.
+
+The terminal is the exception. Since `laraclaw:chat` is interactive, the approval is a prompt you answer in place.
+
+### Gating Your Own Tools
+
+You may gate an operation on any tool extending `Laraclaw\Tools\BaseTool` by adding it to `$requiresApproval` along with the question to ask. The value is either a template string interpolated with the request arguments, or a closure that receives the request:
+
+```php
+class OrderManager extends BaseTool
+{
+    protected array $requiresApproval = [
+        'refund' => 'Refund order {order_id}?',
+    ];
+}
+```
+
+The agent may also override a tool's default with `requireApproval()` or `withoutApproval()` when it registers the tool.
+
+> [!NOTE]
+> A gated call resumes from conversation history, so tools using approvals need a thread the bot remembers. Every Laraclaw connector gives them one.
 
 ## Personas
 

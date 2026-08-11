@@ -9,32 +9,32 @@ use Laravel\Ai\Prompts\AgentPrompt;
 use Laravel\Ai\Responses\AgentResponse;
 
 /**
- * In-memory ConversationStore stub. Stores conversation IDs per user and returns
+ * In-memory ConversationStore stub. Stores conversation IDs per participant and returns
  * the last stored ID on lookup, or null if none has been stored yet.
  */
 class FakeConversationStore implements ConversationStore
 {
     private array $conversations = [];
 
-    public function latestConversationId(mixed $userId): ?string
+    public function latestConversationId(string $participantType, string|int $participantId): ?string
     {
-        return $this->conversations[$userId] ?? null;
+        return $this->conversations[$this->key($participantType, $participantId)] ?? null;
     }
 
-    public function storeConversation(string|int|null $userId, string $title): string
+    public function storeConversation(?string $participantType, string|int|null $participantId, string $title): string
     {
         $id = (string) Str::uuid();
-        $this->conversations[$userId] = $id;
+        $this->conversations[$this->key($participantType, $participantId)] = $id;
 
         return $id;
     }
 
-    public function storeUserMessage(string $conversationId, string|int|null $userId, AgentPrompt $prompt): string
+    public function storeUserMessage(string $conversationId, ?string $participantType, string|int|null $participantId, AgentPrompt $prompt): string
     {
         return (string) Str::uuid();
     }
 
-    public function storeAssistantMessage(string $conversationId, string|int|null $userId, AgentPrompt $prompt, AgentResponse $response): string
+    public function storeAssistantMessage(string $conversationId, ?string $participantType, string|int|null $participantId, AgentPrompt $prompt, AgentResponse $response): ?string
     {
         return (string) Str::uuid();
     }
@@ -42,5 +42,18 @@ class FakeConversationStore implements ConversationStore
     public function getLatestConversationMessages(string $conversationId, int $limit): Collection
     {
         return collect();
+    }
+
+    public function storeApprovalResults(string $conversationId, ?string $participantType, string|int|null $participantId, array $toolResults): void
+    {
+        //
+    }
+
+    /**
+     * Build the lookup key for a participant, tolerating a null type for unowned conversations.
+     */
+    private function key(?string $participantType, string|int|null $participantId): string
+    {
+        return $participantType . ':' . $participantId;
     }
 }

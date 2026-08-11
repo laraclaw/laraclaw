@@ -2,7 +2,7 @@
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Redis;
+use Illuminate\Support\Str;
 use Laraclaw\Agents\ChatBotAgent;
 use Laraclaw\Commands\Command;
 use Laraclaw\Commands\CommandRegistry;
@@ -12,6 +12,7 @@ use Laraclaw\Events\TelegramMessageReceived;
 use Laraclaw\Listeners\TelegramListener;
 use Laraclaw\Models\Account;
 use Laraclaw\Models\Thread;
+use Laravel\Ai\Approvals\Decisions;
 use Laravel\Ai\Responses\QueuedAgentResponse;
 use Telegram\Bot\Api;
 use Telegram\Bot\Objects\Chat;
@@ -55,11 +56,18 @@ function registerTelegramAccount(int $chatId = 12345): void
     ]);
 }
 
-function mockAgentQueue(): Mockery\MockInterface
+function makeQueuedResponse(): Mockery\MockInterface
 {
     $queued = Mockery::mock(QueuedAgentResponse::class);
     $queued->allows('then')->andReturnSelf();
     $queued->allows('catch')->andReturnSelf();
+
+    return $queued;
+}
+
+function mockAgentQueue(): Mockery\MockInterface
+{
+    $queued = makeQueuedResponse();
 
     $agent = Mockery::mock(ChatBotAgent::class);
     $agent->allows('queue')->withAnyArgs()->andReturn($queued);
@@ -69,9 +77,42 @@ function mockAgentQueue(): Mockery\MockInterface
     return $agent;
 }
 
+/**
+ * Bind an agent that asserts queue() is called exactly once with a matching first argument.
+ */
+function expectAgentQueuedWith(callable $matcher): void
+{
+    $agent = Mockery::mock(ChatBotAgent::class);
+
+    $agent->expects('queue')
+        ->once()
+        ->withArgs(fn ($prompt): bool => $matcher($prompt))
+        ->andReturn(makeQueuedResponse());
+
+    app()->bind(ChatBotAgent::class, fn () => $agent);
+}
+
+/**
+ * Create a thread that is already paused on a gated tool call.
+ */
+function pauseTelegramThread(int $chatId = 12345): Thread
+{
+    return Thread::create([
+        'connector' => ConnectorType::Telegram,
+        'key' => (string) $chatId,
+        'is_direct_message' => true,
+        'conversation_id' => (string) Str::uuid(),
+        'pending_approvals' => [[
+            'id' => 'call_abc',
+            'tool' => 'FileManager',
+            'arguments' => [],
+            'reason' => 'Delete a.txt?',
+        ]],
+    ]);
+}
+
 beforeEach(function () {
     Log::spy();
-    Redis::spy();
     config(['laraclaw.connectors.telegram.enabled' => true]);
 });
 
@@ -113,19 +154,33 @@ it('allows group messages without a registered account', function () {
     Log::shouldNotHaveReceived('debug');
 });
 
-it('stops processing when the message resolves a pending confirmation', function () {
+it('resumes a paused run by approving when the user replies yes', function () {
     registerTelegramAccount(12345);
-    mockAgentQueue();
+    pauseTelegramThread();
 
-    // Simulate a pending confirmation in Redis
-    Redis::allows('exists')->andReturn(true);
-    Redis::allows('rpush')->andReturn(1);
+    expectAgentQueuedWith(fn (Decisions $decisions): bool => $decisions->get('*')->isApproved());
 
     app(TelegramListener::class)(makeTelegramEvent(chatId: 12345, text: 'Yes'));
+});
 
-    // Agent should not have been queued, so no error logs either.
-    // The listener returns early after resolvePendingConfirmation().
-    Log::shouldNotHaveReceived('error');
+it('resumes a paused run by rejecting when the user replies with anything else', function () {
+    registerTelegramAccount(12345);
+    pauseTelegramThread();
+
+    // The user's own words ride along as the rejection result so the model keeps
+    // the turn and can act on what they actually asked for.
+    expectAgentQueuedWith(fn (Decisions $decisions): bool => $decisions->get('*')->isRejected()
+        && $decisions->get('*')->result === 'no, delete b.txt instead');
+
+    app(TelegramListener::class)(makeTelegramEvent(chatId: 12345, text: 'no, delete b.txt instead'));
+});
+
+it('queues the message normally when no approval is pending', function () {
+    registerTelegramAccount(12345);
+
+    expectAgentQueuedWith(fn ($prompt): bool => $prompt === 'Hello bot');
+
+    app(TelegramListener::class)(makeTelegramEvent(chatId: 12345, text: 'Hello bot'));
 });
 
 it('executes a matched command and does not queue the agent', function () {

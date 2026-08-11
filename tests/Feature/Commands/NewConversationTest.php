@@ -25,7 +25,7 @@ it('clears the conversation id and returns null', function () {
     // Use a mock thread that returns the fake connector
     $mockThread = Mockery::mock(Thread::class)->makePartial();
     $mockThread->allows('connector')->andReturn($fake);
-    $mockThread->allows('update')->with(['conversation_id' => null])->once();
+    $mockThread->allows('update')->with(['conversation_id' => null, 'pending_approvals' => null])->once();
 
     $result = $command->handle($message, $mockThread);
 

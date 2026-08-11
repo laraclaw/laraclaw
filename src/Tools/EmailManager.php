@@ -27,24 +27,24 @@ class EmailManager extends BaseTool
 
     private const int MAX_BODY = 50000;
 
-    protected array $requiresConfirmation = [];
+    protected array $requiresApproval = [];
 
     /**
-     * Bind the inbound message and IMAP mailbox name, then register the per-message delete confirmation.
+     * Bind the inbound message and IMAP mailbox name, then register the delete approval prompts.
      */
     public function __construct(
         protected IncomingMessage $message,
         private readonly string $mailbox,
     ) {
-        $this->requiresConfirmation['delete'] = function (Request $request): string {
-            $uids = collect($request['uids'] ?: [$request['uid']])->filter();
-            $folder = $request['folder'] ?? 'INBOX';
+        $this->requiresApproval['delete'] = function (Request $request): string {
+            $uids = collect($request->array('uids') ?: [$request->string('uid')->value()])->filter();
+            $folder = $request->string('folder')->value() ?: 'INBOX';
 
             return "Delete messages {$uids->implode(', ')} from {$folder}?";
         };
 
-        $this->requiresConfirmation['delete_folder'] = function (Request $request): string {
-            $folders = collect($request['folders'] ?: [$request['folder']])->filter();
+        $this->requiresApproval['delete_folder'] = function (Request $request): string {
+            $folders = collect($request->array('folders') ?: [$request->string('folder')->value()])->filter();
 
             return "Delete folder {$folders->implode(', ')}?";
         };

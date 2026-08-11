@@ -11,8 +11,6 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
-use Laraclaw\Connectors\Concerns\ChecksRedisForConfirmations;
-use Laraclaw\Connectors\Contracts\SupportsConfirmation;
 use Laraclaw\DTOs\Attachment;
 use Laraclaw\DTOs\IncomingMessage;
 use Laraclaw\Enums\ConnectorType;
@@ -24,10 +22,8 @@ use Throwable;
 
 use function Laraclaw\Support\markdownToMrkdwn;
 
-class Slack extends Connector implements SupportsConfirmation
+class Slack extends Connector
 {
-    use ChecksRedisForConfirmations;
-
     public ?string $channelId = null;
 
     public ?string $threadTs = null;

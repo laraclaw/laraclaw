@@ -9,11 +9,13 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use Laraclaw\Agents\ChatBotAgent;
+use Laraclaw\Approvals\ApprovalFlow;
 use Laraclaw\DTOs\IncomingMessage;
 use Laraclaw\Enums\ConnectorType;
 use Laraclaw\Models\Heartbeat;
 use Laraclaw\Models\Thread;
 use Laraclaw\Services\Attachments;
+use Laravel\Ai\Approvals\Decision;
 use Throwable;
 
 /**
@@ -84,15 +86,28 @@ class SendHeartbeat implements ShouldQueue
         $agent = resolve(ChatBotAgent::class, ['message' => $message, 'thread' => $thread]);
         $response = $agent->prompt(...$message->toAgentInput());
 
+        // A heartbeat fires with nobody waiting on it, so a gated tool call cannot be
+        // answered inline. Slack channels throw their conversation away after each run
+        // and so could never be resumed; reject there and let the agent report back.
+        if ($response->hasPendingApprovals() && $isSlackConnector) {
+            $response = $agent
+                ->continue($response->conversationId, as: $thread->user())
+                ->prompt(Decision::rejectAll('Automated heartbeat runs cannot approve tool calls.'));
+        }
+
         // Persist conversation_id only for channels that benefit from
         // continuity. Slack channels discard it so the next run starts clean.
         if (! $isSlackConnector) {
             $thread->update(['conversation_id' => $response->conversationId]);
         }
 
+        // Everywhere else the thread is resumable, so the pause becomes a question the
+        // user can answer with their next message like any other approval.
+        $question = $isSlackConnector ? null : resolve(ApprovalFlow::class)->capture($thread, $response);
+
         $thread->connector()->reply(
             thread: $thread,
-            text: $response->text,
+            text: $question ?? $response->text,
             attachments: resolve(Attachments::class)->outbound($message->uuid)->getAll(),
         );
 

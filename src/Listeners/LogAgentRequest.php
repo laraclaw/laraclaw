@@ -75,9 +75,9 @@ class LogAgentRequest
             'text' => $event->response->text,
             'usage' => $event->response->usage->toArray(),
             'meta' => $event->response->meta->toArray(),
-            'steps' => $event->response->steps->map(fn ($s) => $s->toArray())->values()->all(),
-            'tool_calls' => $event->response->toolCalls->map(fn ($tc) => $tc->toArray())->values()->all(),
-            'tool_results' => $event->response->toolResults->map(fn ($tr) => $tr->toArray())->values()->all(),
+            'steps' => $event->response->steps->map(fn ($s): array => $s->toArray())->values()->all(),
+            'tool_calls' => $event->response->toolCalls->map(fn ($tc): array => $tc->toArray())->values()->all(),
+            'tool_results' => $event->response->toolResults->map(fn ($tr): array => $tr->toArray())->values()->all(),
         ];
 
         File::put($folder . '/request.json', json_encode($request, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));

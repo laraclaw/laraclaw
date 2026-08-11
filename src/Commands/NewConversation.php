@@ -20,10 +20,13 @@ class NewConversation implements Command
 
     /**
      * Clear the thread's conversation pointer and confirm the reset back to the user.
+     *
+     * Any tool call still waiting for approval belongs to the conversation we are
+     * dropping, so the pause goes with it.
      */
     public function handle(IncomingMessage $message, Thread $thread): ?string
     {
-        $thread->update(['conversation_id' => null]);
+        $thread->update(['conversation_id' => null, 'pending_approvals' => null]);
         $thread->connector()->reply($thread, '✅ Conversation reset.');
 
         return null;

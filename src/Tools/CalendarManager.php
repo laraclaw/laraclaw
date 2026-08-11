@@ -19,7 +19,7 @@ use Throwable;
  */
 class CalendarManager extends BaseTool
 {
-    protected array $requiresConfirmation = [
+    protected array $requiresApproval = [
         'delete' => 'Delete event "{title}"?',
     ];
 
