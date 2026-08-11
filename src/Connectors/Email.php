@@ -12,8 +12,6 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
-use Laraclaw\Connectors\Concerns\ChecksRedisForConfirmations;
-use Laraclaw\Connectors\Contracts\SupportsConfirmation;
 use Laraclaw\DTOs\Attachment;
 use Laraclaw\DTOs\IncomingMessage;
 use Laraclaw\Enums\ConnectorType;
@@ -25,10 +23,8 @@ use League\CommonMark\CommonMarkConverter;
 
 use function Laraclaw\Support\stripHtml;
 
-class Email extends Connector implements SupportsConfirmation
+class Email extends Connector
 {
-    use ChecksRedisForConfirmations;
-
     public ConnectorType $type {
         get {
             return ConnectorType::Email;
@@ -42,10 +38,10 @@ class Email extends Connector implements SupportsConfirmation
      * Capture the recipient's address and the headers needed to thread the reply.
      */
     public function __construct(
-        private string $senderEmail,
-        private ?string $senderName = null,
-        private ?string $subject = null,
-        private ?string $messageId = null,
+        private readonly string $senderEmail,
+        private readonly ?string $senderName = null,
+        private readonly ?string $subject = null,
+        private readonly ?string $messageId = null,
     ) {}
 
     /**

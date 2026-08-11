@@ -8,8 +8,6 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
-use Laraclaw\Connectors\Concerns\ChecksRedisForConfirmations;
-use Laraclaw\Connectors\Contracts\SupportsConfirmation;
 use Laraclaw\DTOs\Attachment;
 use Laraclaw\DTOs\IncomingMessage;
 use Laraclaw\Enums\ConnectorType;
@@ -24,10 +22,8 @@ use Telegram\Bot\Objects\Message as TelegramMessage;
 use Telegram\Bot\Objects\PhotoSize;
 use Throwable;
 
-class Telegram extends Connector implements SupportsConfirmation
+class Telegram extends Connector
 {
-    use ChecksRedisForConfirmations;
-
     public ConnectorType $type {
         get {
             return ConnectorType::Telegram;
@@ -38,8 +34,8 @@ class Telegram extends Connector implements SupportsConfirmation
      * Bind the target chat ID and the configured Telegram bot client.
      */
     public function __construct(
-        private int|string $chatId,
-        private Api $bot,
+        private readonly int|string $chatId,
+        private readonly Api $bot,
     ) {}
 
     /**

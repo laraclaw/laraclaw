@@ -4,10 +4,11 @@ namespace Laraclaw\Tools;
 
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Storage;
-use Laraclaw\Connectors\Connector;
-use Laraclaw\Connectors\Contracts\SupportsConfirmation;
 use Laraclaw\DTOs\IncomingMessage;
 use Laraclaw\Models\Account;
+use Laravel\Ai\Approvals\Approval;
+use Laravel\Ai\Concerns\InteractsWithApprovals;
+use Laravel\Ai\Contracts\Approvable;
 use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Tools\Request;
 use Stringable;
@@ -15,13 +16,18 @@ use Stringable;
 use function Laraclaw\Support\interpolate;
 
 /**
- * Base class for tools that dispatch named operations, with built-in confirmation, storage, and connector helpers.
+ * Base class for tools that dispatch named operations, with built-in approval gating and storage helpers.
  */
-abstract class BaseTool implements Tool
+abstract class BaseTool implements Approvable, Tool
 {
-    protected array $requiresConfirmation = [];
+    use InteractsWithApprovals;
 
-    protected ?Connector $connector = null;
+    /**
+     * Operations that pause the agent for human approval, mapped to the prompt
+     * shown to the user. Each value is either a template string interpolated
+     * with the request arguments, or a closure returning the prompt.
+     */
+    protected array $requiresApproval = [];
 
     /**
      * Bind the inbound message so tool operations can resolve the active connector and key.
@@ -29,17 +35,10 @@ abstract class BaseTool implements Tool
     public function __construct(protected IncomingMessage $message) {}
 
     /**
-     * Set the active connector so confirmation prompts can reach the user.
-     */
-    public function withConnector(Connector $connector): static
-    {
-        $this->connector = $connector;
-
-        return $this;
-    }
-
-    /**
-     * Validate the requested operation, run optional confirmation, then dispatch to the method.
+     * Validate the requested operation, then dispatch to the method.
+     *
+     * Approval is handled by the SDK before this ever runs, so a gated call
+     * only reaches this point once the user has approved it.
      */
     public function handle(Request $request): Stringable|string
     {
@@ -47,10 +46,6 @@ abstract class BaseTool implements Tool
 
         if (! in_array($operation, $this->operations(), true)) {
             return "Unknown operation '{$operation}'. Available: " . implode(', ', $this->operations());
-        }
-
-        if ($denied = $this->confirmOperation($request, $operation)) {
-            return $denied;
         }
 
         // Operation names use snake_case (e.g. "save_attachment") because that is what the JSON schema
@@ -69,26 +64,27 @@ abstract class BaseTool implements Tool
     abstract protected function operations(): array;
 
     /**
-     * If the operation requires confirmation, prompt the user and return 'Cancelled by user.'
-     * on denial, or null to proceed.
+     * Pause the agent for approval when the requested operation is gated.
+     *
+     * The prompt built here becomes the approval reason, which is what the
+     * connector shows the user while the run is paused.
+     *
+     * The SDK resolves this outside the tool's own error handling, both when the
+     * call is first gated and again when the run resumes, so it reads arguments
+     * defensively. A model that leaves out an optional argument should not be
+     * able to take down the whole run from here.
      */
-    protected function confirmOperation(Request $request, string $operation): ?string
+    protected function needsApproval(Request $request): Approval|bool
     {
-        if (! isset($this->requiresConfirmation[$operation])) {
-            return null;
+        $template = $this->requiresApproval[$request->string('operation')->value()] ?? null;
+
+        if ($template === null) {
+            return false;
         }
 
-        $template = $this->requiresConfirmation[$operation];
-
-        $prompt = is_callable($template)
+        return Approval::required(is_callable($template)
             ? $template($request)
-            : interpolate($template, $request->toArray());
-
-        if (! $this->connector instanceof SupportsConfirmation || ! $this->connector->askForConfirmation($this->message, $prompt)) {
-            return 'Cancelled by user.';
-        }
-
-        return null;
+            : interpolate($template, $request->toArray()));
     }
 
     /**

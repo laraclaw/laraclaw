@@ -5,16 +5,16 @@ namespace Laraclaw\Connectors;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
-use Laraclaw\Connectors\Contracts\SupportsConfirmation;
 use Laraclaw\DTOs\IncomingMessage;
 use Laraclaw\Enums\ConnectorType;
 use Laraclaw\Models\Thread;
+use Laravel\Ai\Approvals\PendingApproval;
 
 use function Laraclaw\Support\markdownToAnsi;
 use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\note;
 
-class Terminal extends Connector implements SupportsConfirmation
+class Terminal extends Connector
 {
     public ConnectorType $type {
         get {
@@ -56,10 +56,10 @@ class Terminal extends Connector implements SupportsConfirmation
     }
 
     /**
-     * Prompt for interactive confirmation via the terminal.
+     * Ask the operator to approve a paused tool call.
      */
-    public function askForConfirmation(IncomingMessage $context, string $prompt, int $timeout = 120): bool
+    public function askForApproval(PendingApproval $approval): bool
     {
-        return confirm("⚠️ {$prompt}");
+        return confirm('⚠️ ' . ($approval->reason ?? "Run {$approval->tool}?"));
     }
 }

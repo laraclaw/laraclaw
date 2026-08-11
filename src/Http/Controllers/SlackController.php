@@ -8,6 +8,7 @@ use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Laraclaw\Agents\ChatBotAgent;
+use Laraclaw\Approvals\ApprovalFlow;
 use Laraclaw\Commands\CommandRegistry;
 use Laraclaw\Connectors\Slack;
 use Laraclaw\Models\Thread;
@@ -27,6 +28,7 @@ class SlackController extends Controller
         private readonly Attachments $attachments,
         private readonly Slack $connector,
         private readonly CommandRegistry $commands,
+        private readonly ApprovalFlow $approvals,
     ) {}
 
     /**
@@ -53,11 +55,6 @@ class SlackController extends Controller
         $incomingMessage = Slack::createIncomingMessageFrom(event: $event, attachments: $this->attachments);
         $thread = Thread::forMessage($incomingMessage);
 
-        // Check if the event is a reply to a pending confirmation
-        if ($this->connector->resolvePendingConfirmation($incomingMessage)) {
-            return response()->json(['confirmation_resolved' => true]);
-        }
-
         // Acknowledge the incoming message
         $this->connector->thumbsUp($event);
 
@@ -68,22 +65,36 @@ class SlackController extends Controller
             return response()->json(['success' => true]);
         }
 
-        // We need a reference to pass to the callback
+        // We need references to pass to the callback
         $attachments = $this->attachments;
+        $approvals = $this->approvals;
+
+        $agent = resolve(ChatBotAgent::class, ['message' => $incomingMessage, 'thread' => $thread]);
+
+        // When the agent paused on a gated tool call, this event is the user's
+        // answer to it and resumes the paused run instead of starting a new turn.
+        $decisions = $approvals->decisionsFrom($thread, $incomingMessage);
 
         // Queue the agent response, on callback deliver the response via the correct connector
-        resolve(ChatBotAgent::class, ['message' => $incomingMessage, 'thread' => $thread])
-            ->queue(...$incomingMessage->toAgentInput())
-            ->then(function (AgentResponse $response) use ($thread, $incomingMessage, $attachments): void {
+        ($decisions ? $agent->queue($decisions) : $agent->queue(...$incomingMessage->toAgentInput()))
+            ->then(function (AgentResponse $response) use ($thread, $incomingMessage, $attachments, $approvals): void {
                 $thread->update(['conversation_id' => $response->conversationId]);
 
                 $thread->connector()->reply(
                     thread: $thread,
-                    text: $response->text,
+                    text: $approvals->capture($thread, $response) ?? $response->text,
                     attachments: $attachments->outbound($incomingMessage->uuid)->getAll(),
                 );
             })
-            ->catch(function (Throwable $e): void {
+            ->catch(function (Throwable $e) use ($thread, $approvals): void {
+                // A stale resume leaves the thread pointing at a pause the conversation
+                // no longer has. Clear it, or every later message reads as an answer.
+                if ($notice = $approvals->recover($thread, $e)) {
+                    $thread->connector()->reply($thread, $notice);
+
+                    return;
+                }
+
                 Log::error('Slack agent error', ['error' => $e->getMessage()]);
             });
 

@@ -20,17 +20,17 @@ class FileManager extends BaseTool
 {
     private const MAX_READ_BYTES = 100 * 1024;
 
-    protected array $requiresConfirmation = [];
+    protected array $requiresApproval = [];
 
     /**
-     * Bind the inbound message and the attachment writer, then register the delete confirmation prompt.
+     * Bind the inbound message and the attachment writer, then register the delete approval prompt.
      */
     public function __construct(protected IncomingMessage $message, private readonly Attachments $attachments)
     {
-        $this->requiresConfirmation['delete'] = function (Request $request): string {
-            $paths = collect($request['paths'] ?: [$request['path']])->filter();
+        $this->requiresApproval['delete'] = function (Request $request): string {
+            $paths = collect($request->array('paths') ?: [$request->string('path')->value()])->filter();
 
-            return "Delete {$paths->map(fn ($p): string => "`{$p}`")->implode(', ')} from disk \"{$request['disk']}\"?";
+            return "Delete {$paths->map(fn ($p): string => "`{$p}`")->implode(', ')} from disk \"{$request->string('disk')}\"?";
         };
     }
 

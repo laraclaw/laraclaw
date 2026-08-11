@@ -8,7 +8,6 @@ use Laraclaw\Models\Thread;
 use Laraclaw\Services\Calendar\Contracts\CalendarDriver;
 use Laraclaw\Services\DatabaseSchemaReader;
 use Laraclaw\Skills\SkillRegistry;
-use Laraclaw\Tools\BaseTool;
 use Laraclaw\Tools\CalendarManager;
 use Laraclaw\Tools\EmailManager;
 use Laraclaw\Tools\FileManager;
@@ -116,17 +115,10 @@ class ChatBotAgent implements Agent, Conversational, HasMiddleware, HasProviderO
             $tools[] = resolve(ReadDatabase::class);
         }
 
-        $all = array_merge($tools, $this->toolRegistry->resolve(
+        return array_merge($tools, $this->toolRegistry->resolve(
             $this->message,
             $this->thread,
         ));
-
-        $connector = $this->thread->connector();
-
-        return array_map(
-            fn ($tool): Tool|WebSearch => $tool instanceof BaseTool ? $tool->withConnector($connector) : $tool,
-            $all,
-        );
     }
 
     /**

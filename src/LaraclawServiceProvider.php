@@ -60,7 +60,6 @@ class LaraclawServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(__DIR__ . '/../config/laraclaw.php', 'laraclaw');
 
-        $this->registerBlockingRedisConnection();
         $this->registerCoreSingletons();
         $this->configureTelegramConnector();
         $this->configureEmailConnector();
@@ -155,19 +154,6 @@ class LaraclawServiceProvider extends ServiceProvider
                 . 'Set AI_DEFAULT_FOR_EMBEDDINGS in your .env (e.g. openai, voyage, ollama).'
             );
         }
-    }
-
-    /**
-     * Register a dedicated blocking Redis connection used by blpop in the confirmation flow.
-     *
-     * Setting read_write_timeout to -1 prevents Predis from timing out before blpop returns.
-     */
-    private function registerBlockingRedisConnection(): void
-    {
-        $this->app->booting(function (): void {
-            $default = config('database.redis.default', []);
-            config(['database.redis.laraclaw-blocking' => array_merge($default, ['read_write_timeout' => -1])]);
-        });
     }
 
     /**

@@ -15,7 +15,7 @@ class Thread extends Model
 {
     protected $table = 'laraclaw_threads';
 
-    protected $fillable = ['connector', 'key', 'conversation_id', 'is_direct_message', 'persona'];
+    protected $fillable = ['connector', 'key', 'conversation_id', 'is_direct_message', 'persona', 'pending_approvals'];
 
     private ?Connector $resolvedConnector = null;
 
@@ -63,7 +63,15 @@ class Thread extends Model
     }
 
     /**
-     * Cast the connector enum and the direct-message flag.
+     * Return true when the agent paused on this thread and is waiting for the user to approve a tool call.
+     */
+    public function isAwaitingApproval(): bool
+    {
+        return filled($this->pending_approvals);
+    }
+
+    /**
+     * Cast the connector enum, the direct message flag, and the pending approvals payload.
      */
     #[Override]
     protected function casts(): array
@@ -71,6 +79,7 @@ class Thread extends Model
         return [
             'connector' => ConnectorType::class,
             'is_direct_message' => 'boolean',
+            'pending_approvals' => 'array',
         ];
     }
 }

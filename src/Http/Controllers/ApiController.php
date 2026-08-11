@@ -7,11 +7,13 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Str;
 use Laraclaw\Agents\ChatBotAgent;
+use Laraclaw\Approvals\ApprovalFlow;
 use Laraclaw\Commands\CommandRegistry;
 use Laraclaw\Connectors\Api;
 use Laraclaw\DTOs\Attachment;
 use Laraclaw\Models\Thread;
 use Laraclaw\Services\Attachments;
+use Laravel\Ai\Exceptions\ApprovalMismatchException;
 use Laravel\Ai\Responses\AgentResponse;
 
 /**
@@ -25,6 +27,7 @@ class ApiController extends Controller
     public function __construct(
         private readonly Attachments $attachments,
         private readonly CommandRegistry $commands,
+        private readonly ApprovalFlow $approvals,
     ) {}
 
     /**
@@ -64,21 +67,43 @@ class ApiController extends Controller
 
         // Prompt the agent synchronously and return the response inline
         $agent = resolve(ChatBotAgent::class, ['message' => $incomingMessage, 'thread' => $thread]);
-        $response = $agent->prompt(...$incomingMessage->toAgentInput());
+
+        // When the agent paused on a gated tool call, this request is the client's
+        // answer to it and resumes the paused run instead of starting a new turn.
+        $decisions = $this->approvals->decisionsFrom($thread, $incomingMessage);
+
+        try {
+            $response = $decisions
+                ? $agent->prompt($decisions)
+                : $agent->prompt(...$incomingMessage->toAgentInput());
+        } catch (ApprovalMismatchException $e) {
+            // Our record of the pause is stale. Drop it so the next request is read
+            // as a fresh message, and let the SDK render its 409 with the real state.
+            $this->approvals->forget($thread);
+
+            throw $e;
+        }
 
         $thread->update(['conversation_id' => $response->conversationId]);
 
-        return $this->buildResponse($response, $clientKey, $incomingMessage->uuid);
+        $question = $this->approvals->capture($thread, $response);
+
+        return $this->buildResponse($response, $clientKey, $incomingMessage->uuid, $question);
     }
 
     /**
      * Build the JSON response with the agent reply and any outbound attachments.
+     *
+     * A paused run has no reply text of its own, so the approval question stands in
+     * for it and the pending calls are listed alongside for clients that render them.
      */
-    private function buildResponse(AgentResponse $response, string $key, string $uuid): JsonResponse
+    private function buildResponse(AgentResponse $response, string $key, string $uuid, ?string $question): JsonResponse
     {
         return response()->json([
             'success' => true,
-            'text' => $response->text,
+            'text' => $question ?? $response->text,
+            'awaiting_approval' => $question !== null,
+            'approvals' => $response->pendingApprovals->toArray(),
             'key' => $key,
             'attachments' => $this->attachments->outbound($uuid)->getAll()
                 ->map(fn (Attachment $a): array => [
