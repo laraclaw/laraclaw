@@ -46,6 +46,52 @@ it('stores a telegram voice note with an ogg extension', function () {
         ->and($incoming->attachments[0]->path)->not->toEndWith('.oga');
 });
 
+it('reads the sender name off the message', function () {
+    $message = new TelegramMessage([
+        'chat' => ['id' => 123],
+        'from' => ['id' => 9, 'first_name' => 'Noelia', 'last_name' => 'Rodriguez'],
+        'text' => 'hola',
+    ]);
+
+    $incoming = Telegram::createIncomingMessageFrom($message, botServing('x'), app(Attachments::class));
+
+    expect($incoming->senderName)->toBe('Noelia Rodriguez');
+});
+
+it('falls back to the username when the sender has no first name', function () {
+    $message = new TelegramMessage([
+        'chat' => ['id' => 123],
+        'from' => ['id' => 9, 'username' => 'nuly'],
+        'text' => 'hola',
+    ]);
+
+    $incoming = Telegram::createIncomingMessageFrom($message, botServing('x'), app(Attachments::class));
+
+    expect($incoming->senderName)->toBe('nuly');
+});
+
+it('reports no sender name when the message has no sender', function () {
+    $message = new TelegramMessage(['chat' => ['id' => 123], 'text' => 'hola']);
+
+    $incoming = Telegram::createIncomingMessageFrom($message, botServing('x'), app(Attachments::class));
+
+    expect($incoming->senderName)->toBeNull();
+});
+
+it('carries the sender name through job serialization', function () {
+    // Queued jobs thaw the DTO through __unserialize, which drops anything the
+    // explicit key list forgets.
+    $message = new TelegramMessage([
+        'chat' => ['id' => 123],
+        'from' => ['id' => 9, 'first_name' => 'Nuly'],
+        'text' => 'hola',
+    ]);
+
+    $incoming = Telegram::createIncomingMessageFrom($message, botServing('x'), app(Attachments::class));
+
+    expect(unserialize(serialize($incoming))->senderName)->toBe('Nuly');
+});
+
 it('leaves other audio extensions untouched', function () {
     $message = new TelegramMessage([
         'chat' => ['id' => 123],

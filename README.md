@@ -191,9 +191,13 @@ LARACLAW_PERSONAS_DEFAULT=assistant
 
 That setting wins over `default.md`. With neither in place the agent runs on the base system prompt alone.
 
-In a direct message the agent is told who it is replying to, so a persona can
-address people by name. Group threads resolve to the configured owner rather than
-to whoever typed, so no name is given there.
+The agent is told who sent the message, so a persona can address people by name.
+The name is read off the message itself, which means it identifies the actual
+speaker in a group chat, where the thread resolves to the configured owner.
+
+That name comes from a profile the sender controls, so treat it as a label rather
+than as proof of identity. It is flattened to a single short line before it
+reaches the prompt, and it grants no permissions on its own.
 
 Users can switch personas at runtime just by asking the bot. Pretty neat, right?
 

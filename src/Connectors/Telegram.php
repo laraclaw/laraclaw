@@ -75,6 +75,7 @@ class Telegram extends Connector
             isDirectMessage: $chatId > 0,
             attachments: self::saveAttachments($message, $bot, $attachments->inbound($uuid)),
             uuid: $uuid,
+            senderName: self::senderName($message),
         );
     }
 
@@ -84,6 +85,27 @@ class Telegram extends Connector
     public static function isDirectMessage(string $key): bool
     {
         return (int) $key > 0;
+    }
+
+    /**
+     * Return the display name of whoever sent the message, or null when Telegram omits it.
+     *
+     * Telegram gives a first name for every human sender, so this identifies the
+     * speaker in a group where the thread itself resolves to the owner.
+     */
+    private static function senderName(TelegramMessage $message): ?string
+    {
+        $from = $message->getFrom();
+
+        if (! $from) {
+            return null;
+        }
+
+        $name = collect([$from->getFirstName(), $from->getLastName()])
+            ->filter()
+            ->implode(' ');
+
+        return blank($name) ? $from->getUsername() : $name;
     }
 
     /**

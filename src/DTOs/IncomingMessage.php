@@ -24,6 +24,7 @@ class IncomingMessage
         public readonly bool $isDirectMessage = false,
         public readonly array $attachments = [],
         ?string $uuid = null,
+        public readonly ?string $senderName = null,
     ) {
         $this->uuid = $uuid ?? (string) Str::uuid();
     }
@@ -76,11 +77,14 @@ class IncomingMessage
             'key' => $this->key,
             'isDirectMessage' => $this->isDirectMessage,
             'attachments' => $this->attachments,
+            'senderName' => $this->senderName,
         ];
     }
 
     /**
      * Restore the readonly properties from the serialized payload after a job thaw.
+     *
+     * Newer keys are read defensively so a job queued before an upgrade still thaws.
      */
     public function __unserialize(array $data): void
     {
@@ -90,5 +94,6 @@ class IncomingMessage
         $this->key = $data['key'];
         $this->isDirectMessage = $data['isDirectMessage'];
         $this->attachments = $data['attachments'];
+        $this->senderName = $data['senderName'] ?? null;
     }
 }

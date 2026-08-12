@@ -2,6 +2,7 @@
 
 namespace Laraclaw\Agents;
 
+use Illuminate\Support\Str;
 use Laraclaw\Agents\Middleware\TranscribeAudio;
 use Laraclaw\DTOs\IncomingMessage;
 use Laraclaw\Models\Thread;
@@ -155,20 +156,39 @@ class ChatBotAgent implements Agent, Conversational, HasMiddleware, HasProviderO
      * Name the person being replied to so personas can address them and skills can
      * tell what "I" refers to.
      *
-     * Returns an empty string for group threads, where the thread resolves to the
-     * configured owner rather than to whoever actually typed the message.
+     * Prefers the name the connector read off the message, because a group thread
+     * resolves to the configured owner rather than to whoever actually typed.
      */
     private function resolveSender(): string
     {
-        if (! $this->thread->is_direct_message) {
+        $name = $this->sanitizeSenderName($this->message->senderName);
+
+        if (blank($name) && $this->thread->is_direct_message) {
+            $name = $this->sanitizeSenderName($this->thread->user()?->name);
+        }
+
+        if (blank($name)) {
             return '';
         }
 
-        $name = $this->thread->user()?->name;
+        return $this->thread->is_direct_message
+            ? PHP_EOL . PHP_EOL . "You are talking to {$name}."
+            : PHP_EOL . PHP_EOL . "This message was sent by {$name}. Other people may be in this chat, so do not assume every message comes from the same person.";
+    }
 
-        return blank($name)
-            ? ''
-            : PHP_EOL . PHP_EOL . "You are talking to {$name}.";
+    /**
+     * Flatten a sender name into a single short line before it reaches the system prompt.
+     *
+     * The name comes from a profile the sender controls, so it is treated as text to
+     * quote rather than as anything the model should read as instructions.
+     */
+    private function sanitizeSenderName(?string $name): string
+    {
+        return Str::of($name ?? '')
+            ->replaceMatches('/\s+/', ' ')
+            ->trim()
+            ->limit(50, '')
+            ->value();
     }
 
     /**
