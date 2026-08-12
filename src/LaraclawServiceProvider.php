@@ -243,16 +243,27 @@ class LaraclawServiceProvider extends ServiceProvider
             ]);
         }
 
-        $this->app->singleton(fn (): ?CalendarDriver => match (config('laraclaw.tools.calendar_manager.driver')) {
-            'google' => new GoogleCalendarDriver,
-            'apple' => new AppleCalendarDriver(
-                server: config('laraclaw.tools.calendar_manager.apple.server'),
-                username: config('laraclaw.tools.calendar_manager.apple.username'),
-                password: config('laraclaw.tools.calendar_manager.apple.password'),
-                calendar: config('laraclaw.tools.calendar_manager.apple.calendar'),
-            ),
-            null => null,
-            default => throw new RuntimeException('Unknown calendar driver: ' . config('laraclaw.tools.calendar_manager.driver')),
+        $this->app->singleton(function (): ?CalendarDriver {
+            $driver = config('laraclaw.tools.calendar_manager.driver');
+
+            // An unset env var arrives as null, but one written as
+            // LARACLAW_CALENDAR_DRIVER= with no value arrives as an empty string.
+            // Both mean "no calendar", so treat them the same. Otherwise the empty
+            // string falls through to the throw and takes down every request.
+            if (blank($driver)) {
+                return null;
+            }
+
+            return match ($driver) {
+                'google' => new GoogleCalendarDriver,
+                'apple' => new AppleCalendarDriver(
+                    server: config('laraclaw.tools.calendar_manager.apple.server'),
+                    username: config('laraclaw.tools.calendar_manager.apple.username'),
+                    password: config('laraclaw.tools.calendar_manager.apple.password'),
+                    calendar: config('laraclaw.tools.calendar_manager.apple.calendar'),
+                ),
+                default => throw new RuntimeException('Unknown calendar driver: ' . $driver),
+            };
         });
     }
 
