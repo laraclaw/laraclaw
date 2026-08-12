@@ -69,7 +69,10 @@ class FileManager extends BaseTool
     #[Override]
     public function handle(Request $request): Stringable|string
     {
-        if ($error = $this->validateDiskAccess($request['disk'], $request['path'])) {
+        // Both keys are optional in the schema. A batch delete passes only "paths",
+        // so reading "path" directly here threw before any operation could run.
+        // Each operation validates the paths it actually uses.
+        if ($error = $this->validateDiskAccess($request['disk'] ?? '', $request['path'] ?? '')) {
             return $error;
         }
 
@@ -173,7 +176,10 @@ class FileManager extends BaseTool
     protected function delete(Request $request): string
     {
         $storage = $this->storage($request);
-        $paths = collect($request['paths'] ?: [$request['path']])->filter()->values()->all();
+        // array() and ?? tolerate a missing key. Plain $request['paths'] does not:
+        // the model usually sends only the singular "path", and the elvis operator
+        // reads the key before testing it, so it throws instead of falling back.
+        $paths = collect($request->array('paths') ?: [$request['path'] ?? null])->filter()->values()->all();
 
         if (empty($paths)) {
             return 'No paths provided for delete.';

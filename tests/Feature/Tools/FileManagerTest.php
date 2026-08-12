@@ -7,14 +7,16 @@ use Laraclaw\Services\Attachments;
 use Laraclaw\Tools\FileManager;
 use Laravel\Ai\Tools\Request;
 
+/**
+ * Build a real Request rather than a mock.
+ *
+ * A mocked offsetGet that returns null for missing keys is more forgiving than
+ * the real class, which throws "Undefined array key". Tools read optional
+ * arguments the model may omit, so the mock hid a whole class of bug.
+ */
 function fileRequest(array $data): Request
 {
-    $mock = Mockery::mock(Request::class);
-    $mock->allows('offsetGet')->andReturnUsing(fn ($key) => $data[$key] ?? null);
-    $mock->allows('offsetExists')->andReturnUsing(fn ($key) => array_key_exists($key, $data));
-    $mock->allows('toArray')->andReturn($data);
-
-    return $mock;
+    return new Request($data, 'call_test');
 }
 
 function fileTool(?IncomingMessage $message = null): FileManager
@@ -267,4 +269,55 @@ it('queues a file for outbound attachment when calling attach_to_reply', functio
 
     expect($result)->toContain('will be attached');
     expect(Storage::disk('attachments')->exists('outbound/msg-uuid/report.txt'))->toBeTrue();
+});
+
+it('deletes a file given only the singular path argument', function () {
+    // The model routinely sends "path" and omits the optional "paths". Reading
+    // the missing key directly used to throw "Undefined array key" and surface
+    // to the user as a failed delete, which is what happened in production.
+    Storage::disk('workspace')->put('test.txt', 'a good dog');
+
+    $result = fileTool()->handle(fileRequest([
+        'operation' => 'delete',
+        'disk' => 'workspace',
+        'path' => 'test.txt',
+    ]));
+
+    expect($result)->not->toContain('Undefined array key')
+        ->and(Storage::disk('workspace')->exists('test.txt'))->toBeFalse();
+});
+
+it('deletes several files given the plural paths argument', function () {
+    Storage::disk('workspace')->put('a.txt', 'a');
+    Storage::disk('workspace')->put('b.txt', 'b');
+
+    $result = fileTool()->handle(fileRequest([
+        'operation' => 'delete',
+        'disk' => 'workspace',
+        'paths' => ['a.txt', 'b.txt'],
+    ]));
+
+    expect($result)->not->toContain('Undefined array key')
+        ->and(Storage::disk('workspace')->exists('a.txt'))->toBeFalse()
+        ->and(Storage::disk('workspace')->exists('b.txt'))->toBeFalse();
+});
+
+it('reports when a delete names no path at all', function () {
+    $result = fileTool()->handle(fileRequest([
+        'operation' => 'delete',
+        'disk' => 'workspace',
+    ]));
+
+    expect($result)->toBe('No paths provided for delete.');
+});
+
+it('builds the approval prompt from the singular path', function () {
+    $approval = fileTool()->shouldRequestApproval(fileRequest([
+        'operation' => 'delete',
+        'disk' => 'workspace',
+        'path' => 'test.txt',
+    ]));
+
+    expect($approval)->not->toBeNull()
+        ->and($approval->reason)->toContain('test.txt');
 });

@@ -241,7 +241,7 @@ class EmailManager extends BaseTool
             $subject = 'Re: ' . $subject;
         }
 
-        $to = $request['to'] ?: [$replyTo->email()];
+        $to = $request->array('to') ?: [$replyTo->email()];
         $messageId = $original->messageId();
 
         $this->compose($body, $to, $subject, $request, function ($msg) use ($messageId): void {
@@ -261,7 +261,7 @@ class EmailManager extends BaseTool
      */
     protected function delete(Request $request): string
     {
-        $uids = collect($request['uids'] ?: [$request['uid'] ?? null])->filter()->values()->all();
+        $uids = collect($request->array('uids') ?: [$request['uid'] ?? null])->filter()->values()->all();
         if ($uids === []) {
             return 'The "uid" or "uids" parameter is required for the delete operation.';
         }
@@ -415,7 +415,7 @@ class EmailManager extends BaseTool
      */
     protected function deleteFolder(Request $request): string
     {
-        $folders = collect($request['folders'] ?: [$request['folder'] ?? null])->filter()->values()->all();
+        $folders = collect($request->array('folders') ?: [$request['folder'] ?? null])->filter()->values()->all();
 
         if ($folders === []) {
             return 'The "folder" or "folders" parameter is required for the delete_folder operation.';

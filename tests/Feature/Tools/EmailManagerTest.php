@@ -19,11 +19,7 @@ use Symfony\Component\Mime\Email;
 
 function emailRequest(array $data): Request
 {
-    $mock = Mockery::mock(Request::class);
-    $mock->allows('offsetGet')->andReturnUsing(fn ($key) => $data[$key] ?? null);
-    $mock->allows('offsetExists')->andReturnUsing(fn ($key) => array_key_exists($key, $data));
-
-    return $mock;
+    return new Request($data, 'call_test');
 }
 
 function emailTool(?IncomingMessage $message = null): EmailManager
