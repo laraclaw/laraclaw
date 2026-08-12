@@ -67,9 +67,10 @@ class ChatBotAgent implements Agent, Conversational, HasMiddleware, HasProviderO
     {
         $base = $this->buildSystemPrompt();
         $persona = $this->resolvePersona();
+        $sender = $this->resolveSender();
         $schema = $this->resolveDatabaseSchema();
 
-        return $base . $persona . $schema;
+        return $base . $persona . $sender . $schema;
     }
 
     /**
@@ -148,6 +149,26 @@ class ChatBotAgent implements Agent, Conversational, HasMiddleware, HasProviderO
             Lab::OpenAI => ['prompt_cache_key' => 'laraclaw-chatbot'],
             default => [],
         };
+    }
+
+    /**
+     * Name the person being replied to so personas can address them and skills can
+     * tell what "I" refers to.
+     *
+     * Returns an empty string for group threads, where the thread resolves to the
+     * configured owner rather than to whoever actually typed the message.
+     */
+    private function resolveSender(): string
+    {
+        if (! $this->thread->is_direct_message) {
+            return '';
+        }
+
+        $name = $this->thread->user()?->name;
+
+        return blank($name)
+            ? ''
+            : PHP_EOL . PHP_EOL . "You are talking to {$name}.";
     }
 
     /**

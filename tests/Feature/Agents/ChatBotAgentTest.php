@@ -106,6 +106,20 @@ it('appends the persona when a thread persona is set', function () {
     File::deleteDirectory($personas);
 });
 
+it('names the sender so personas and skills know who is talking', function () {
+    expect(makeAgent()->instructions())->toContain('You are talking to Test User.');
+});
+
+it('does not name a sender on a group thread', function () {
+    // A group thread resolves to the configured owner rather than to whoever
+    // typed, so naming them would be wrong as often as it is right.
+    $agent = makeAgent();
+    $agent->thread->update(['is_direct_message' => false]);
+    $agent->thread->refresh();
+
+    expect($agent->instructions())->not->toContain('You are talking to');
+});
+
 it('falls back to default.md when no persona is configured', function () {
     $personas = sys_get_temp_dir() . '/laraclaw-personas-' . uniqid();
     File::makeDirectory($personas);
