@@ -77,6 +77,17 @@ it('leaves the prompt alone when the sender wrote their own text', function () {
         ->not->toContain('should never be used');
 });
 
+it('still answers when the audio cannot be transcribed', function () {
+    // Letting the transcription error bubble killed the whole agent run, so the
+    // sender got no reply at all rather than an explanation.
+    Transcription::fake(fn () => throw new RuntimeException('Unsupported file format oga'));
+
+    $result = transcribedText(voiceNote());
+
+    expect($result)->toContain('could not be transcribed')
+        ->and($result)->toContain('inbound/uuid/voice.oga');
+});
+
 it('leaves the prompt alone when there is no audio', function () {
     Transcription::fake(['should never be used']);
 

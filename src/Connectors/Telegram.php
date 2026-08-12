@@ -155,7 +155,7 @@ class Telegram extends Connector
             return null;
         }
 
-        $fileName ??= basename($filePath);
+        $fileName = self::normalizeExtension($fileName ?? basename($filePath));
         $disk = config('laraclaw.filesystem.attachments_disk', 'local');
         $downloadUrl = "https://api.telegram.org/file/bot{$bot->getAccessToken()}/{$filePath}";
 
@@ -176,6 +176,20 @@ class Telegram extends Connector
 
             return null;
         }
+    }
+
+    /**
+     * Rewrite file extensions that name a container the transcription API already supports
+     * but refuses by name.
+     *
+     * Telegram hands voice notes over as .oga. It is the same ogg container as .ogg,
+     * and OpenAI rejects the upload on the extension alone.
+     */
+    private static function normalizeExtension(string $fileName): string
+    {
+        return str_ends_with(strtolower($fileName), '.oga')
+            ? substr($fileName, 0, -4) . '.ogg'
+            : $fileName;
     }
 
     /**
