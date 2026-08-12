@@ -176,15 +176,20 @@ Personas are Markdown files that override the agent's system prompt. Drop them i
 ```
 laraclaw/
   personas/
+    default.md
     assistant.md
     developer.md
 ```
 
-Set a default in your `.env`:
+A file named `default.md` is used automatically, so dropping it in place is all you need.
+
+To use a different one by default, name it in your `.env`:
 
 ```env
 LARACLAW_PERSONAS_DEFAULT=assistant
 ```
+
+That setting wins over `default.md`. With neither in place the agent runs on the base system prompt alone.
 
 Users can switch personas at runtime just by asking the bot. Pretty neat, right?
 

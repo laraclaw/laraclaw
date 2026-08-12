@@ -158,8 +158,13 @@ class ChatBotAgent implements Agent, Conversational, HasMiddleware, HasProviderO
     {
         $persona = $this->thread?->persona ?? config('laraclaw.personas.default');
 
-        if (! $persona) {
-            return '';
+        // With nothing configured, fall back to default.md the way the base system
+        // prompt already does, so dropping a file in place is enough to use it. An
+        // unset env var arrives as null, but one written with no value arrives as
+        // an empty string, and both mean the same thing here. The allowlist check
+        // below covers the case where no such file exists.
+        if (blank($persona)) {
+            $persona = 'default';
         }
 
         $personasPath = config('laraclaw.personas.path');

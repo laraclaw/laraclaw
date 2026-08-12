@@ -106,6 +106,71 @@ it('appends the persona when a thread persona is set', function () {
     File::deleteDirectory($personas);
 });
 
+it('falls back to default.md when no persona is configured', function () {
+    $personas = sys_get_temp_dir() . '/laraclaw-personas-' . uniqid();
+    File::makeDirectory($personas);
+    File::put("{$personas}/default.md", "Speak like a robot.\n");
+
+    $agent = makeAgent([
+        'laraclaw.personas.path' => $personas,
+        'laraclaw.personas.default' => null,
+    ]);
+
+    expect($agent->instructions())->toContain('Speak like a robot.');
+
+    File::deleteDirectory($personas);
+});
+
+it('falls back to default.md when the configured persona is an empty string', function () {
+    // An unset env var arrives as null, but LARACLAW_PERSONAS_DEFAULT= with no
+    // value arrives as an empty string. Both mean nothing was chosen.
+    $personas = sys_get_temp_dir() . '/laraclaw-personas-' . uniqid();
+    File::makeDirectory($personas);
+    File::put("{$personas}/default.md", "Speak like a robot.\n");
+
+    $agent = makeAgent([
+        'laraclaw.personas.path' => $personas,
+        'laraclaw.personas.default' => '',
+    ]);
+
+    expect($agent->instructions())->toContain('Speak like a robot.');
+
+    File::deleteDirectory($personas);
+});
+
+it('adds no persona when nothing is configured and there is no default.md', function () {
+    $personas = sys_get_temp_dir() . '/laraclaw-personas-' . uniqid();
+    File::makeDirectory($personas);
+    File::put("{$personas}/pirate.md", "Speak like a pirate.\n");
+
+    $agent = makeAgent([
+        'laraclaw.personas.path' => $personas,
+        'laraclaw.personas.default' => null,
+    ]);
+
+    expect($agent->instructions())->not->toContain('Speak like a pirate.');
+
+    File::deleteDirectory($personas);
+});
+
+it('prefers the configured persona over default.md', function () {
+    $personas = sys_get_temp_dir() . '/laraclaw-personas-' . uniqid();
+    File::makeDirectory($personas);
+    File::put("{$personas}/default.md", "Speak like a robot.\n");
+    File::put("{$personas}/pirate.md", "Speak like a pirate.\n");
+
+    $agent = makeAgent([
+        'laraclaw.personas.path' => $personas,
+        'laraclaw.personas.default' => 'pirate',
+    ]);
+
+    expect($agent->instructions())
+        ->toContain('Speak like a pirate.')
+        ->not->toContain('Speak like a robot.');
+
+    File::deleteDirectory($personas);
+});
+
 it('ignores a persona that does not exist on disk', function () {
     $personas = sys_get_temp_dir() . '/laraclaw-personas-' . uniqid();
     File::makeDirectory($personas);

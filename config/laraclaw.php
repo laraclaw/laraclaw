@@ -87,7 +87,7 @@ return [
         // Path to the directory where the personas are stored
         'path' => env('LARACLAW_PERSONAS_PATH', base_path('laraclaw/personas')),
 
-        // Default persona
+        // Default persona. Leave this empty to fall back to default.md when that file exists
         'default' => env('LARACLAW_PERSONAS_DEFAULT'),
     ],
 
