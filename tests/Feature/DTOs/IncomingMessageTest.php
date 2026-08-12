@@ -34,6 +34,30 @@ it('appends attachment metadata to text', function () {
         ->and($files)->toHaveCount(1);
 });
 
+it('keeps audio out of the model input but still names it in the text', function () {
+    // A voice note handed to a text provider as a document fails the whole
+    // request with a 400, which is how this surfaced in production.
+    $voice = new Attachment(path: 'inbound/uuid/voice.oga', disk: 'local', mimeType: 'audio/ogg', filename: 'voice.oga');
+    $msg = new IncomingMessage(text: null, connector: ConnectorType::Telegram, key: '123', attachments: [$voice]);
+
+    [$text, $files] = $msg->toAgentInput();
+
+    expect($files)->toBeEmpty()
+        ->and($text)->toContain('voice.oga')
+        ->and($text)->toContain('inbound/uuid/voice.oga');
+});
+
+it('keeps non audio attachments when an audio file is alongside them', function () {
+    $voice = new Attachment(path: 'inbound/uuid/voice.oga', disk: 'local', mimeType: 'audio/ogg', filename: 'voice.oga');
+    $photo = new Attachment(path: 'inbound/uuid/photo.jpg', disk: 'local', mimeType: 'image/jpeg', filename: 'photo.jpg');
+    $msg = new IncomingMessage(text: 'look', connector: ConnectorType::Telegram, key: '123', attachments: [$voice, $photo]);
+
+    [, $files] = $msg->toAgentInput();
+
+    expect($files)->toHaveCount(1)
+        ->and(array_keys($files))->toBe([0]);
+});
+
 it('survives serialization and unserialization', function () {
     $msg = new IncomingMessage(text: 'test', connector: ConnectorType::Email, key: 'abc', uuid: 'keep-me');
 

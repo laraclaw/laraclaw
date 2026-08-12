@@ -30,12 +30,20 @@ class IncomingMessage
 
     /**
      * Return the text and AI file attachments as a two-element array ready to spread into queue().
+     *
+     * Audio is left out on purpose. It reaches the model as a transcript instead,
+     * and handing a voice note to a text provider as a document makes it reject
+     * the whole request rather than just ignoring the file.
      */
     public function toAgentInput(): array
     {
         return [
             $this->textWithAttachmentsNotes(),
-            array_map(fn (Attachment $a): Image|Document => $a->toAiFile(), $this->attachments),
+            collect($this->attachments)
+                ->reject(fn (Attachment $a): bool => $a->isAudio())
+                ->map(fn (Attachment $a): Image|Document => $a->toAiFile())
+                ->values()
+                ->all(),
         ];
     }
 

@@ -18,17 +18,22 @@ class TranscribeAudio
     ) {}
 
     /**
-     * Transcribe the first audio attachment if the incoming prompt has no text.
+     * Transcribe the first audio attachment when the sender wrote no text of their own.
      */
     public function handle(AgentPrompt $prompt, Closure $next): mixed
     {
-        if (blank($prompt->prompt)) {
+        // Test the message rather than the prompt. A voice note carries no text, but
+        // the prompt still lists the attached file, so it is never blank and this
+        // used to skip transcription for exactly the messages that needed it.
+        if (blank($this->message->text)) {
             $audio = collect($this->message->attachments)->first(fn (Attachment $a): bool => $a->isAudio());
 
             if ($audio) {
                 $transcribed = Transcription::fromStorage($audio->path, $audio->disk)->generate()->text;
 
-                return $next($prompt->revise($transcribed));
+                // Prepend rather than replace so the attachment notes survive and
+                // tools can still reach the original file on disk.
+                return $next($prompt->prepend($transcribed));
             }
         }
 
