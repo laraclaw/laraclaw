@@ -278,23 +278,14 @@ class ChatBotAgent implements Agent, Conversational, HasMiddleware, HasProviderO
     }
 
     /**
-     * Find the base instructions, falling back through every location we have shipped.
-     *
-     * Installs from before the agent folder existed published these to
-     * resources/laraclaw/prompts/default.md, so that copy still wins over the
-     * package default and nobody loses a prompt they had edited.
+     * Find the base instructions, preferring the published copy over the packaged one.
      */
     private function instructionsPath(): string
     {
-        $candidates = [
-            config('laraclaw.agent.instructions', base_path('laraclaw/instructions.md')),
-            resource_path('laraclaw/prompts/default.md'),
-        ];
+        $published = config('laraclaw.agent.instructions', base_path('laraclaw/instructions.md'));
 
-        foreach ($candidates as $candidate) {
-            if (filled($candidate) && file_exists($candidate)) {
-                return $candidate;
-            }
+        if (filled($published) && file_exists($published)) {
+            return $published;
         }
 
         return __DIR__ . '/../../resources/instructions.md';

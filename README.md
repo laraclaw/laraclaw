@@ -30,13 +30,7 @@ php artisan vendor:publish --tag=laraclaw
 php artisan laraclaw:setup
 ```
 
-The wizard will walk you through migrations, owner account creation, connector configuration, and optional tools. That's it!
-
-To shape how the bot thinks, publish [the agent folder](#the-agent-folder) as well:
-
-```bash
-php artisan vendor:publish --tag=laraclaw-agent
-```
+Publishing gives you the config file and [the agent folder](#the-agent-folder), which is where you shape how the bot thinks. The wizard then walks you through migrations, owner account creation, connector configuration, and optional tools. That's it!
 
 ## Connectors
 
@@ -186,7 +180,7 @@ laraclaw/
     default.md           # voice and tone, picked up automatically
     pirate.md
   skills/
-    summarise/
+    greeting/
       SKILL.md           # loaded only when it is relevant
     report/
       SKILL.md
@@ -194,15 +188,9 @@ laraclaw/
       scripts/build.sh
 ```
 
-Publish the starting point with:
+`php artisan vendor:publish --tag=laraclaw` writes the starting point: an `instructions.md`, a `personas/default.md`, and a `greeting` skill to copy from. Edit them in place and republish as often as you like, since publishing never overwrites a file that already exists.
 
-```bash
-php artisan vendor:publish --tag=laraclaw-agent
-```
-
-This tag is separate from `--tag=laraclaw` because it writes a `personas/default.md`, and that file takes effect the moment it exists. Nothing appears in your project unless you ask for it.
-
-Every file is optional. With an empty folder the agent runs on the prompt baked into the package.
+Every file is optional. Delete the lot and the agent runs on the prompt baked into the package.
 
 ### Instructions
 
@@ -231,6 +219,8 @@ That name comes from a profile the sender controls, so treat it as a label rathe
 ### Skills
 
 A skill is a folder under `laraclaw/skills/` containing a `SKILL.md`. The agent sees only the descriptions up front and pulls the full text in when it decides one is relevant, so a long skill costs nothing until it is used.
+
+Publishing ships a `greeting` skill as a worked example. Here is a more useful one:
 
 ```markdown
 ---

@@ -87,18 +87,14 @@ class LaraclawServiceProvider extends ServiceProvider
         $this->app['router']->aliasMiddleware('slack.signature', VerifySlackSignature::class);
         $this->app['router']->aliasMiddleware('laraclaw.api', VerifyApiToken::class);
 
+        // One tag for everything. Publishing never overwrites a file that is
+        // already there, so republishing the config leaves an edited persona
+        // or instructions file alone.
         $this->publishes([
             __DIR__ . '/../config/laraclaw.php' => config_path('laraclaw.php'),
             __DIR__ . '/../database/migrations' => database_path('migrations'),
-            __DIR__ . '/../resources' => resource_path('laraclaw'),
-        ], 'laraclaw');
-
-        // Kept apart from the main tag on purpose. Publishing this writes a
-        // personas/default.md, and that file is picked up automatically, so it
-        // has to be something the user asks for rather than something they get.
-        $this->publishes([
             __DIR__ . '/../stubs/laraclaw' => base_path('laraclaw'),
-        ], 'laraclaw-agent');
+        ], 'laraclaw');
 
         $this->registerEventListeners();
         $this->registerCommands();

@@ -105,3 +105,13 @@ it('reports no companion files for a skill that is only a SKILL.md', function ()
 
     expect($registry->files('summarise'))->toBe([]);
 });
+
+it('ships a greeting skill that the registry can actually load', function () {
+    // The stub is published into every new install, so a broken one would greet
+    // everybody with a parse failure.
+    $registry = new SkillRegistry(__DIR__ . '/../../../stubs/laraclaw/skills');
+
+    expect($registry->get('greeting'))->toContain('Greet the user in a friendly manner.')
+        ->and(collect($registry->all())->firstWhere('name', 'greeting')['description'])
+        ->toContain('saying hello');
+});
