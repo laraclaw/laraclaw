@@ -12,7 +12,8 @@ use Laraclaw\Services\Calendar\Contracts\CalendarDriver;
 use Laravel\Ai\Tools\Request;
 use Override;
 use Stringable;
-use Throwable;
+
+use function Laraclaw\Support\parseNaturalDate;
 
 /**
  * Agent tool for listing, creating, updating, and deleting calendar events.
@@ -223,10 +224,6 @@ class CalendarManager extends BaseTool
      */
     private function parseDate(string $value): ?DateTimeImmutable
     {
-        try {
-            return Carbon::parse($value)->toDateTimeImmutable();
-        } catch (Throwable) {
-            return null;
-        }
+        return parseNaturalDate($value)?->toDateTimeImmutable();
     }
 }

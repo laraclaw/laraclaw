@@ -2,13 +2,13 @@
 
 namespace Laraclaw\Tools;
 
-use Carbon\Carbon;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laraclaw\Enums\ConnectorType;
 use Laraclaw\Models\Reminder;
 use Laravel\Ai\Tools\Request;
 use Stringable;
-use Throwable;
+
+use function Laraclaw\Support\parseNaturalDate;
 
 /**
  * Agent tool for creating, listing, and cancelling single scheduled reminders.
@@ -35,7 +35,7 @@ class ReminderManager extends BaseTool
             'operation' => $schema->string()->required()->description('Operation: create, list, or cancel'),
             'id' => $schema->string()->description('Reminder ID (required for cancel)'),
             'message' => $schema->string()->description('Message to send (required for create)'),
-            'remind_at' => $schema->string()->description('When to send — ISO 8601 or natural language, e.g. "tomorrow at 10am" (required for create)'),
+            'remind_at' => $schema->string()->description('When to send. Prefer ISO 8601 worked out from the current date and time you were given. Plain English like "tomorrow at 10am" also works. (required for create)'),
             'connector' => $schema->string()->description('Connector type to send on: telegram, slack, or email. Defaults to the current connector.'),
         ];
     }
@@ -63,10 +63,10 @@ class ReminderManager extends BaseTool
             return 'The "remind_at" parameter is required for create.';
         }
 
-        try {
-            $remindAtDate = Carbon::parse($remindAt);
-        } catch (Throwable) {
-            return "Could not parse remind_at: {$remindAt}";
+        $remindAtDate = parseNaturalDate($remindAt);
+
+        if (! $remindAtDate) {
+            return "Could not parse remind_at: {$remindAt}. Work out the exact time yourself and pass it as ISO 8601.";
         }
 
         [$connector, $key] = $this->resolveConnector($request['connector'] ?? null);

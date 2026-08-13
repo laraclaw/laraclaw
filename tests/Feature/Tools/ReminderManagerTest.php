@@ -1,5 +1,6 @@
 <?php
 
+use Carbon\Carbon;
 use Laraclaw\DTOs\IncomingMessage;
 use Laraclaw\Enums\ConnectorType;
 use Laraclaw\Models\Reminder;
@@ -153,4 +154,21 @@ it('returns an error when cancel is called without an id', function () {
     $result = reminderTool()->handle(reminderRequest(['operation' => 'cancel']));
 
     expect($result)->toContain('"id" parameter is required');
+});
+
+it('creates a reminder from a relative phrase the model wrote', function () {
+    // "in 2 minutes" used to fail outright and the user got an error instead of
+    // a reminder.
+    Carbon::setTestNow('2026-08-13 12:00:00');
+
+    $result = reminderTool()->handle(reminderRequest([
+        'operation' => 'create',
+        'message' => 'Check the oven',
+        'remind_at' => 'in 2 minutes',
+    ]));
+
+    expect($result)->toContain('2026-08-13 12:02:00');
+    expect(Reminder::first()->remind_at->toDateTimeString())->toBe('2026-08-13 12:02:00');
+
+    Carbon::setTestNow();
 });

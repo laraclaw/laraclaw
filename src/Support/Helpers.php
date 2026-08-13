@@ -2,8 +2,10 @@
 
 namespace Laraclaw\Support;
 
+use Carbon\Carbon;
 use Illuminate\Database\PostgresConnection;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use League\CommonMark\Environment\Environment;
 use League\CommonMark\Extension\CommonMark\CommonMarkCoreExtension;
 use League\CommonMark\Extension\Strikethrough\StrikethroughExtension;
@@ -204,4 +206,37 @@ function stripHtml(?string $html): ?string
     }
 
     return trim((string) preg_replace('/\s+/', ' ', strip_tags(html_entity_decode($html, ENT_QUOTES, 'UTF-8'))));
+}
+
+/**
+ * Parse a date written in plain English or ISO 8601, returning null when it cannot be understood.
+ *
+ * Carbon leans on strtotime, which knows "2 minutes" and "tomorrow 10am" but not
+ * the way anyone actually writes them. Both "in 2 minutes" and "tomorrow at 10am"
+ * fail outright, and the second one is the example our own tools advertise. Strip
+ * the filler words before handing the string over, then fall back to the original
+ * so an ISO 8601 value is never harmed by the rewrite.
+ */
+function parseNaturalDate(string $value): ?Carbon
+{
+    $normalized = Str::of($value)
+        ->trim()
+        ->replaceMatches('/^in\s+/i', '+')
+        ->replaceMatches('/^at\s+/i', '')
+        ->replaceMatches('/\s+at\s+/i', ' ')
+        ->value();
+
+    foreach (array_unique([$normalized, trim($value)]) as $candidate) {
+        if ($candidate === '') {
+            continue;
+        }
+
+        try {
+            return Carbon::parse($candidate);
+        } catch (Throwable) {
+            continue;
+        }
+    }
+
+    return null;
 }
