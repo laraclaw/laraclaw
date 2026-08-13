@@ -297,3 +297,16 @@ it('returns the TranscribeAudio middleware', function () {
     expect($middleware)->toHaveCount(1);
     expect($middleware[0])->toBeInstanceOf(Laraclaw\Agents\Middleware\TranscribeAudio::class);
 });
+
+it('tells the agent to search memory before saying it does not know', function () {
+    $instructions = makeAgent(['laraclaw.memory.enabled' => true])->instructions();
+
+    expect($instructions)
+        ->toContain('Long term memory:')
+        ->toContain('Search your memory before you answer that you do not know');
+});
+
+it('says nothing about memory when the feature is off', function () {
+    expect(makeAgent(['laraclaw.memory.enabled' => false])->instructions())
+        ->not->toContain('Long term memory:');
+});

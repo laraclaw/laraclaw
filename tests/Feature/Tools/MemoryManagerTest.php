@@ -12,9 +12,13 @@ beforeEach(function () {
     Embeddings::fake();
 });
 
-it('describes itself as a memory search tool', function () {
+it('tells the agent when to reach for memory, not just what it does', function () {
+    // A bland description left the agent answering "not in this chat" from context
+    // alone instead of searching.
     expect((new MemoryManager)->description())
-        ->toContain('Search the memory');
+        ->toContain('Search long term memory')
+        ->toContain('outside the current chat')
+        ->toContain('before telling the user you do not know');
 });
 
 it('returns matching embeddings for the current user', function () {

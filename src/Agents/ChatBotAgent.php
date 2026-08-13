@@ -69,9 +69,10 @@ class ChatBotAgent implements Agent, Conversational, HasMiddleware, HasProviderO
         $base = $this->buildSystemPrompt();
         $persona = $this->resolvePersona();
         $sender = $this->resolveSender();
+        $memory = $this->resolveMemoryGuidance();
         $schema = $this->resolveDatabaseSchema();
 
-        return $base . $persona . $sender . $schema;
+        return $base . $persona . $sender . $memory . $schema;
     }
 
     /**
@@ -220,6 +221,29 @@ class ChatBotAgent implements Agent, Conversational, HasMiddleware, HasProviderO
         }
 
         return file_get_contents($personasPath . '/' . $stem . '.md');
+    }
+
+    /**
+     * Tell the agent that memory exists and has to be searched on purpose.
+     *
+     * Without this the memory tool reads like an optional extra, so the agent
+     * answers "I do not have that in this chat" from context alone and only goes
+     * looking once the user pushes back. The recall was always there; nothing was
+     * prompting it to reach for it.
+     */
+    private function resolveMemoryGuidance(): string
+    {
+        if (! config('laraclaw.memory.enabled')) {
+            return '';
+        }
+
+        return PHP_EOL . PHP_EOL . 'Long term memory:' . PHP_EOL . PHP_EOL
+            . 'Past conversations are searchable, but none of them are loaded into this chat for you. '
+            . 'Anything said before this conversation began exists only if you go looking for it. '
+            . 'Search your memory before you answer that you do not know something, that you do not '
+            . 'remember it, or that it is not in this chat, and search it whenever the user refers to '
+            . 'something you talked about earlier. Treat what comes back as something you were genuinely '
+            . 'told, and say when you are drawing on an older conversation.';
     }
 
     /**

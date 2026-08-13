@@ -38,6 +38,10 @@ class MemoryManager extends SimilaritySearch
             );
         }
 
-        $this->withDescription('Search the memory for relevant past conversations and documents.');
+        $this->withDescription(
+            'Search long term memory for what was said in past conversations and documents, including ones outside the current chat. '
+            . 'Call this before telling the user you do not know or do not remember something they may have told you before, '
+            . 'and whenever they refer back to an earlier conversation. Pass the topic you are looking for as the query.'
+        );
     }
 }
