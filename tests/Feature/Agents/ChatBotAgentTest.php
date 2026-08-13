@@ -310,3 +310,21 @@ it('says nothing about memory when the feature is off', function () {
     expect(makeAgent(['laraclaw.memory.enabled' => false])->instructions())
         ->not->toContain('Long term memory:');
 });
+
+it('reads its base instructions from the published agent folder', function () {
+    $folder = sys_get_temp_dir() . '/laraclaw-agent-' . uniqid();
+    File::makeDirectory($folder);
+    File::put("{$folder}/instructions.md", 'You are a lighthouse keeper.');
+
+    $agent = makeAgent(['laraclaw.agent.instructions' => "{$folder}/instructions.md"]);
+
+    expect($agent->instructions())->toContain('You are a lighthouse keeper.');
+
+    File::deleteDirectory($folder);
+});
+
+it('falls back to the packaged instructions when nothing is published', function () {
+    $agent = makeAgent(['laraclaw.agent.instructions' => '/tmp/nope-' . uniqid() . '.md']);
+
+    expect($agent->instructions())->toContain('reliable, task-focused assistant');
+});

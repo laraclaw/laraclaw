@@ -32,6 +32,12 @@ php artisan laraclaw:setup
 
 The wizard will walk you through migrations, owner account creation, connector configuration, and optional tools. That's it!
 
+To shape how the bot thinks, publish [the agent folder](#the-agent-folder) as well:
+
+```bash
+php artisan vendor:publish --tag=laraclaw-agent
+```
+
 ## Connectors
 
 Laraclaw has a single owner — one user who controls the bot. All connectors route messages through that user.
@@ -169,59 +175,87 @@ The agent may also override a tool's default with `requireApproval()` or `withou
 > [!NOTE]
 > A gated call resumes from conversation history, so tools using approvals need a thread the bot remembers. Every Laraclaw connector gives them one.
 
-## Personas
+## The Agent Folder
 
-Personas are Markdown files that override the agent's system prompt. Drop them in `laraclaw/personas/` at your project root:
+Everything that shapes how your bot thinks lives in one folder at your project root, in plain Markdown you can read in a pull request:
 
 ```
 laraclaw/
+  instructions.md        # base system prompt, always on
   personas/
-    default.md
-    assistant.md
-    developer.md
-```
-
-A file named `default.md` is used automatically, so dropping it in place is all you need.
-
-To use a different one by default, name it in your `.env`:
-
-```env
-LARACLAW_PERSONAS_DEFAULT=assistant
-```
-
-That setting wins over `default.md`. With neither in place the agent runs on the base system prompt alone.
-
-The agent is told who sent the message, so a persona can address people by name.
-The name is read off the message itself, which means it identifies the actual
-speaker in a group chat, where the thread resolves to the configured owner.
-
-That name comes from a profile the sender controls, so treat it as a label rather
-than as proof of identity. It is flattened to a single short line before it
-reaches the prompt, and it grants no permissions on its own.
-
-Users can switch personas at runtime just by asking the bot. Pretty neat, right?
-
-## Skills
-
-Skills are Markdown files with YAML frontmatter that give the agent reusable instructions. Each skill lives in its own directory under `laraclaw/skills/` as a `SKILL.md` file:
-
-```
-laraclaw/
+    default.md           # voice and tone, picked up automatically
+    pirate.md
   skills/
     summarise/
+      SKILL.md           # loaded only when it is relevant
+    report/
       SKILL.md
+      reference.md
+      scripts/build.sh
 ```
+
+Publish the starting point with:
+
+```bash
+php artisan vendor:publish --tag=laraclaw-agent
+```
+
+This tag is separate from `--tag=laraclaw` because it writes a `personas/default.md`, and that file takes effect the moment it exists. Nothing appears in your project unless you ask for it.
+
+Every file is optional. With an empty folder the agent runs on the prompt baked into the package.
+
+### Instructions
+
+`laraclaw/instructions.md` replaces the base system prompt. It is always in context, so keep it about how the agent should behave in general and push anything situational into a skill.
+
+The current date, timezone, and the sender's name are appended for you, so there is no need to mention them.
+
+To keep the file somewhere else, point `LARACLAW_INSTRUCTIONS_PATH` at it.
+
+### Personas
+
+Personas sit on top of the instructions and cover voice and tone. A file named `default.md` is used automatically, so dropping one in is all you need.
+
+To make a different one the default, name it in your `.env`:
+
+```env
+LARACLAW_PERSONAS_DEFAULT=pirate
+```
+
+That setting wins over `default.md`. Users can also switch personas at runtime just by asking the bot. Pretty neat, right?
+
+The agent is told who sent the message, so a persona can address people by name. The name is read off the message itself, which means it identifies the actual speaker in a group chat, where the thread resolves to the configured owner.
+
+That name comes from a profile the sender controls, so treat it as a label rather than as proof of identity. It is flattened to a single short line before it reaches the prompt, and it grants no permissions on its own.
+
+### Skills
+
+A skill is a folder under `laraclaw/skills/` containing a `SKILL.md`. The agent sees only the descriptions up front and pulls the full text in when it decides one is relevant, so a long skill costs nothing until it is used.
 
 ```markdown
 ---
-name: summarise
-description: Summarises a given text
+description: Track tasks in todo.md, including who each one is assigned to and when it is due
 ---
 
-Summarise the following text in 3 bullet points...
+Read storage/app/todo.md and keep it as a Markdown checklist...
 ```
 
-The agent picks up new skills automatically — no code changes needed.
+**The folder name is the skill name.** Rename the folder to rename the skill. A `name` field in the frontmatter is ignored.
+
+**The description is a routing hint, not a label.** It is the only thing the agent sees when deciding whether to reach for a skill, so describe the job that should trigger it. `Track tasks in todo.md, including who each one is assigned to` gets picked up. `Todo skill` does not.
+
+Leave the description out and Laraclaw falls back to the first line of the file and logs a warning. The skill still loads, it is just advertised badly.
+
+Anything else in the folder rides along. Reference material, SQL, shell scripts, templates: when the agent loads the skill it is told the directory and what is in it, so `SKILL.md` can tell it to go run `scripts/build.sh`.
+
+```
+laraclaw/skills/report/
+  SKILL.md
+  reference.md
+  scripts/build.sh
+```
+
+New skills are picked up automatically. No code changes, no registration.
 
 ## Queue
 

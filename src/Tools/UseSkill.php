@@ -59,6 +59,25 @@ class UseSkill implements Tool
             return "Unknown skill: {$name}. Use one of the available skills listed in the tool description.";
         }
 
-        return $content;
+        return $content . $this->companionFileNotes($name);
+    }
+
+    /**
+     * Point the agent at the scripts and references a skill ships with.
+     *
+     * The instructions are free to mention a helper script by name, so the agent
+     * needs the directory it lives in to actually reach it.
+     */
+    private function companionFileNotes(string $name): string
+    {
+        $files = $this->registry->files($name);
+
+        if ($files === []) {
+            return '';
+        }
+
+        $list = collect($files)->implode(', ');
+
+        return PHP_EOL . PHP_EOL . "This skill ships with supporting files in {$this->registry->path($name)}: {$list}";
     }
 }

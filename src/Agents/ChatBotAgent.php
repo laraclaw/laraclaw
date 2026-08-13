@@ -268,14 +268,35 @@ class ChatBotAgent implements Agent, Conversational, HasMiddleware, HasProviderO
      * Load the base system prompt, preferring the published copy over the package default.
      * Appends the current date and timezone so the agent is always grounded in time.
      */
-    private function buildSystemPrompt(string $name = 'default'): string
+    private function buildSystemPrompt(): string
     {
-        $published = resource_path("laraclaw/prompts/{$name}.md");
         $tz = config('app.timezone', 'UTC');
         $now = now()->setTimezone($tz)->toDateTimeString();
 
-        return file_get_contents(
-            file_exists($published) ? $published : __DIR__ . "/../../resources/prompts/{$name}.md"
-        ) . PHP_EOL . PHP_EOL . "Current date and time: {$now} ({$tz})";
+        return file_get_contents($this->instructionsPath())
+            . PHP_EOL . PHP_EOL . "Current date and time: {$now} ({$tz})";
+    }
+
+    /**
+     * Find the base instructions, falling back through every location we have shipped.
+     *
+     * Installs from before the agent folder existed published these to
+     * resources/laraclaw/prompts/default.md, so that copy still wins over the
+     * package default and nobody loses a prompt they had edited.
+     */
+    private function instructionsPath(): string
+    {
+        $candidates = [
+            config('laraclaw.agent.instructions', base_path('laraclaw/instructions.md')),
+            resource_path('laraclaw/prompts/default.md'),
+        ];
+
+        foreach ($candidates as $candidate) {
+            if (filled($candidate) && file_exists($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return __DIR__ . '/../../resources/instructions.md';
     }
 }

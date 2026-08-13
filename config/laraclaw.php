@@ -83,6 +83,11 @@ return [
     ],
 
     // Personas are Markdown files that extend the agent's system prompt
+    'agent' => [
+        // Path to the agent's base instructions, published to laraclaw/instructions.md
+        'instructions' => env('LARACLAW_INSTRUCTIONS_PATH', base_path('laraclaw/instructions.md')),
+    ],
+
     'personas' => [
         // Path to the directory where the personas are stored
         'path' => env('LARACLAW_PERSONAS_PATH', base_path('laraclaw/personas')),

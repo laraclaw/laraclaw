@@ -3,6 +3,8 @@
 namespace Laraclaw\Skills;
 
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use League\CommonMark\Extension\FrontMatter\Data\SymfonyYamlFrontMatterParser;
 use League\CommonMark\Extension\FrontMatter\FrontMatterParser;
 
@@ -11,7 +13,7 @@ use League\CommonMark\Extension\FrontMatter\FrontMatterParser;
  */
 class SkillRegistry
 {
-    /** @var array<string, array{name: string, description: string, content: string}>|null */
+    /** @var array<string, array{name: string, description: string, content: string, path: string, files: string[]}>|null */
     private ?array $skills = null;
 
     /**
@@ -43,9 +45,27 @@ class SkillRegistry
     }
 
     /**
+     * Return the absolute path of a skill's directory, or null if the skill is unknown.
+     */
+    public function path(string $name): ?string
+    {
+        return $this->load()[$name]['path'] ?? null;
+    }
+
+    /**
+     * Return the companion files bundled beside a skill's SKILL.md, relative to its directory.
+     *
+     * @return string[]
+     */
+    public function files(string $name): array
+    {
+        return $this->load()[$name]['files'] ?? [];
+    }
+
+    /**
      * Lazily scan the skills directory once per process and cache the parsed entries.
      *
-     * @return array<string, array{name: string, description: string, content: string}>
+     * @return array<string, array{name: string, description: string, content: string, path: string, files: string[]}>
      */
     private function load(): array
     {
@@ -59,40 +79,79 @@ class SkillRegistry
             return $this->skills;
         }
 
-        $pattern = $this->basePath . '/*/SKILL.md';
+        foreach (glob($this->basePath . '/*/SKILL.md') ?: [] as $path) {
+            $skill = $this->parse($path);
 
-        foreach (glob($pattern) ?: [] as $path) {
-            $raw = File::get($path);
-            $parsed = $this->parseFrontmatter($raw);
-
-            if (! $parsed) {
-                continue;
-            }
-
-            $this->skills[$parsed['name']] = $parsed;
+            $this->skills[$skill['name']] = $skill;
         }
 
         return $this->skills;
     }
 
     /**
-     * Parse the YAML frontmatter of a SKILL.md file, returning null when name or description is missing.
+     * Read one SKILL.md into a registry entry.
      *
-     * @return array{name: string, description: string, content: string}|null
+     * The directory name is the skill name. Deriving identity from the path rather
+     * than from a frontmatter field means a skill can never go missing because of a
+     * typo, and the name the author sees in the tree is the name the model calls.
+     *
+     * @return array{name: string, description: string, content: string, path: string, files: string[]}
      */
-    private function parseFrontmatter(string $raw): ?array
+    private function parse(string $path): array
     {
-        $result = new FrontMatterParser(new SymfonyYamlFrontMatterParser)->parse($raw);
-        $meta = $result->getFrontMatter();
+        $directory = dirname($path);
+        $name = basename($directory);
 
-        if (empty($meta['name']) || empty($meta['description'])) {
-            return null;
-        }
+        $result = new FrontMatterParser(new SymfonyYamlFrontMatterParser)->parse(File::get($path));
+        $meta = $result->getFrontMatter() ?? [];
+        $content = trim($result->getContent());
 
         return [
-            'name' => $meta['name'],
-            'description' => $meta['description'],
-            'content' => trim($result->getContent()),
+            'name' => $name,
+            'description' => $this->resolveDescription($meta, $content, $name),
+            'content' => $content,
+            'path' => $directory,
+            'files' => $this->companionFiles($directory),
         ];
+    }
+
+    /**
+     * Work out the routing hint the model sees when picking a skill.
+     *
+     * A missing description used to drop the skill on the floor without a word.
+     * Falling back to the opening line keeps it reachable, and the warning tells
+     * the author why their skill is being advertised badly.
+     *
+     * @param  array<string, mixed>  $meta
+     */
+    private function resolveDescription(array $meta, string $content, string $name): string
+    {
+        if (filled($meta['description'] ?? null)) {
+            return (string) $meta['description'];
+        }
+
+        Log::warning('Skill has no description in its frontmatter', ['skill' => $name]);
+
+        $firstLine = Str::of($content)
+            ->explode("\n")
+            ->map(fn (string $line): string => trim(ltrim($line, '# ')))
+            ->first(fn (string $line): bool => $line !== '');
+
+        return blank($firstLine) ? $name : Str::limit($firstLine, 150);
+    }
+
+    /**
+     * List everything bundled beside SKILL.md so the agent knows the skill ships with scripts or references.
+     *
+     * @return string[]
+     */
+    private function companionFiles(string $directory): array
+    {
+        return collect(File::allFiles($directory))
+            ->map(fn ($file): string => $file->getRelativePathname())
+            ->reject(fn (string $relative): bool => $relative === 'SKILL.md')
+            ->sort()
+            ->values()
+            ->all();
     }
 }

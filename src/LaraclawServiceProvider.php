@@ -93,6 +93,13 @@ class LaraclawServiceProvider extends ServiceProvider
             __DIR__ . '/../resources' => resource_path('laraclaw'),
         ], 'laraclaw');
 
+        // Kept apart from the main tag on purpose. Publishing this writes a
+        // personas/default.md, and that file is picked up automatically, so it
+        // has to be something the user asks for rather than something they get.
+        $this->publishes([
+            __DIR__ . '/../stubs/laraclaw' => base_path('laraclaw'),
+        ], 'laraclaw-agent');
+
         $this->registerEventListeners();
         $this->registerCommands();
         $this->registerScheduler();

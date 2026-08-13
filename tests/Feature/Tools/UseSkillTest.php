@@ -51,3 +51,32 @@ it('reports an empty registry in the description', function () {
 
     File::deleteDirectory($emptyPath);
 });
+
+it('points the agent at the files a skill ships with', function () {
+    // The instructions can name a helper script, so the agent needs the directory
+    // it lives in to actually reach it.
+    $path = storage_path('test-skills-companion');
+    File::ensureDirectoryExists($path . '/report/scripts');
+    File::put($path . '/report/SKILL.md', "---\ndescription: Builds a report\n---\nRun build.sh.");
+    File::put($path . '/report/scripts/build.sh', 'echo hi');
+
+    $result = (new UseSkill(new SkillRegistry($path)))->handle(new Request(['skill' => 'report']));
+
+    expect($result)->toContain('Run build.sh.')
+        ->toContain('scripts/build.sh')
+        ->toContain($path . '/report');
+
+    File::deleteDirectory($path);
+});
+
+it('adds no file note to a skill that is only a SKILL.md', function () {
+    $path = storage_path('test-skills-bare');
+    File::ensureDirectoryExists($path . '/plain');
+    File::put($path . '/plain/SKILL.md', "---\ndescription: Does a thing\n---\nJust instructions.");
+
+    $result = (new UseSkill(new SkillRegistry($path)))->handle(new Request(['skill' => 'plain']));
+
+    expect($result)->toBe('Just instructions.');
+
+    File::deleteDirectory($path);
+});
