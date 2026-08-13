@@ -166,6 +166,86 @@ class OrderManager extends BaseTool
 
 The agent may also override a tool's default with `requireApproval()` or `withoutApproval()` when it registers the tool.
 
+## Your Own Tools
+
+Extend `BaseTool` and list the operations you want to expose. It handles dispatch, so `save_attachment` in the schema calls `saveAttachment()` on your class, and an operation missing from `operations()` is rejected before it reaches your code:
+
+```php
+namespace App\Ai\Tools;
+
+use Illuminate\Contracts\JsonSchema\JsonSchema;
+use Laraclaw\Tools\BaseTool;
+use Laravel\Ai\Tools\Request;
+use Stringable;
+
+class OrderManager extends BaseTool
+{
+    protected array $requiresApproval = [
+        'refund' => 'Refund order {order_id}?',
+    ];
+
+    public function description(): Stringable|string
+    {
+        return 'Look up and refund customer orders. Operations: find, refund.';
+    }
+
+    public function schema(JsonSchema $schema): array
+    {
+        return [
+            'operation' => $schema->string()->required()->description('Operation: find or refund'),
+            'order_id' => $schema->string()->required()->description('The order ID'),
+        ];
+    }
+
+    protected function operations(): array
+    {
+        return ['find', 'refund'];
+    }
+
+    protected function find(Request $request): string
+    {
+        return Order::findOrFail($request['order_id'])->summary();
+    }
+
+    protected function refund(Request $request): string
+    {
+        return Order::findOrFail($request['order_id'])->refund();
+    }
+}
+```
+
+Then name it in `config/laraclaw.php`:
+
+```php
+use App\Ai\Tools\OrderManager;
+
+'tools' => [
+    'custom' => [
+        OrderManager::class,
+    ],
+],
+```
+
+That is the whole wiring. Tools are built once per message, and the container fills in constructor arguments named `$message` (the `IncomingMessage`) and `$thread` (the `Thread`), so a tool can tell which chat it is answering. Everything else resolves from the container as usual.
+
+A class that does not exist or does not implement `Laravel\Ai\Contracts\Tool` is skipped with a warning in the log rather than taking down every reply, so a typo costs you one tool instead of the whole bot.
+
+### Registering Tools at Runtime
+
+Config is a static list, so when you need to decide per message which tools exist, register a factory instead. It receives the message and thread and runs on every turn:
+
+```php
+use Laraclaw\Tools\ToolRegistry;
+
+$this->app->make(ToolRegistry::class)->register(
+    fn (IncomingMessage $message, ?Thread $thread) => $thread?->is_direct_message
+        ? new OrderManager($message)
+        : new PublicOrderLookup($message),
+);
+```
+
+Reach for this only when the tool list genuinely varies. For everything else the config array is easier to find and survives `config:cache`.
+
 > [!NOTE]
 > A gated call resumes from conversation history, so tools using approvals need a thread the bot remembers. Every Laraclaw connector gives them one.
 

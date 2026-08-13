@@ -38,6 +38,13 @@ return [
     'webhook_rate_limit' => env('LARACLAW_WEBHOOK_RATE_LIMIT', 20),
 
     'tools' => [
+        // Your own tools, each implementing Laravel\Ai\Contracts\Tool. They are
+        // built once per message, so a constructor may ask for the IncomingMessage
+        // or the Thread by name and it will be handed in.
+        'custom' => [
+            // App\Ai\Tools\OrderManager::class,
+        ],
+
         'tts' => [
             'enabled' => env('LARACLAW_TTS_ENABLED', true),
             'voice' => env('LARACLAW_TTS_VOICE', 'default-female'),

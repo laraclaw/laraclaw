@@ -2,6 +2,7 @@
 
 namespace Laraclaw\Agents;
 
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Laraclaw\Agents\Middleware\TranscribeAudio;
 use Laraclaw\DTOs\IncomingMessage;
@@ -118,7 +119,7 @@ class ChatBotAgent implements Agent, Conversational, HasMiddleware, HasProviderO
             $tools[] = resolve(ReadDatabase::class);
         }
 
-        return array_merge($tools, $this->toolRegistry->resolve(
+        return array_merge($tools, $this->configuredTools(), $this->toolRegistry->resolve(
             $this->message,
             $this->thread,
         ));
@@ -151,6 +152,46 @@ class ChatBotAgent implements Agent, Conversational, HasMiddleware, HasProviderO
             Lab::OpenAI => ['prompt_cache_key' => 'laraclaw-chatbot'],
             default => [],
         };
+    }
+
+    /**
+     * Build the tools listed in config, handing each one the message and thread it is answering.
+     *
+     * @return Tool[]
+     */
+    private function configuredTools(): array
+    {
+        return collect(config('laraclaw.tools.custom', []))
+            ->filter(fn (string $class): bool => $this->isUsableTool($class))
+            ->map(fn (string $class): Tool => resolve($class, [
+                'message' => $this->message,
+                'thread' => $this->thread,
+            ]))
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Check that a configured tool can actually be built, warning instead of taking the whole reply down.
+     *
+     * A typo in the class name should cost the user one tool, not every message,
+     * so this reports the problem and carries on without it.
+     */
+    private function isUsableTool(string $class): bool
+    {
+        if (! class_exists($class)) {
+            Log::warning('Configured tool does not exist', ['tool' => $class]);
+
+            return false;
+        }
+
+        if (! is_subclass_of($class, Tool::class)) {
+            Log::warning('Configured tool does not implement the Tool contract', ['tool' => $class]);
+
+            return false;
+        }
+
+        return true;
     }
 
     /**
