@@ -209,6 +209,18 @@ function stripHtml(?string $html): ?string
 }
 
 /**
+ * Return the timezone the application runs in, falling back to UTC.
+ *
+ * Laraclaw has no timezone setting of its own. Whatever the Laravel app is
+ * configured for is what the agent reasons in, what reminders fire on, and
+ * what gets written to the database.
+ */
+function appTimezone(): string
+{
+    return config('app.timezone') ?: 'UTC';
+}
+
+/**
  * Parse a date written in plain English or ISO 8601, returning null when it cannot be understood.
  *
  * Carbon leans on strtotime, which knows "2 minutes" and "tomorrow 10am" but not
@@ -216,9 +228,16 @@ function stripHtml(?string $html): ?string
  * fail outright, and the second one is the example our own tools advertise. Strip
  * the filler words before handing the string over, then fall back to the original
  * so an ISO 8601 value is never harmed by the rewrite.
+ *
+ * The result always comes back in the application timezone. A bare "10am" means
+ * 10am where the app lives, and an ISO 8601 value carrying its own offset is
+ * converted rather than stored as written, because Eloquent assumes every
+ * datetime it saves is already in the application timezone.
  */
 function parseNaturalDate(string $value): ?Carbon
 {
+    $timezone = appTimezone();
+
     $normalized = Str::of($value)
         ->trim()
         ->replaceMatches('/^in\s+/i', '+')
@@ -232,7 +251,7 @@ function parseNaturalDate(string $value): ?Carbon
         }
 
         try {
-            return Carbon::parse($candidate);
+            return Carbon::parse($candidate, $timezone)->setTimezone($timezone);
         } catch (Throwable) {
             continue;
         }

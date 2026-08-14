@@ -4,6 +4,7 @@ namespace Laraclaw\Services\Calendar;
 
 use DateTimeImmutable;
 use DateTimeInterface;
+use DateTimeZone;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
@@ -44,7 +45,7 @@ class AppleCalendarDriver implements CalendarDriver
                   <c:filter>
                     <c:comp-filter name="VCALENDAR">
                       <c:comp-filter name="VEVENT">
-                        <c:time-range start="{$start->format('Ymd\THis\Z')}" end="{$end->format('Ymd\THis\Z')}"/>
+                        <c:time-range start="{$this->toUtcStamp($start)}" end="{$this->toUtcStamp($end)}"/>
                       </c:comp-filter>
                     </c:comp-filter>
                   </c:filter>
@@ -137,6 +138,20 @@ class AppleCalendarDriver implements CalendarDriver
     public function delete(string $id): void
     {
         $this->http()->send('DELETE', "{$this->resolveCalendarUrl()}/{$id}.ics");
+    }
+
+    /**
+     * Format a datetime as a UTC timestamp for a CalDAV time-range filter.
+     *
+     * The trailing Z in the filter is a promise that the value is UTC, so a
+     * datetime sitting in the application timezone has to be converted first
+     * or the whole query window silently shifts by the offset.
+     */
+    private function toUtcStamp(DateTimeInterface $value): string
+    {
+        return DateTimeImmutable::createFromInterface($value)
+            ->setTimezone(new DateTimeZone('UTC'))
+            ->format('Ymd\THis\Z');
     }
 
     /**

@@ -8,6 +8,7 @@ use Laraclaw\Models\Reminder;
 use Laravel\Ai\Tools\Request;
 use Stringable;
 
+use function Laraclaw\Support\appTimezone;
 use function Laraclaw\Support\parseNaturalDate;
 
 /**
@@ -83,7 +84,7 @@ class ReminderManager extends BaseTool
             'remind_at' => $remindAtDate,
         ]);
 
-        return "Reminder set for {$remindAtDate->toDateTimeString()}: {$message}";
+        return "Reminder set for {$remindAtDate->toDateTimeString()} (" . appTimezone() . "): {$message}";
     }
 
     /**

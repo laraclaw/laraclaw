@@ -5,6 +5,7 @@ namespace Laraclaw\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Laraclaw\Enums\ConnectorType;
+use Laraclaw\Models\Concerns\SerializesDatesInAppTimezone;
 use Override;
 
 /**
@@ -12,6 +13,8 @@ use Override;
  */
 class Heartbeat extends Model
 {
+    use SerializesDatesInAppTimezone;
+
     protected $table = 'laraclaw_heartbeats';
 
     protected $fillable = [

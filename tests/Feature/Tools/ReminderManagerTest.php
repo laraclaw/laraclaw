@@ -1,6 +1,5 @@
 <?php
 
-use Carbon\Carbon;
 use Laraclaw\DTOs\IncomingMessage;
 use Laraclaw\Enums\ConnectorType;
 use Laraclaw\Models\Reminder;
@@ -159,16 +158,47 @@ it('returns an error when cancel is called without an id', function () {
 it('creates a reminder from a relative phrase the model wrote', function () {
     // "in 2 minutes" used to fail outright and the user got an error instead of
     // a reminder.
-    Carbon::setTestNow('2026-08-13 12:00:00');
+    $this->travelTo('2026-08-13 12:00:00', function () {
+        $result = reminderTool()->handle(reminderRequest([
+            'operation' => 'create',
+            'message' => 'Check the oven',
+            'remind_at' => 'in 2 minutes',
+        ]));
 
-    $result = reminderTool()->handle(reminderRequest([
-        'operation' => 'create',
-        'message' => 'Check the oven',
-        'remind_at' => 'in 2 minutes',
-    ]));
+        expect($result)->toContain('2026-08-13 12:02:00');
+        expect(Reminder::first()->remind_at->toDateTimeString())->toBe('2026-08-13 12:02:00');
+    });
+});
 
-    expect($result)->toContain('2026-08-13 12:02:00');
-    expect(Reminder::first()->remind_at->toDateTimeString())->toBe('2026-08-13 12:02:00');
+it('schedules a reminder in the application timezone', function () {
+    withTimezone('America/Argentina/Buenos_Aires');
 
-    Carbon::setTestNow();
+    // Noon UTC is nine in the morning in Buenos Aires, so "in 2 minutes" lands
+    // on 09:02 local rather than the 12:02 a UTC app would have written.
+    $this->travelTo('2026-08-13 12:00:00 UTC', function () {
+        $result = reminderTool()->handle(reminderRequest([
+            'operation' => 'create',
+            'message' => 'Check the oven',
+            'remind_at' => 'in 2 minutes',
+        ]));
+
+        expect($result)->toContain('2026-08-13 09:02:00 (America/Argentina/Buenos_Aires)');
+        expect(Reminder::first()->remind_at->toDateTimeString())->toBe('2026-08-13 09:02:00');
+    });
+});
+
+it('reports pending reminders in the application timezone', function () {
+    withTimezone('America/Argentina/Buenos_Aires');
+
+    Reminder::create([
+        'user_id' => $this->user->id,
+        'connector' => 'telegram',
+        'key' => 'user-123',
+        'message' => 'Pending reminder',
+        'remind_at' => '2026-08-13 09:02:00',
+    ]);
+
+    $result = reminderTool()->handle(reminderRequest(['operation' => 'list']));
+
+    expect($result)->toContain('2026-08-13T09:02:00-03:00');
 });

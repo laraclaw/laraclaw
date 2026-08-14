@@ -23,7 +23,8 @@ class HeartbeatManager extends BaseTool
             . 'Use create to schedule a recurring prompt on a cron schedule. '
             . 'Each time the heartbeat fires, the prompt is sent to the agent for processing and the response is delivered. '
             . 'The cron field accepts standard 5-field cron expressions (e.g. "0 9 * * 1" for every Monday at 9am). '
-            . 'Translate human-friendly schedules ("every weekday at 9am") into cron format using the current timezone. '
+            . 'Translate plain English schedules ("every weekday at 9am") into cron format. '
+            . 'Cron expressions are evaluated in the timezone given to you as the current date and time, so no offset maths is needed. '
             . 'Use list to see active heartbeats. '
             . 'Use cancel to deactivate a heartbeat by ID.';
     }

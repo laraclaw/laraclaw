@@ -90,6 +90,14 @@ it('builds instructions from the default prompt and grounds them in time', funct
         ->toContain(date('Y'));
 });
 
+it('grounds the agent in the application timezone', function () {
+    $agent = makeAgent(['app.timezone' => 'America/Argentina/Buenos_Aires']);
+
+    expect($agent->instructions())
+        ->toContain('(America/Argentina/Buenos_Aires, UTC-03:00)')
+        ->toContain('unless they say otherwise');
+});
+
 it('appends the persona when a thread persona is set', function () {
     $personas = sys_get_temp_dir() . '/laraclaw-personas-' . uniqid();
     File::makeDirectory($personas);

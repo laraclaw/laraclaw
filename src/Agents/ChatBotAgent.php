@@ -38,6 +38,8 @@ use Laravel\Ai\Promptable;
 use Laravel\Ai\Providers\Tools\WebSearch;
 use RuntimeException;
 
+use function Laraclaw\Support\appTimezone;
+
 class ChatBotAgent implements Agent, Conversational, HasMiddleware, HasProviderOptions, HasTools
 {
     use Promptable, RemembersConversations;
@@ -311,11 +313,14 @@ class ChatBotAgent implements Agent, Conversational, HasMiddleware, HasProviderO
      */
     private function buildSystemPrompt(): string
     {
-        $tz = config('app.timezone', 'UTC');
-        $now = now()->setTimezone($tz)->toDateTimeString();
+        $timezone = appTimezone();
+        $now = now()->setTimezone($timezone);
 
         return file_get_contents($this->instructionsPath())
-            . PHP_EOL . PHP_EOL . "Current date and time: {$now} ({$tz})";
+            . PHP_EOL . PHP_EOL
+            . "Current date and time: {$now->toDateTimeString()} ({$timezone}, UTC{$now->format('P')})." . PHP_EOL
+            . 'Every time the user mentions is in this timezone unless they say otherwise, '
+            . 'and every time you schedule or report back should be in it too.';
     }
 
     /**

@@ -4,6 +4,7 @@ namespace Laraclaw\Tools;
 
 use Carbon\Carbon;
 use DateTimeImmutable;
+use DateTimeZone;
 use Exception;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laraclaw\DTOs\CalendarEvent;
@@ -13,6 +14,7 @@ use Laravel\Ai\Tools\Request;
 use Override;
 use Stringable;
 
+use function Laraclaw\Support\appTimezone;
 use function Laraclaw\Support\parseNaturalDate;
 
 /**
@@ -102,12 +104,17 @@ class CalendarManager extends BaseTool
 
         $events = $this->driver->list($startDate, $endDate);
 
+        // Calendar servers answer in whatever timezone the event was written in,
+        // which can be any of several across one list. Normalize them so the
+        // agent is comparing like with like against the time it was given.
+        $timezone = new DateTimeZone(appTimezone());
+
         return collect($events)
             ->map(fn (CalendarEvent $e): array => [
                 'id' => $e->id,
                 'title' => $e->title,
-                'start' => $e->start->format('c'),
-                'end' => $e->end->format('c'),
+                'start' => $e->start->setTimezone($timezone)->format('c'),
+                'end' => $e->end->setTimezone($timezone)->format('c'),
                 'description' => $e->description,
                 'location' => $e->location,
                 'attendees' => $e->attendees,

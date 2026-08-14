@@ -22,6 +22,16 @@ abstract class TestCase extends BaseTestCase
         $this->app->instance(ConversationStore::class, new FakeConversationStore);
     }
 
+    protected function tearDown(): void
+    {
+        // Both of these outlive the container, so a test that freezes the clock
+        // or moves the app abroad would otherwise leak into the next one.
+        $this->travelBack();
+        date_default_timezone_set('UTC');
+
+        parent::tearDown();
+    }
+
     protected function getPackageProviders($app): array
     {
         return [AiServiceProvider::class, LaraclawServiceProvider::class];
