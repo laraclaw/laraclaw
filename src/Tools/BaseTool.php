@@ -115,6 +115,29 @@ abstract class BaseTool implements Approvable, Tool
     }
 
     /**
+     * Validate that a file may be read from the given disk and path.
+     *
+     * This is the full set of filesystem rules: the disk allowlist, the traversal
+     * check, and the attachment directories the agent is not allowed to touch.
+     * Tools that hand file contents to the outside world should go through here so
+     * they cannot drift away from what FileManager enforces.
+     *
+     * Returns an error string, or null if access is permitted.
+     */
+    protected function validateFileAccess(string $disk, string $path): ?string
+    {
+        if ($error = $this->validateDiskAccess($disk, $path)) {
+            return $error;
+        }
+
+        if ($this->isProtectedPath($path)) {
+            return "Cannot read system directory '{$path}'.";
+        }
+
+        return null;
+    }
+
+    /**
      * Return true if the path resolves outside the disk root.
      *
      * For existing paths, realpath() is used so symlinks cannot escape the root.
