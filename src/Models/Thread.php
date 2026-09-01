@@ -31,6 +31,17 @@ class Thread extends Model
     }
 
     /**
+     * Build the same lock name for a thread that may not have a row yet.
+     *
+     * Routines address a thread by connector and key and only find or create the
+     * row once they run, so the name cannot depend on the primary key.
+     */
+    public static function lockKeyFor(ConnectorType $connector, string $key): string
+    {
+        return 'laraclaw:thread-lock:' . $connector->value . ':' . $key;
+    }
+
+    /**
      * Instantiate the outbound connector for this thread.
      */
     public function connector(): Connector
@@ -60,6 +71,18 @@ class Thread extends Model
         $userModel = config('laraclaw.auth.user_model');
 
         return $userModel::find(config('laraclaw.auth.admin_user_id'));
+    }
+
+    /**
+     * Return the cache lock name that serializes agent turns on this thread.
+     *
+     * Only one turn may run at a time, or two of them read the same
+     * conversation_id, start separate AI conversations, and whichever finishes
+     * last wins while the other turn vanishes from every later prompt.
+     */
+    public function lockKey(): string
+    {
+        return static::lockKeyFor($this->connector, $this->key);
     }
 
     /**

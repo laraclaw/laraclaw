@@ -37,6 +37,25 @@ return [
     // Max webhook requests per conversation per minute (0 = disabled)
     'webhook_rate_limit' => env('LARACLAW_WEBHOOK_RATE_LIMIT', 20),
 
+    // Only one agent turn runs on a thread at a time. Without that, two messages
+    // sent seconds apart both read the same conversation, start one AI
+    // conversation each, and the slower one is dropped from every later prompt.
+    'queue' => [
+        'thread_lock' => [
+            // Seconds a waiting turn sits on the queue before it tries again
+            'retry_after' => env('LARACLAW_THREAD_LOCK_RETRY_AFTER', 5),
+
+            // Seconds a held lock survives a worker that dies while running a turn
+            'expires_after' => env('LARACLAW_THREAD_LOCK_EXPIRES_AFTER', 900),
+
+            // Seconds a queued turn keeps waiting for its predecessor before giving up
+            'queued_wait_for' => env('LARACLAW_THREAD_LOCK_QUEUED_WAIT_FOR', 900),
+
+            // Seconds an API request blocks on the lock, kept short because a caller is waiting
+            'sync_wait_for' => env('LARACLAW_THREAD_LOCK_SYNC_WAIT_FOR', 30),
+        ],
+    ],
+
     'tools' => [
         // Your own tools, each implementing Laravel\Ai\Contracts\Tool. They are
         // built once per message, so a constructor may ask for the IncomingMessage

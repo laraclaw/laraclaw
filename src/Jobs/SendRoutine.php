@@ -6,6 +6,7 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use Laraclaw\Agents\ChatBotAgent;
@@ -35,6 +36,23 @@ class SendRoutine implements ShouldQueue
     ) {}
 
     /**
+     * Serialize this run against the messages arriving on the same thread.
+     *
+     * A routine prompts the agent and saves the conversation like any inbound
+     * message does, so it has to wait its turn or the two overwrite each other.
+     */
+    public function middleware(): array
+    {
+        return [
+            new WithoutOverlapping(Thread::lockKeyFor($this->routine->connector, $this->threadKey()))
+                ->shared()
+                ->withPrefix('')
+                ->releaseAfter(config('laraclaw.queue.thread_lock.retry_after', 5))
+                ->expireAfter(config('laraclaw.queue.thread_lock.expires_after', 900)),
+        ];
+    }
+
+    /**
      * Build an incoming message from the routine prompt, run it through the agent,
      * and deliver the response via the connector.
      *
@@ -56,11 +74,7 @@ class SendRoutine implements ShouldQueue
         $isSlackConnector = $this->isSlackConnector();
         $isDirectMessage = $this->routine->connector->isDirectMessage($this->routine->key);
 
-        // Slack channel keys are stored as "channelId:threadTs". Strip the
-        // threadTs so the connector posts a new top level message each time.
-        $key = $isSlackConnector
-            ? explode(':', $this->routine->key, 2)[0]
-            : $this->routine->key;
+        $key = $this->threadKey();
 
         $message = new IncomingMessage(
             text: $this->routine->prompt,
@@ -125,6 +139,19 @@ class SendRoutine implements ShouldQueue
             'key' => $this->routine->key,
             'error' => $exception->getMessage(),
         ]);
+    }
+
+    /**
+     * Return the thread key this routine runs against.
+     *
+     * Slack channel keys are stored as "channelId:threadTs". Strip the threadTs
+     * so the connector posts a new top level message each time.
+     */
+    private function threadKey(): string
+    {
+        return $this->isSlackConnector()
+            ? explode(':', $this->routine->key, 2)[0]
+            : $this->routine->key;
     }
 
     /**

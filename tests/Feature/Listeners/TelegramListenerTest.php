@@ -1,19 +1,17 @@
 <?php
 
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
-use Laraclaw\Agents\ChatBotAgent;
 use Laraclaw\Commands\Command;
 use Laraclaw\Commands\CommandRegistry;
 use Laraclaw\DTOs\IncomingMessage;
 use Laraclaw\Enums\ConnectorType;
 use Laraclaw\Events\TelegramMessageReceived;
+use Laraclaw\Jobs\RunAgentTurn;
 use Laraclaw\Listeners\TelegramListener;
 use Laraclaw\Models\Account;
 use Laraclaw\Models\Thread;
-use Laravel\Ai\Approvals\Decisions;
-use Laravel\Ai\Responses\QueuedAgentResponse;
 use Telegram\Bot\Api;
 use Telegram\Bot\Objects\Chat;
 use Telegram\Bot\Objects\File;
@@ -56,63 +54,9 @@ function registerTelegramAccount(int $chatId = 12345): void
     ]);
 }
 
-function makeQueuedResponse(): Mockery\MockInterface
-{
-    $queued = Mockery::mock(QueuedAgentResponse::class);
-    $queued->allows('then')->andReturnSelf();
-    $queued->allows('catch')->andReturnSelf();
-
-    return $queued;
-}
-
-function mockAgentQueue(): Mockery\MockInterface
-{
-    $queued = makeQueuedResponse();
-
-    $agent = Mockery::mock(ChatBotAgent::class);
-    $agent->allows('queue')->withAnyArgs()->andReturn($queued);
-
-    app()->bind(ChatBotAgent::class, fn () => $agent);
-
-    return $agent;
-}
-
-/**
- * Bind an agent that asserts queue() is called exactly once with a matching first argument.
- */
-function expectAgentQueuedWith(callable $matcher): void
-{
-    $agent = Mockery::mock(ChatBotAgent::class);
-
-    $agent->expects('queue')
-        ->once()
-        ->withArgs(fn ($prompt): bool => $matcher($prompt))
-        ->andReturn(makeQueuedResponse());
-
-    app()->bind(ChatBotAgent::class, fn () => $agent);
-}
-
-/**
- * Create a thread that is already paused on a gated tool call.
- */
-function pauseTelegramThread(int $chatId = 12345): Thread
-{
-    return Thread::create([
-        'connector' => ConnectorType::Telegram,
-        'key' => (string) $chatId,
-        'is_direct_message' => true,
-        'conversation_id' => (string) Str::uuid(),
-        'pending_approvals' => [[
-            'id' => 'call_abc',
-            'tool' => 'FileManager',
-            'arguments' => [],
-            'reason' => 'Delete a.txt?',
-        ]],
-    ]);
-}
-
 beforeEach(function () {
     Log::spy();
+    Bus::fake();
     config(['laraclaw.connectors.telegram.enabled' => true]);
 });
 
@@ -147,40 +91,19 @@ it('skips empty messages with no text, caption, or media', function () {
 it('allows group messages without a registered account', function () {
     $user = test()->createUser();
     config(['laraclaw.auth.admin_user_id' => $user->getAuthIdentifier()]);
-    mockAgentQueue();
 
     app(TelegramListener::class)(makeTelegramEvent(chatId: -100123));
 
     Log::shouldNotHaveReceived('debug');
 });
 
-it('resumes a paused run by approving when the user replies yes', function () {
+it('queues the turn with the message it has to answer', function () {
     registerTelegramAccount(12345);
-    pauseTelegramThread();
-
-    expectAgentQueuedWith(fn (Decisions $decisions): bool => $decisions->get('*')->isApproved());
-
-    app(TelegramListener::class)(makeTelegramEvent(chatId: 12345, text: 'Yes'));
-});
-
-it('resumes a paused run by rejecting when the user replies with anything else', function () {
-    registerTelegramAccount(12345);
-    pauseTelegramThread();
-
-    // The user's own words ride along as the rejection result so the model keeps
-    // the turn and can act on what they actually asked for.
-    expectAgentQueuedWith(fn (Decisions $decisions): bool => $decisions->get('*')->isRejected()
-        && $decisions->get('*')->result === 'no, delete b.txt instead');
-
-    app(TelegramListener::class)(makeTelegramEvent(chatId: 12345, text: 'no, delete b.txt instead'));
-});
-
-it('queues the message normally when no approval is pending', function () {
-    registerTelegramAccount(12345);
-
-    expectAgentQueuedWith(fn ($prompt): bool => $prompt === 'Hello bot');
 
     app(TelegramListener::class)(makeTelegramEvent(chatId: 12345, text: 'Hello bot'));
+
+    Bus::assertDispatched(RunAgentTurn::class, fn (RunAgentTurn $job): bool => $job->message->text === 'Hello bot'
+        && $job->thread->key === '12345');
 });
 
 it('executes a matched command and does not queue the agent', function () {
@@ -198,27 +121,20 @@ it('executes a matched command and does not queue the agent', function () {
 
     app(TelegramListener::class)(makeTelegramEvent(chatId: 12345, text: '!test'));
 
+    Bus::assertNotDispatched(RunAgentTurn::class);
     Log::shouldNotHaveReceived('error');
 });
 
 it('queues the agent when no command matches', function () {
     registerTelegramAccount(12345);
 
-    $queued = Mockery::mock(QueuedAgentResponse::class);
-    $queued->expects('then')->once()->andReturnSelf();
-    $queued->expects('catch')->once()->andReturnSelf();
-
-    $agent = Mockery::mock(ChatBotAgent::class);
-    $agent->expects('queue')->once()->andReturn($queued);
-
-    app()->bind(ChatBotAgent::class, fn () => $agent);
-
     app(TelegramListener::class)(makeTelegramEvent(chatId: 12345));
+
+    Bus::assertDispatched(RunAgentTurn::class);
 });
 
 it('creates a thread record for incoming messages', function () {
     registerTelegramAccount(12345);
-    mockAgentQueue();
 
     app(TelegramListener::class)(makeTelegramEvent(chatId: 12345));
 
@@ -227,7 +143,6 @@ it('creates a thread record for incoming messages', function () {
 
 it('accepts messages with a caption but no text', function () {
     registerTelegramAccount(12345);
-    mockAgentQueue();
 
     $event = makeTelegramEvent(chatId: 12345, text: null, extra: ['caption' => 'Photo caption']);
 
@@ -238,7 +153,6 @@ it('accepts messages with a caption but no text', function () {
 
 it('accepts messages with media but no text or caption', function () {
     registerTelegramAccount(12345);
-    mockAgentQueue();
 
     $audio = Mockery::mock();
     $audio->allows('getFileId')->andReturn('audio-file-id');
