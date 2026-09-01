@@ -4,6 +4,7 @@ namespace Laraclaw\Services;
 
 use Illuminate\Contracts\Cache\Repository;
 use Illuminate\Support\Facades\Log;
+use Laraclaw\Enums\EmailClaim;
 
 /**
  * Track which incoming emails have already been handed off for processing.
@@ -14,7 +15,7 @@ use Illuminate\Support\Facades\Log;
  */
 class ProcessedEmails
 {
-    private const string KEY_PREFIX = 'laraclaw:email:processed:';
+    private const string KEY_PREFIX = 'laraclaw:email:';
 
     /**
      * Inject the cache store that holds the deduplication records.
@@ -22,35 +23,36 @@ class ProcessedEmails
     public function __construct(private readonly Repository $cache) {}
 
     /**
-     * Record an attempt at this email and return whether the caller should process it.
+     * Try to take ownership of an email and report whether the caller may process it.
      *
-     * Returns false when the message was already handed off, or when it has
-     * failed so often that retrying it forever is worse than dropping it.
+     * Two pollers can be handed the same unseen message at the same time, so the
+     * lease is taken with add(), which every cache store implements as a single
+     * atomic operation. Only the process that creates the lease goes on to queue
+     * the agent, and the loser is told to leave the message alone.
      */
-    public function claim(string $identifier): bool
+    public function claim(string $identifier): EmailClaim
     {
-        $record = $this->record($identifier);
-
-        if ($record['handed_off']) {
-            return false;
+        if ($this->cache->has($this->key('handled', $identifier))) {
+            return EmailClaim::AlreadyHandled;
         }
 
+        if (! $this->cache->add($this->key('lease', $identifier), true, $this->leaseSeconds())) {
+            return EmailClaim::InFlight;
+        }
+
+        $attempts = $this->recordAttempt($identifier);
         $maxAttempts = (int) config('laraclaw.connectors.email.max_processing_attempts', 3);
 
-        if ($record['attempts'] >= $maxAttempts) {
+        if ($attempts > $maxAttempts) {
             Log::error('Laraclaw: email abandoned after repeated processing failures', [
                 'identifier' => $identifier,
-                'attempts' => $record['attempts'],
+                'attempts' => $attempts,
             ]);
 
-            return false;
+            return EmailClaim::Exhausted;
         }
 
-        $record['attempts']++;
-
-        $this->store($identifier, $record);
-
-        return true;
+        return EmailClaim::Granted;
     }
 
     /**
@@ -58,44 +60,58 @@ class ProcessedEmails
      */
     public function confirm(string $identifier): void
     {
-        $record = $this->record($identifier);
-        $record['handed_off'] = true;
-
-        $this->store($identifier, $record);
+        $this->cache->put($this->key('handled', $identifier), true, $this->retentionSeconds());
     }
 
     /**
-     * Read the stored record for an email, falling back to a fresh one.
+     * Drop the lease after a failed handoff so the next poll can retry right away.
      *
-     * @return array{attempts: int, handed_off: bool}
+     * The attempt counter is deliberately left alone. It is what stops an email
+     * that fails every single time from being retried forever.
      */
-    private function record(string $identifier): array
+    public function release(string $identifier): void
     {
-        return $this->cache->get($this->key($identifier), [
-            'attempts' => 0,
-            'handed_off' => false,
-        ]);
+        $this->cache->forget($this->key('lease', $identifier));
     }
 
     /**
-     * Write the record back with the configured retention.
+     * Count this attempt and return the new total.
      *
-     * @param  array{attempts: int, handed_off: bool}  $record
+     * add() seeds the counter only when it is missing, and increment() is atomic,
+     * so parallel workers cannot lose an attempt between them.
      */
-    private function store(string $identifier, array $record): void
+    private function recordAttempt(string $identifier): int
     {
-        $this->cache->put(
-            $this->key($identifier),
-            $record,
-            (int) config('laraclaw.connectors.email.processed_retention', 604800),
-        );
+        $key = $this->key('attempts', $identifier);
+
+        if ($this->cache->add($key, 1, $this->retentionSeconds())) {
+            return 1;
+        }
+
+        return (int) $this->cache->increment($key);
+    }
+
+    /**
+     * Return how long a crashed attempt blocks a retry, in seconds.
+     */
+    private function leaseSeconds(): int
+    {
+        return (int) config('laraclaw.connectors.email.processing_lease', 300);
+    }
+
+    /**
+     * Return how long the record of a processed email is kept, in seconds.
+     */
+    private function retentionSeconds(): int
+    {
+        return (int) config('laraclaw.connectors.email.processed_retention', 604800);
     }
 
     /**
      * Hash the identifier so an arbitrarily long Message-ID still fits a cache key.
      */
-    private function key(string $identifier): string
+    private function key(string $bucket, string $identifier): string
     {
-        return self::KEY_PREFIX . md5($identifier);
+        return self::KEY_PREFIX . $bucket . ':' . md5($identifier);
     }
 }

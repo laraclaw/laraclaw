@@ -9,6 +9,7 @@ use Laraclaw\Agents\ChatBotAgent;
 use Laraclaw\Approvals\ApprovalFlow;
 use Laraclaw\Commands\CommandRegistry;
 use Laraclaw\Connectors\Email;
+use Laraclaw\Enums\EmailClaim;
 use Laraclaw\Models\Thread;
 use Laraclaw\Services\Attachments;
 use Laraclaw\Services\ProcessedEmails;
@@ -51,8 +52,12 @@ class EmailListener
         // The seen flag lives on the mail server and the work lives here, so the two
         // can always come apart. Claim the message first and let the claim, not the
         // flag, be what stops us from answering the same email twice.
-        if (! $this->processed->claim($identifier)) {
-            Email::markSeen($raw->uid());
+        $claim = $this->processed->claim($identifier);
+
+        if ($claim !== EmailClaim::Granted) {
+            if ($claim->shouldMarkSeen()) {
+                Email::markSeen($raw->uid(), $event->mailbox);
+            }
 
             return;
         }
@@ -65,7 +70,7 @@ class EmailListener
         if ($command = $this->commands->match($incomingMessage->text ?? '')) {
             $command->handle($incomingMessage, $thread);
 
-            $this->settle($identifier, $raw->uid());
+            $this->settle($identifier, $raw->uid(), $event->mailbox);
 
             return;
         }
@@ -103,12 +108,18 @@ class EmailListener
                 Log::error('Email agent error', ['error' => $e->getMessage()]);
             });
 
-        // The job is only pushed once the pending dispatch is released, so release it
-        // here and let the push, rather than the end of this method, be the moment the
-        // email counts as ours. A push that throws leaves the email unseen for a retry.
+        // Laravel pushes a queued job from the pending dispatch destructor, and it
+        // exposes no method to fire it by hand, so dropping the last reference is
+        // what sends the job. Doing it here, rather than letting the variable fall
+        // out of scope at the end of the method, keeps the push inside the try and
+        // makes the moment the email becomes ours something we can see and test.
         try {
             unset($queued);
         } catch (Throwable $e) {
+            // Nothing was queued, so give the lease back and let the next poll retry
+            // this message while it is still unseen on the server.
+            $this->processed->release($identifier);
+
             Log::error('Laraclaw: failed to queue the agent for an incoming email', [
                 'identifier' => $identifier,
                 'error' => $e->getMessage(),
@@ -117,17 +128,17 @@ class EmailListener
             return;
         }
 
-        $this->settle($identifier, $raw->uid());
+        $this->settle($identifier, $raw->uid(), $event->mailbox);
     }
 
     /**
      * Record the handoff and only then tell the mail server to stop offering the message.
      */
-    private function settle(string $identifier, int $uid): void
+    private function settle(string $identifier, int $uid, string $mailbox): void
     {
         $this->processed->confirm($identifier);
 
-        Email::markSeen($uid);
+        Email::markSeen($uid, $mailbox);
     }
 
     /**

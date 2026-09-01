@@ -133,6 +133,10 @@ return [
             // How long, in seconds, the record that an email was already processed is kept
             'processed_retention' => env('LARACLAW_EMAIL_PROCESSED_RETENTION', 604800),
 
+            // How long, in seconds, a crashed attempt keeps its hold on an email before
+            // another poll is allowed to pick it up again
+            'processing_lease' => env('LARACLAW_EMAIL_PROCESSING_LEASE', 300),
+
             // SMTP config for sending emails
             'smtp' => [
                 'host' => env('LARACLAW_SMTP_HOST'),
