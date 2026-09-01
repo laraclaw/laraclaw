@@ -56,7 +56,9 @@ You'll need a bot token from [@BotFather](https://t.me/BotFather). The setup wiz
 https://your-app.com/telegram/webhook
 ```
 
-Point your bot at it with a one-off `setWebhook` call (curl, Postman, or `Telegram::setWebhook(['url' => ...])` from Tinker).
+Setup generates `LARACLAW_TELEGRAM_SECRET_TOKEN` and offers to call `setWebhook` for you, passing that secret. Telegram then returns it in the `X-Telegram-Bot-Api-Secret-Token` header on every request, and Laraclaw rejects anything that does not carry it.
+
+The connector refuses to boot without that secret, so an install that registered its webhook before this existed has to run the setup command again (or call `setWebhook` with `secret_token` set to the value in `.env`). Without it, anyone who finds the URL can post a group update and the bot will act on it as the owner.
 
 ### Slack
 
