@@ -182,10 +182,13 @@ it('waits for the turn already answering the thread instead of running beside it
         'is_direct_message' => true,
     ]);
 
-    Cache::lock($thread->lockKey(), 60)->get();
     config(['laraclaw.queue.thread_lock.sync_wait_for' => 0]);
 
-    $response = $this->postJson('/api/message', ['text' => 'Hello', 'key' => 'shared-key'], apiHeaders());
+    // Holding the lock around a closure hands it back even when something inside
+    // blows up, so the next test does not inherit it.
+    $response = Cache::lock($thread->lockKey(), 60)->get(
+        fn () => $this->postJson('/api/message', ['text' => 'Hello', 'key' => 'shared-key'], apiHeaders()),
+    );
 
     // Told to come back rather than allowed to open a rival conversation.
     $response->assertStatus(429);

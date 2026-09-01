@@ -2,6 +2,7 @@
 
 namespace Laraclaw\Jobs;
 
+use DateTimeInterface;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -26,7 +27,12 @@ class SendRoutine implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $tries = 2;
+    /**
+     * Waiting for the thread lock costs an attempt but never an exception, so
+     * counting tries would drop a routine that simply queued behind a long turn.
+     * Two exceptions keeps the single retry this job has always had.
+     */
+    public int $maxExceptions = 2;
 
     /**
      * Bind the routine row that this job will fire on dispatch.
@@ -50,6 +56,17 @@ class SendRoutine implements ShouldQueue
                 ->releaseAfter(config('laraclaw.queue.thread_lock.retry_after', 5))
                 ->expireAfter(config('laraclaw.queue.thread_lock.expires_after', 900)),
         ];
+    }
+
+    /**
+     * Keep retrying for as long as a turn ahead of this one could plausibly still be running.
+     *
+     * With this set Laravel stops counting attempts, which is what makes the
+     * releases above free. Without it every wait would burn one of the tries.
+     */
+    public function retryUntil(): DateTimeInterface
+    {
+        return now()->addSeconds((int) config('laraclaw.queue.thread_lock.queued_wait_for', 900));
     }
 
     /**
@@ -129,7 +146,7 @@ class SendRoutine implements ShouldQueue
     }
 
     /**
-     * Log the failure when the job exhausts its retries.
+     * Log the failure when the job gives up.
      */
     public function failed(Throwable $exception): void
     {

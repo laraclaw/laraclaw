@@ -123,16 +123,18 @@ it('answers both messages rather than dropping the second', function () {
 it('releases a turn back to the queue while another turn holds the thread', function () {
     $thread = turnThread();
 
-    // The turn ahead of this one is still running.
-    Cache::lock($thread->lockKey(), 60)->get();
-
     $job = new RunAgentTurn($thread, turnMessage('second'), $this->connector);
     $job->withFakeQueueInteractions();
 
-    app(Pipeline::class)
-        ->send($job)
-        ->through($job->middleware())
-        ->then(fn () => throw new RuntimeException('The second turn ran while the first held the lock.'));
+    // The turn ahead of this one is still running. Holding the lock around a
+    // closure hands it back even when something inside blows up, so the next
+    // test does not inherit it.
+    Cache::lock($thread->lockKey(), 60)->get(function () use ($job): void {
+        app(Pipeline::class)
+            ->send($job)
+            ->through($job->middleware())
+            ->then(fn () => throw new RuntimeException('The second turn ran while the first held the lock.'));
+    });
 
     // Released, not discarded, so the message is still answered once the lock frees.
     $job->assertReleased(delay: 5);
