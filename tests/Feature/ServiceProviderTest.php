@@ -44,6 +44,7 @@ it('does not throw when neither Telegram nor Slack is enabled and admin_user_id 
 
 it('does not throw when admin_user_id is set and Telegram is enabled', function () {
     config(['laraclaw.connectors.telegram.enabled' => true]);
+    config(['laraclaw.connectors.telegram.secret_token' => 'test-secret']);
     config(['laraclaw.auth.admin_user_id' => 1]);
 
     $provider = new LaraclawServiceProvider($this->app);
@@ -52,6 +53,20 @@ it('does not throw when admin_user_id is set and Telegram is enabled', function 
     $method->setAccessible(true);
 
     expect(fn () => $method->invoke($provider))->not->toThrow(RuntimeException::class);
+});
+
+it('throws when Telegram is enabled but the webhook secret token is not set', function () {
+    config(['laraclaw.connectors.telegram.enabled' => true]);
+    config(['laraclaw.connectors.telegram.secret_token' => null]);
+    config(['laraclaw.auth.admin_user_id' => 1]);
+
+    $provider = new LaraclawServiceProvider($this->app);
+
+    $method = new ReflectionMethod($provider, 'validateConfiguration');
+    $method->setAccessible(true);
+
+    expect(fn () => $method->invoke($provider))
+        ->toThrow(RuntimeException::class, 'LARACLAW_TELEGRAM_SECRET_TOKEN');
 });
 
 it('resolves no calendar driver when the driver is unset', function () {

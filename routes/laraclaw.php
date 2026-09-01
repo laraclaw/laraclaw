@@ -14,7 +14,7 @@ if (config('laraclaw.connectors.telegram.enabled')) {
         if ($message) {
             event(new TelegramMessageReceived($message, $bot));
         }
-    })->middleware('throttle:laraclaw-telegram');
+    })->middleware(['telegram.secret', 'throttle:laraclaw-telegram']);
 }
 
 if (config('laraclaw.connectors.slack.enabled')) {

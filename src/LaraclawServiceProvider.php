@@ -29,6 +29,7 @@ use Laraclaw\Console\Commands\SetupWizard;
 use Laraclaw\Events\TelegramMessageReceived;
 use Laraclaw\Http\Middleware\VerifyApiToken;
 use Laraclaw\Http\Middleware\VerifySlackSignature;
+use Laraclaw\Http\Middleware\VerifyTelegramSecret;
 use Laraclaw\Listeners\EmailListener;
 use Laraclaw\Listeners\EmbedConversation;
 use Laraclaw\Listeners\LogAgentRequest;
@@ -85,6 +86,7 @@ class LaraclawServiceProvider extends ServiceProvider
         $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
 
         $this->app['router']->aliasMiddleware('slack.signature', VerifySlackSignature::class);
+        $this->app['router']->aliasMiddleware('telegram.secret', VerifyTelegramSecret::class);
         $this->app['router']->aliasMiddleware('laraclaw.api', VerifyApiToken::class);
 
         // One tag for everything. Publishing never overwrites a file that is
@@ -142,6 +144,13 @@ class LaraclawServiceProvider extends ServiceProvider
         if ($needsOwner && ! config('laraclaw.auth.admin_user_id')) {
             throw new RuntimeException(
                 'Laraclaw: LARACLAW_ADMIN_USER_ID must be set when Telegram or Slack connectors are enabled.'
+            );
+        }
+
+        if (config('laraclaw.connectors.telegram.enabled') && empty(config('laraclaw.connectors.telegram.secret_token'))) {
+            throw new RuntimeException(
+                'Laraclaw: LARACLAW_TELEGRAM_SECRET_TOKEN must be set when the Telegram connector is enabled. '
+                . 'Run "php artisan laraclaw:setup-connector telegram" to generate one and register the webhook.'
             );
         }
 

@@ -113,6 +113,11 @@ return [
         'telegram' => [
             'enabled' => env('LARACLAW_TELEGRAM_ENABLED', false),
             'token' => env('LARACLAW_TELEGRAM_TOKEN'),
+
+            // Shared secret passed to setWebhook and returned by Telegram in the
+            // X-Telegram-Bot-Api-Secret-Token header on every webhook request.
+            // The setup command generates one and registers it for you.
+            'secret_token' => env('LARACLAW_TELEGRAM_SECRET_TOKEN'),
         ],
         'slack' => [
             'enabled' => env('LARACLAW_SLACK_ENABLED', false),
