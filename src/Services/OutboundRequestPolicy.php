@@ -280,9 +280,13 @@ class OutboundRequestPolicy
     }
 
     /**
-     * Tell curl which address to use so a second DNS answer cannot swap in a
-     * private host between the check and the connect, which is the DNS rebinding
-     * attack the validation on its own does not stop.
+     * Hand curl the full set of addresses this host was validated against, so a
+     * second DNS answer cannot swap in a private host between the check and the
+     * connect, which is the DNS rebinding attack validation alone does not stop.
+     *
+     * Every address in the list has already passed isBlockedIp(), so pinning all
+     * of them rather than picking one keeps failover working for a host with
+     * several public addresses without widening what we are willing to reach.
      *
      * curl keeps using the original hostname for the Host header and the TLS
      * handshake, so only the address lookup is short circuited. Handlers other
@@ -301,7 +305,12 @@ class OutboundRequestPolicy
             return [];
         }
 
-        $port = $parts['port'] ?? (($parts['scheme'] ?? 'http') === 'https' ? 443 : 80);
+        // parse_url leaves the scheme cased exactly as it was written, and
+        // validate() accepts "HTTPS://" just as happily as "https://", so the
+        // default port has to be chosen from the lowered form or the pin lands
+        // on port 80, never matches, and curl quietly resolves the host itself.
+        $scheme = strtolower((string) ($parts['scheme'] ?? 'http'));
+        $port = $parts['port'] ?? ($scheme === 'https' ? 443 : 80);
 
         return ['curl' => [CURLOPT_RESOLVE => ["{$host}:{$port}:" . implode(',', $addresses)]]];
     }

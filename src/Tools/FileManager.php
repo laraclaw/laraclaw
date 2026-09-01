@@ -2,6 +2,7 @@
 
 namespace Laraclaw\Tools;
 
+use Exception;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Facades\Storage;
@@ -365,6 +366,8 @@ class FileManager extends BaseTool
             $temporary = $this->policy->download($url, self::DOWNLOAD_TIMEOUT, $this->maxDownloadBytes());
         } catch (OutboundRequestBlocked $e) {
             return $e->getMessage();
+        } catch (Exception $e) {
+            return "Failed to download URL: {$e->getMessage()}";
         }
 
         $stream = null;
@@ -375,13 +378,25 @@ class FileManager extends BaseTool
 
             // If path looks like a directory (no extension), derive a filename from the URL
             if (! pathinfo((string) $path, PATHINFO_EXTENSION)) {
-                $urlFilename = pathinfo((string) parse_url((string) $url, PHP_URL_PATH), PATHINFO_BASENAME) ?: Str::uuid();
-                $path = rtrim((string) $path, '/') . '/' . $urlFilename;
+                $path = rtrim((string) $path, '/') . '/' . $this->filenameFromUrl((string) $url);
+            }
+
+            // The guard in handle() only saw the path the model asked for, so the
+            // derived one has to be checked again before anything is written.
+            if ($error = $this->validateDiskAccess($request['disk'] ?? '', $path)) {
+                return $error;
             }
 
             $actual = $this->uniqueFilePath($storage, $path);
             $stream = fopen($temporary, 'r');
-            $storage->put($actual, $stream);
+
+            if ($stream === false) {
+                return "Could not open the downloaded file for {$url}.";
+            }
+
+            if (! $storage->put($actual, $stream)) {
+                return "Could not write the download to {$actual}.";
+            }
 
             return "Downloaded to {$actual}.";
         } finally {
@@ -440,6 +455,20 @@ class FileManager extends BaseTool
         } while ($storage->directoryExists($candidate));
 
         return $candidate;
+    }
+
+    /**
+     * Work out a filename for a download whose target path names a directory.
+     *
+     * basename() hands back "." or ".." for a URL ending in a dot segment, which
+     * would aim the write at the directory itself or at its parent, so those are
+     * treated the same as an empty result and replaced with a generated name.
+     */
+    private function filenameFromUrl(string $url): string
+    {
+        $candidate = pathinfo((string) parse_url($url, PHP_URL_PATH), PATHINFO_BASENAME);
+
+        return in_array($candidate, ['', '.', '..'], true) ? (string) Str::uuid() : $candidate;
     }
 
     /**

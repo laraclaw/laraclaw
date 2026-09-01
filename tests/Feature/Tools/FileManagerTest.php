@@ -431,3 +431,56 @@ it('reports a failed download without writing anything', function () {
     expect($result)->toContain('Failed to download URL (HTTP 404)');
     expect(Storage::disk('workspace')->exists('missing.txt'))->toBeFalse();
 });
+
+it('does not let a URL ending in a dot segment aim the write at the parent directory', function () {
+    Http::fake([
+        'example.com/*' => Http::response('payload', 200),
+    ]);
+
+    $result = fileTool()->handle(fileRequest([
+        'operation' => 'download_url',
+        'disk' => 'workspace',
+        'path' => 'downloads',
+        'url' => 'https://example.com/files/..',
+    ]));
+
+    // basename() gives ".." here, so the derived target is "downloads/..",
+    // which points at the directory itself. uniqueFilePath then mangles that
+    // into the hidden file "downloads/.1" rather than refusing it.
+    expect($result)->not->toContain('..');
+    expect($result)->toStartWith('Downloaded to downloads/');
+
+    $written = Storage::disk('workspace')->files('downloads');
+    expect($written)->toHaveCount(1);
+    expect(basename((string) $written[0]))->not->toStartWith('.');
+    expect(Storage::disk('workspace')->get($written[0]))->toBe('payload');
+});
+
+it('does not let a URL ending in a single dot aim the write at the directory itself', function () {
+    Http::fake([
+        'example.com/*' => Http::response('payload', 200),
+    ]);
+
+    $result = fileTool()->handle(fileRequest([
+        'operation' => 'download_url',
+        'disk' => 'workspace',
+        'path' => 'downloads',
+        'url' => 'https://example.com/files/.',
+    ]));
+
+    expect($result)->toStartWith('Downloaded to downloads/');
+    expect($result)->not->toContain('downloads/.');
+});
+
+it('turns a connection failure into a message instead of letting it escape', function () {
+    Http::fake(fn () => throw new RuntimeException('could not resolve host'));
+
+    $result = fileTool()->handle(fileRequest([
+        'operation' => 'download_url',
+        'disk' => 'workspace',
+        'path' => 'thing.txt',
+        'url' => 'https://example.com/thing.txt',
+    ]));
+
+    expect($result)->toContain('Failed to download URL: could not resolve host');
+});
