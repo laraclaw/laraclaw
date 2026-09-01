@@ -12,30 +12,30 @@ use Laraclaw\Agents\ChatBotAgent;
 use Laraclaw\Approvals\ApprovalFlow;
 use Laraclaw\DTOs\IncomingMessage;
 use Laraclaw\Enums\ConnectorType;
-use Laraclaw\Models\Heartbeat;
+use Laraclaw\Models\Routine;
 use Laraclaw\Models\Thread;
 use Laraclaw\Services\Attachments;
 use Laravel\Ai\Approvals\Decision;
 use Throwable;
 
 /**
- * Queued job that sends a heartbeat prompt to the agent and delivers its response.
+ * Queued job that sends a routine prompt to the agent and delivers its response.
  */
-class SendHeartbeat implements ShouldQueue
+class SendRoutine implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $tries = 2;
 
     /**
-     * Bind the heartbeat row that this job will fire on dispatch.
+     * Bind the routine row that this job will fire on dispatch.
      */
     public function __construct(
-        private Heartbeat $heartbeat,
+        private Routine $routine,
     ) {}
 
     /**
-     * Build an incoming message from the heartbeat prompt, run it through the agent,
+     * Build an incoming message from the routine prompt, run it through the agent,
      * and deliver the response via the connector.
      *
      * Conversation behavior depends on the connector:
@@ -54,17 +54,17 @@ class SendHeartbeat implements ShouldQueue
     public function handle(): void
     {
         $isSlackConnector = $this->isSlackConnector();
-        $isDirectMessage = $this->heartbeat->connector->isDirectMessage($this->heartbeat->key);
+        $isDirectMessage = $this->routine->connector->isDirectMessage($this->routine->key);
 
         // Slack channel keys are stored as "channelId:threadTs". Strip the
         // threadTs so the connector posts a new top level message each time.
         $key = $isSlackConnector
-            ? explode(':', $this->heartbeat->key, 2)[0]
-            : $this->heartbeat->key;
+            ? explode(':', $this->routine->key, 2)[0]
+            : $this->routine->key;
 
         $message = new IncomingMessage(
-            text: $this->heartbeat->prompt,
-            connector: $this->heartbeat->connector,
+            text: $this->routine->prompt,
+            connector: $this->routine->connector,
             key: $key,
             isDirectMessage: $isDirectMessage,
         );
@@ -73,7 +73,7 @@ class SendHeartbeat implements ShouldQueue
         // continue its conversation. For Slack channels the thread row is
         // reused but conversation_id is cleared below.
         $thread = Thread::firstOrCreate(
-            ['connector' => $this->heartbeat->connector, 'key' => $key],
+            ['connector' => $this->routine->connector, 'key' => $key],
             ['is_direct_message' => $isDirectMessage],
         );
 
@@ -86,13 +86,13 @@ class SendHeartbeat implements ShouldQueue
         $agent = resolve(ChatBotAgent::class, ['message' => $message, 'thread' => $thread]);
         $response = $agent->prompt(...$message->toAgentInput());
 
-        // A heartbeat fires with nobody waiting on it, so a gated tool call cannot be
+        // A routine fires with nobody waiting on it, so a gated tool call cannot be
         // answered inline. Slack channels throw their conversation away after each run
         // and so could never be resumed; reject there and let the agent report back.
         if ($response->hasPendingApprovals() && $isSlackConnector) {
             $response = $agent
                 ->continue($response->conversationId, as: $thread->user())
-                ->prompt(Decision::rejectAll('Automated heartbeat runs cannot approve tool calls.'));
+                ->prompt(Decision::rejectAll('Automated routine runs cannot approve tool calls.'));
         }
 
         // Persist conversation_id only for channels that benefit from
@@ -111,7 +111,7 @@ class SendHeartbeat implements ShouldQueue
             attachments: resolve(Attachments::class)->outbound($message->uuid)->getAll(),
         );
 
-        $this->heartbeat->update(['last_run_at' => now()]);
+        $this->routine->update(['last_run_at' => now()]);
     }
 
     /**
@@ -119,21 +119,21 @@ class SendHeartbeat implements ShouldQueue
      */
     public function failed(Throwable $exception): void
     {
-        Log::error('SendHeartbeat failed', [
-            'heartbeat_id' => $this->heartbeat->id,
-            'connector' => $this->heartbeat->connector->value,
-            'key' => $this->heartbeat->key,
+        Log::error('SendRoutine failed', [
+            'routine_id' => $this->routine->id,
+            'connector' => $this->routine->connector->value,
+            'key' => $this->routine->key,
             'error' => $exception->getMessage(),
         ]);
     }
 
     /**
-     * Check if this heartbeat targets a Slack channel (not a DM).
+     * Check if this routine targets a Slack channel (not a DM).
      * Slack DM keys are bare user IDs, while channel keys contain a colon separator.
      */
     private function isSlackConnector(): bool
     {
-        return $this->heartbeat->connector === ConnectorType::Slack
-            && str_contains($this->heartbeat->key, ':');
+        return $this->routine->connector === ConnectorType::Slack
+            && str_contains($this->routine->key, ':');
     }
 }

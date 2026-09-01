@@ -251,7 +251,7 @@ it('exposes the always-on tools regardless of config', function () {
         \Laraclaw\Tools\ImageManager::class,
         \Laraclaw\Tools\FileManager::class,
         \Laraclaw\Tools\ReminderManager::class,
-        \Laraclaw\Tools\HeartbeatManager::class,
+        \Laraclaw\Tools\RoutineManager::class,
         \Laraclaw\Tools\WebRequest::class,
     );
 });

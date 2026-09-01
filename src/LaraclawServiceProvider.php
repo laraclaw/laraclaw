@@ -16,7 +16,7 @@ use Laraclaw\Concerns\RegistersReadOnlyDatabase;
 use Laraclaw\Console\Commands\Chat;
 use Laraclaw\Console\Commands\ConnectorAddCommand;
 use Laraclaw\Console\Commands\GoogleCalendarAuth;
-use Laraclaw\Console\Commands\ProcessHeartbeats;
+use Laraclaw\Console\Commands\ProcessRoutines;
 use Laraclaw\Console\Commands\SendReminders;
 use Laraclaw\Console\Commands\SetupAdmin;
 use Laraclaw\Console\Commands\SetupAgent;
@@ -296,7 +296,7 @@ class LaraclawServiceProvider extends ServiceProvider
             GoogleCalendarAuth::class,
             ConnectorAddCommand::class,
             SendReminders::class,
-            ProcessHeartbeats::class,
+            ProcessRoutines::class,
             SetupWizard::class,
             SetupAdmin::class,
             SetupAgent::class,
@@ -310,13 +310,13 @@ class LaraclawServiceProvider extends ServiceProvider
     }
 
     /**
-     * Schedule the reminder and heartbeat commands to run every minute.
+     * Schedule the reminder and routine commands to run every minute.
      */
     private function registerScheduler(): void
     {
         $this->callAfterResolving(Schedule::class, function (Schedule $schedule): void {
             $schedule->command(SendReminders::class)->everyMinute();
-            $schedule->command(ProcessHeartbeats::class)->everyMinute();
+            $schedule->command(ProcessRoutines::class)->everyMinute();
         });
     }
 

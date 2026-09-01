@@ -11,11 +11,11 @@ use Override;
 /**
  * Eloquent model representing a recurring prompt that fires on a cron schedule.
  */
-class Heartbeat extends Model
+class Routine extends Model
 {
     use SerializesDatesInAppTimezone;
 
-    protected $table = 'laraclaw_heartbeats';
+    protected $table = 'laraclaw_routines';
 
     protected $fillable = [
         'user_id',
@@ -28,7 +28,7 @@ class Heartbeat extends Model
     ];
 
     /**
-     * The owner of this heartbeat.
+     * The owner of this routine.
      */
     public function user(): BelongsTo
     {
