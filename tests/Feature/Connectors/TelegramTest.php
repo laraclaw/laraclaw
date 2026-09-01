@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Http\Client\Factory;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Laraclaw\Connectors\Telegram;
@@ -101,4 +102,54 @@ it('leaves other audio extensions untouched', function () {
     $incoming = Telegram::createIncomingMessageFrom($message, botServing('music/song.mp3'), app(Attachments::class));
 
     expect($incoming->attachments[0]->path)->toEndWith('song.mp3');
+});
+
+it('refuses a telegram download bigger than the size budget', function () {
+    config(['laraclaw.filesystem.max_attachment_kilobytes' => 1]);
+    Http::swap(new Factory);
+    Http::fake(['api.telegram.org/*' => Http::response(str_repeat('x', 5000))]);
+
+    $message = new TelegramMessage([
+        'chat' => ['id' => 123],
+        'document' => ['file_id' => 'abc', 'file_name' => 'huge.bin'],
+    ]);
+
+    $incoming = Telegram::createIncomingMessageFrom($message, botServing('docs/huge.bin'), app(Attachments::class));
+
+    expect($incoming->attachments)->toBeEmpty()
+        ->and(Storage::disk('attachments')->allFiles('inbound'))->toBeEmpty();
+});
+
+it('refuses a telegram download whose content length is over budget', function () {
+    // Telegram announces the size up front, so we can bail before reading a byte.
+    config(['laraclaw.filesystem.max_attachment_kilobytes' => 1]);
+    Http::swap(new Factory);
+    Http::fake([
+        'api.telegram.org/*' => Http::response('x', 200, ['Content-Length' => 5_000_000]),
+    ]);
+
+    $message = new TelegramMessage([
+        'chat' => ['id' => 123],
+        'document' => ['file_id' => 'abc', 'file_name' => 'huge.bin'],
+    ]);
+
+    $incoming = Telegram::createIncomingMessageFrom($message, botServing('docs/huge.bin'), app(Attachments::class));
+
+    expect($incoming->attachments)->toBeEmpty();
+});
+
+it('keeps a telegram download inside the size budget', function () {
+    config(['laraclaw.filesystem.max_attachment_kilobytes' => 10]);
+    Http::swap(new Factory);
+    Http::fake(['api.telegram.org/*' => Http::response(str_repeat('x', 5000))]);
+
+    $message = new TelegramMessage([
+        'chat' => ['id' => 123],
+        'document' => ['file_id' => 'abc', 'file_name' => 'fine.bin'],
+    ]);
+
+    $incoming = Telegram::createIncomingMessageFrom($message, botServing('docs/fine.bin'), app(Attachments::class));
+
+    expect($incoming->attachments)->toHaveCount(1)
+        ->and($incoming->attachments[0]->path)->toEndWith('fine.bin');
 });

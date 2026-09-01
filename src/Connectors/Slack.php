@@ -17,6 +17,7 @@ use Laraclaw\Enums\ConnectorType;
 use Laraclaw\Models\Account;
 use Laraclaw\Models\Thread;
 use Laraclaw\Services\Attachments;
+use Laraclaw\Services\AttachmentSizeGuard;
 use RuntimeException;
 use Throwable;
 
@@ -192,7 +193,7 @@ class Slack extends Connector
         $fileName = $file['name'] ?? 'attachment';
 
         try {
-            $response = Http::withToken(self::token())->get($url);
+            $response = Http::withToken(self::token())->withOptions(['stream' => true])->get($url);
 
             if (! $response->successful()) {
                 Log::warning('Slack file download failed', ['url' => $url, 'status' => $response->status()]);
@@ -200,8 +201,14 @@ class Slack extends Connector
                 return null;
             }
 
+            $body = AttachmentSizeGuard::body($response, ['connector' => 'slack', 'url' => $url]);
+
+            if ($body === null) {
+                return null;
+            }
+
             $disk = config('laraclaw.filesystem.attachments_disk', 'local');
-            $path = $attachments->set($fileName, $response->body());
+            $path = $attachments->set($fileName, $body);
 
             return new Attachment(path: $path, disk: $disk, mimeType: $mimeType, filename: $fileName);
         } catch (Throwable $e) {

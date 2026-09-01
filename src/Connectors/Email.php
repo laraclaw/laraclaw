@@ -19,6 +19,7 @@ use Laraclaw\Mail\ConnectorReply;
 use Laraclaw\Models\Account;
 use Laraclaw\Models\Thread;
 use Laraclaw\Services\Attachments;
+use Laraclaw\Services\AttachmentSizeGuard;
 use League\CommonMark\CommonMarkConverter;
 
 use function Laraclaw\Support\stripHtml;
@@ -163,18 +164,31 @@ class Email extends Connector
     private static function saveAttachments(MessageInterface $message, Attachments $attachments): array
     {
         return collect($message->attachments())
-            ->map(fn (ImapAttachment $a): Attachment => self::storeAttachment($a, $attachments))
+            ->map(fn (ImapAttachment $a): ?Attachment => self::storeAttachment($a, $attachments))
+            ->filter()
+            ->values()
             ->toArray();
     }
 
     /**
      * Save a single IMAP attachment to storage and return its DTO.
+     *
+     * Returns null when the attachment is over the size budget. The rest of the
+     * mail still reaches the agent, minus the file we refused to keep.
      */
-    private static function storeAttachment(ImapAttachment $attachment, Attachments $attachments): Attachment
+    private static function storeAttachment(ImapAttachment $attachment, Attachments $attachments): ?Attachment
     {
         $filename = $attachment->filename() ?? 'attachment.' . ($attachment->extension() ?? 'bin');
+        $contents = $attachment->contents();
+
+        if (! AttachmentSizeGuard::fits(strlen($contents))) {
+            AttachmentSizeGuard::reject(strlen($contents), ['connector' => 'email', 'filename' => $filename]);
+
+            return null;
+        }
+
         $disk = config('laraclaw.filesystem.attachments_disk', 'local');
-        $path = $attachments->set($filename, $attachment->contents());
+        $path = $attachments->set($filename, $contents);
 
         return new Attachment(
             path: $path,
