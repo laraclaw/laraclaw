@@ -189,10 +189,13 @@ abstract class BaseTool implements Approvable, Tool
 
     /**
      * Return true if the path falls within the protected attachments directory.
+     *
+     * The path is collapsed first, otherwise something like "reports/../inbound/file.pdf"
+     * lands in a protected directory while still reading as an ordinary path here.
      */
     protected function isProtectedPath(string $path): bool
     {
-        $normalized = trim($path, '/');
+        $normalized = trim($this->normalizePath($path), '/');
 
         $protected = [
             config('laraclaw.filesystem.incoming_attachments_path', 'inbound'),
