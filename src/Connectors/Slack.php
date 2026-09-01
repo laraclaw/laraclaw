@@ -4,6 +4,7 @@ namespace Laraclaw\Connectors;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -24,6 +25,10 @@ use function Laraclaw\Support\markdownToMrkdwn;
 
 class Slack extends Connector
 {
+    private const string SENDER_NAME_KEY = 'laraclaw:slack:sender_name:';
+
+    private const int SENDER_NAME_TTL = 86400;
+
     public ?string $channelId = null;
 
     public ?string $threadTs = null;
@@ -112,6 +117,7 @@ class Slack extends Connector
             isDirectMessage: $isDirectMessage,
             attachments: self::saveAttachments($event, $attachments->inbound($uuid)),
             uuid: $uuid,
+            senderName: self::senderName($event),
         );
     }
 
@@ -133,6 +139,62 @@ class Slack extends Connector
     public static function isDirectMessage(string $key): bool
     {
         return ! str_contains($key, ':');
+    }
+
+    /**
+     * Return the display name of whoever sent the message, or null when Slack cannot tell us.
+     *
+     * Slack only puts a user ID on the event, so the name costs a users.info call.
+     * Channel messages would pay that on every single message, hence the cache.
+     */
+    private static function senderName(array $event): ?string
+    {
+        $userId = $event['user'] ?? null;
+
+        if (! $userId) {
+            return null;
+        }
+
+        return Cache::remember(
+            self::SENDER_NAME_KEY . $userId,
+            self::SENDER_NAME_TTL,
+            fn (): string => self::fetchSenderName($userId),
+        );
+    }
+
+    /**
+     * Ask Slack for the profile behind a user ID and pick the friendliest name on it.
+     *
+     * A failed lookup falls back to the raw user ID so the agent still has something
+     * to tell participants apart with, and never breaks handling of the message.
+     */
+    private static function fetchSenderName(string $userId): string
+    {
+        try {
+            $response = Http::withToken(self::token())
+                ->get('https://slack.com/api/users.info', ['user' => $userId]);
+
+            if (! $response->successful() || ! $response->json('ok')) {
+                Log::warning('Slack user lookup failed', ['user' => $userId, 'status' => $response->status()]);
+
+                return $userId;
+            }
+
+            $name = collect([
+                $response->json('user.profile.real_name'),
+                $response->json('user.real_name'),
+                $response->json('user.profile.display_name'),
+                $response->json('user.name'),
+            ])
+                ->filter(fn (?string $candidate): bool => filled($candidate))
+                ->first();
+
+            return $name ?? $userId;
+        } catch (Throwable $e) {
+            Log::warning('Slack user lookup error', ['user' => $userId, 'error' => $e->getMessage()]);
+
+            return $userId;
+        }
     }
 
     /**
