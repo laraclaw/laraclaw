@@ -3,7 +3,12 @@
 namespace Laraclaw\Support;
 
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Concerns\HasUlids;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\PostgresConnection;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Database\Schema\ForeignKeyDefinition;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use League\CommonMark\Environment\Environment;
@@ -194,6 +199,46 @@ function databaseUsesPgVector(): bool
     } catch (Throwable) {
         return false;
     }
+}
+
+/**
+ * Resolve the configured user model into a fresh instance.
+ */
+function userModel(): Model
+{
+    $class = config('laraclaw.auth.user_model') ?: 'App\\Models\\User';
+
+    return new $class;
+}
+
+/**
+ * Add the foreign key column that points at the configured user model.
+ *
+ * The model itself is the source of truth for the table it lives in, the name of
+ * its primary key, and the type of that key, so an application keyed by UUID or
+ * ULID gets a column that matches rather than the bigint Laravel infers from the
+ * column name. A model with the default auto incrementing key produces exactly
+ * the same schema as a plain foreignId with a constrained call.
+ */
+function userForeignKey(Blueprint $table, string $column = 'user_id'): ForeignKeyDefinition
+{
+    $model = userModel();
+    $traits = class_uses_recursive($model);
+
+    // HasUlids builds on HasUuids, so the ULID check has to come first or every
+    // ULID keyed model would be handed a UUID column.
+    $method = match (true) {
+        $model->getKeyType() !== 'string' => 'foreignId',
+        in_array(HasUlids::class, $traits, true) => 'foreignUlid',
+        in_array(HasUuids::class, $traits, true) => 'foreignUuid',
+        default => 'string',
+    };
+
+    $table->{$method}($column);
+
+    return $table->foreign($column)
+        ->references($model->getKeyName())
+        ->on($model->getTable());
 }
 
 /**
