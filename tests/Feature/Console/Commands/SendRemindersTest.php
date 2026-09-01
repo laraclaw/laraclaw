@@ -75,3 +75,43 @@ it('dispatches multiple reminders in one run', function () {
 
     Queue::assertPushed(SendReminder::class, 2);
 });
+
+it('does not dispatch the same reminder twice when a second pass overlaps the first', function () {
+    $reminder = Reminder::create([
+        'user_id' => $this->user->id,
+        'connector' => 'telegram',
+        'key' => 'user-123',
+        'message' => 'Only once',
+        'remind_at' => now()->subMinute(),
+    ]);
+
+    $this->artisan(SendReminders::class);
+
+    // Drop the unique job lock so the second pass is stopped by the database
+    // claim alone, which is the guarantee we actually care about here.
+    releaseUniqueLock(new SendReminder($reminder));
+
+    $this->artisan(SendReminders::class);
+
+    Queue::assertPushed(SendReminder::class, 1);
+    expect($reminder->fresh()->sent_at)->not->toBeNull();
+});
+
+it('dispatches the reminder again once a failed job releases its claim', function () {
+    $reminder = Reminder::create([
+        'user_id' => $this->user->id,
+        'connector' => 'telegram',
+        'key' => 'user-123',
+        'message' => 'Retry me',
+        'remind_at' => now()->subMinute(),
+    ]);
+
+    $this->artisan(SendReminders::class);
+
+    (new SendReminder($reminder))->failed(new RuntimeException('connector exploded'));
+    releaseUniqueLock(new SendReminder($reminder));
+
+    $this->artisan(SendReminders::class);
+
+    Queue::assertPushed(SendReminder::class, 2);
+});

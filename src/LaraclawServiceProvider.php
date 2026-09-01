@@ -311,12 +311,15 @@ class LaraclawServiceProvider extends ServiceProvider
 
     /**
      * Schedule the reminder and routine commands to run every minute.
+     *
+     * Both skip a tick while the previous run is still going, so a slow pass on
+     * one node cannot be started again on top of itself.
      */
     private function registerScheduler(): void
     {
         $this->callAfterResolving(Schedule::class, function (Schedule $schedule): void {
-            $schedule->command(SendReminders::class)->everyMinute();
-            $schedule->command(ProcessRoutines::class)->everyMinute();
+            $schedule->command(SendReminders::class)->everyMinute()->withoutOverlapping();
+            $schedule->command(ProcessRoutines::class)->everyMinute()->withoutOverlapping();
         });
     }
 
