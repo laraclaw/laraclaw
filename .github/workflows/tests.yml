@@ -45,3 +45,22 @@ jobs:
 
       - name: Run tests
         run: vendor/bin/pest
+
+  audit:
+    runs-on: ubuntu-latest
+
+    name: Composer audit
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: dom, curl, mbstring, zip, redis
+          coverage: none
+
+      - name: Audit the committed lock file
+        run: composer audit --locked --no-interaction
