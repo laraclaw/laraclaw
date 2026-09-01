@@ -322,3 +322,74 @@ it('returns outbound attachments in the response', function () {
     $result->assertJsonCount(1, 'attachments');
     $result->assertJsonPath('attachments.0.filename', 'result.txt');
 });
+
+it('rejects an upload larger than the configured size budget', function () {
+    authenticatedUser();
+    mockAgent();
+    config(['laraclaw.filesystem.max_attachment_kilobytes' => 100]);
+
+    $file = UploadedFile::fake()->create('huge.bin', 500);
+
+    $response = $this->postJson('/api/message', [
+        'text' => 'Too big',
+        'attachments' => [$file],
+    ], apiHeaders());
+
+    $response->assertUnprocessable();
+    $response->assertJsonValidationErrors('attachments.0');
+});
+
+it('accepts an upload inside the configured size budget', function () {
+    authenticatedUser();
+    mockAgent();
+    config(['laraclaw.filesystem.max_attachment_kilobytes' => 100]);
+
+    $file = UploadedFile::fake()->create('small.bin', 50);
+
+    $response = $this->postJson('/api/message', [
+        'text' => 'Just right',
+        'attachments' => [$file],
+    ], apiHeaders());
+
+    $response->assertOk();
+});
+
+it('returns a validation error rather than a database error for an oversized key', function () {
+    authenticatedUser();
+    mockAgent();
+
+    $response = $this->postJson('/api/message', [
+        'text' => 'Hello',
+        'key' => str_repeat('k', 300),
+    ], apiHeaders());
+
+    $response->assertUnprocessable();
+    $response->assertJsonValidationErrors('key');
+    expect(Thread::where('connector', ConnectorType::Api)->count())->toBe(0);
+});
+
+it('leaves room for the user id prefix when bounding the key', function () {
+    $user = authenticatedUser();
+    mockAgent();
+
+    // A key of exactly the column length still overflows once the prefix is added.
+    $this->postJson('/api/message', ['text' => 'Hello', 'key' => str_repeat('k', 255)], apiHeaders())
+        ->assertUnprocessable();
+
+    $longestAllowed = str_repeat('k', 255 - strlen((string) $user->getAuthIdentifier()) - 1);
+
+    $this->postJson('/api/message', ['text' => 'Hello', 'key' => $longestAllowed], apiHeaders())
+        ->assertOk();
+});
+
+it('rejects prompt text beyond the maximum length', function () {
+    authenticatedUser();
+    mockAgent();
+
+    $response = $this->postJson('/api/message', [
+        'text' => str_repeat('a', 100001),
+    ], apiHeaders());
+
+    $response->assertUnprocessable();
+    $response->assertJsonValidationErrors('text');
+});

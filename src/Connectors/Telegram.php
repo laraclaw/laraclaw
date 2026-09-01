@@ -14,6 +14,7 @@ use Laraclaw\Enums\ConnectorType;
 use Laraclaw\Models\Account;
 use Laraclaw\Models\Thread;
 use Laraclaw\Services\Attachments;
+use Laraclaw\Services\AttachmentSizeGuard;
 use League\CommonMark\CommonMarkConverter;
 use Telegram\Bot\Actions;
 use Telegram\Bot\Api;
@@ -182,7 +183,7 @@ class Telegram extends Connector
         $downloadUrl = "https://api.telegram.org/file/bot{$bot->getAccessToken()}/{$filePath}";
 
         try {
-            $response = Http::get($downloadUrl);
+            $response = Http::withOptions(['stream' => true])->get($downloadUrl);
 
             if (! $response->successful()) {
                 Log::warning('Telegram file download failed', ['fileId' => $fileId, 'status' => $response->status()]);
@@ -190,7 +191,13 @@ class Telegram extends Connector
                 return null;
             }
 
-            $path = $attachments->set($fileName, $response->body());
+            $body = AttachmentSizeGuard::body($response, ['connector' => 'telegram', 'fileId' => $fileId]);
+
+            if ($body === null) {
+                return null;
+            }
+
+            $path = $attachments->set($fileName, $body);
 
             return new Attachment(path: $path, disk: $disk, mimeType: $mimeType, filename: $fileName);
         } catch (Throwable $e) {

@@ -18,6 +18,11 @@ return [
         'attachments_disk' => env('LARACLAW_ATTACHMENTS_DISK', 'local'),
         'incoming_attachments_path' => env('LARACLAW_INCOMING_ATTACHMENTS_PATH', 'inbound'),
         'outgoing_attachments_path' => env('LARACLAW_OUTGOING_ATTACHMENTS_PATH', 'outbound'),
+
+        // Biggest attachment the bot accepts, in kilobytes. Applies to API uploads
+        // and to files downloaded from Telegram, Slack, and email alike, so the
+        // budget holds even where no web server upload limit is in the way.
+        'max_attachment_kilobytes' => env('LARACLAW_MAX_ATTACHMENT_KILOBYTES', 20480),
     ],
 
     'memory' => [
