@@ -2,13 +2,15 @@
 
 namespace Laraclaw\Tools;
 
+use Exception;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Laraclaw\DTOs\IncomingMessage;
+use Laraclaw\Exceptions\OutboundRequestBlocked;
 use Laraclaw\Services\Attachments;
+use Laraclaw\Services\OutboundRequestPolicy;
 use Laravel\Ai\Tools\Request;
 use Override;
 use Stringable;
@@ -20,13 +22,19 @@ class FileManager extends BaseTool
 {
     private const MAX_READ_BYTES = 100 * 1024;
 
+    private const int DOWNLOAD_TIMEOUT = 30;
+
     protected array $requiresApproval = [];
 
     /**
-     * Bind the inbound message and the attachment writer, then register the delete approval prompt.
+     * Bind the inbound message, the attachment writer and the outbound request
+     * policy, then register the delete approval prompt.
      */
-    public function __construct(protected IncomingMessage $message, private readonly Attachments $attachments)
-    {
+    public function __construct(
+        protected IncomingMessage $message,
+        private readonly Attachments $attachments,
+        private readonly OutboundRequestPolicy $policy = new OutboundRequestPolicy,
+    ) {
         $this->requiresApproval['delete'] = function (Request $request): string {
             $paths = collect($request->array('paths') ?: [$request->string('path')->value()])->filter();
 
@@ -340,6 +348,11 @@ class FileManager extends BaseTool
 
     /**
      * Download a remote URL and save it to the specified disk path.
+     *
+     * The transfer goes through the same outbound policy the web_request tool
+     * uses, so a private address is refused here too, whether it is the target
+     * or the destination of a redirect. The body is streamed to a temporary file
+     * and handed to the disk as a stream, so a large file never sits in memory.
      */
     protected function downloadUrl(Request $request): string
     {
@@ -349,29 +362,52 @@ class FileManager extends BaseTool
             return 'The "url" parameter is required for the download_url operation.';
         }
 
-        if (! filter_var($url, FILTER_VALIDATE_URL)) {
-            return "Invalid URL: {$url}";
+        try {
+            $temporary = $this->policy->download($url, self::DOWNLOAD_TIMEOUT, $this->maxDownloadBytes());
+        } catch (OutboundRequestBlocked $e) {
+            return $e->getMessage();
+        } catch (Exception $e) {
+            return "Failed to download URL: {$e->getMessage()}";
         }
 
-        $response = Http::timeout(30)->get($url);
+        $stream = null;
 
-        if (! $response->successful()) {
-            return "Failed to download URL (HTTP {$response->status()}): {$url}";
+        try {
+            $storage = $this->storage($request);
+            $path = $request['path'];
+
+            // If path looks like a directory (no extension), derive a filename from the URL
+            if (! pathinfo((string) $path, PATHINFO_EXTENSION)) {
+                $path = rtrim((string) $path, '/') . '/' . $this->filenameFromUrl((string) $url);
+            }
+
+            // The guard in handle() only saw the path the model asked for, so the
+            // derived one has to be checked again before anything is written.
+            if ($error = $this->validateDiskAccess($request['disk'] ?? '', $path)) {
+                return $error;
+            }
+
+            $actual = $this->uniqueFilePath($storage, $path);
+            $stream = fopen($temporary, 'r');
+
+            if ($stream === false) {
+                return "Could not open the downloaded file for {$url}.";
+            }
+
+            if (! $storage->put($actual, $stream)) {
+                return "Could not write the download to {$actual}.";
+            }
+
+            return "Downloaded to {$actual}.";
+        } finally {
+            if (is_resource($stream)) {
+                fclose($stream);
+            }
+
+            if (file_exists($temporary)) {
+                unlink($temporary);
+            }
         }
-
-        $storage = $this->storage($request);
-        $path = $request['path'];
-
-        // If path looks like a directory (no extension), derive a filename from the URL
-        if (! pathinfo((string) $path, PATHINFO_EXTENSION)) {
-            $urlFilename = pathinfo(parse_url((string) $url, PHP_URL_PATH), PATHINFO_BASENAME) ?: Str::uuid();
-            $path = rtrim((string) $path, '/') . '/' . $urlFilename;
-        }
-
-        $actual = $this->uniqueFilePath($storage, $path);
-        $storage->put($actual, $response->body());
-
-        return "Downloaded to {$actual}.";
     }
 
     // Helpers
@@ -419,5 +455,27 @@ class FileManager extends BaseTool
         } while ($storage->directoryExists($candidate));
 
         return $candidate;
+    }
+
+    /**
+     * Work out a filename for a download whose target path names a directory.
+     *
+     * basename() hands back "." or ".." for a URL ending in a dot segment, which
+     * would aim the write at the directory itself or at its parent, so those are
+     * treated the same as an empty result and replaced with a generated name.
+     */
+    private function filenameFromUrl(string $url): string
+    {
+        $candidate = pathinfo((string) parse_url($url, PHP_URL_PATH), PATHINFO_BASENAME);
+
+        return in_array($candidate, ['', '.', '..'], true) ? (string) Str::uuid() : $candidate;
+    }
+
+    /**
+     * Return the largest download the agent is allowed to write to a disk.
+     */
+    private function maxDownloadBytes(): int
+    {
+        return (int) config('laraclaw.http.max_download_bytes', 25 * 1024 * 1024);
     }
 }
