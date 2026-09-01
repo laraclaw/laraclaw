@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Contracts\Bus\Dispatcher;
 use Illuminate\Support\Facades\Queue;
 use Laraclaw\Console\Commands\SendReminders;
 use Laraclaw\Jobs\SendReminder;
@@ -114,4 +115,46 @@ it('dispatches the reminder again once a failed job releases its claim', functio
     $this->artisan(SendReminders::class);
 
     Queue::assertPushed(SendReminder::class, 2);
+});
+
+it('claims every due reminder even when they span more than one chunk', function () {
+    // The claim writes sent_at, which is part of this query's own filter, so
+    // claimed rows drop out of the result set while the walk is still going.
+    // One row past the 1000 row chunk size is enough to catch an offset walk
+    // stepping over the reminders that shuffled down behind it.
+    $rows = collect(range(1, 1001))
+        ->map(fn (int $index) => [
+            'user_id' => $this->user->id,
+            'connector' => 'telegram',
+            'key' => 'user-' . $index,
+            'message' => 'Reminder ' . $index,
+            'remind_at' => now()->subMinute(),
+        ])
+        ->all();
+
+    Reminder::insert($rows);
+
+    $this->artisan(SendReminders::class);
+
+    Queue::assertPushed(SendReminder::class, 1001);
+    expect(Reminder::whereNull('sent_at')->count())->toBe(0);
+});
+
+it('releases the claim when the job cannot be queued', function () {
+    $reminder = Reminder::create([
+        'user_id' => $this->user->id,
+        'connector' => 'telegram',
+        'key' => 'user-123',
+        'message' => 'Queue is down',
+        'remind_at' => now()->subMinute(),
+    ]);
+
+    $this->mock(Dispatcher::class)
+        ->shouldReceive('dispatch')
+        ->andThrow(new RuntimeException('queue is unreachable'));
+
+    expect(fn () => $this->artisan(SendReminders::class))
+        ->toThrow(RuntimeException::class);
+
+    expect($reminder->fresh()->sent_at)->toBeNull();
 });

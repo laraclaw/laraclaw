@@ -23,8 +23,12 @@ class SendReminder implements ShouldBeUnique, ShouldQueue
     public int $tries = 1;
 
     /**
-     * Hold the unique lock for an hour so a job lost before it runs cannot block
-     * the reminder forever.
+     * Expire the dedupe lock after an hour so a job that vanishes before it runs
+     * does not leave its key behind for good.
+     *
+     * The lock only stops a duplicate going onto the queue. It has no say over
+     * sent_at, which is what actually keeps the reminder from being sent twice,
+     * and is released by failed() rather than by this timeout.
      */
     public int $uniqueFor = 3600;
 

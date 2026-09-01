@@ -1,6 +1,7 @@
 <?php
 
 use Carbon\Carbon;
+use Illuminate\Contracts\Bus\Dispatcher;
 use Illuminate\Support\Facades\Queue;
 use Laraclaw\Console\Commands\ProcessRoutines;
 use Laraclaw\Jobs\SendRoutine;
@@ -168,6 +169,30 @@ it('restores the previous run time when a routine job fails', function () {
     ]);
 
     (new SendRoutine($routine, $previousRunAt))->failed(new RuntimeException('agent exploded'));
+
+    expect($routine->fresh()->last_run_at->equalTo($previousRunAt))->toBeTrue();
+});
+
+it('restores the previous run time when the job cannot be queued', function () {
+    $previousRunAt = Carbon::create(2024, 1, 1, 9, 0, 0);
+    $this->travelTo(Carbon::create(2024, 1, 8, 10, 0, 0));
+
+    $routine = Routine::create([
+        'user_id' => $this->user->id,
+        'connector' => 'telegram',
+        'key' => 'user-123',
+        'prompt' => 'Weekly check-in',
+        'cron' => '0 9 * * 1',
+        'is_active' => true,
+        'last_run_at' => $previousRunAt,
+    ]);
+
+    $this->mock(Dispatcher::class)
+        ->shouldReceive('dispatch')
+        ->andThrow(new RuntimeException('queue is unreachable'));
+
+    expect(fn () => $this->artisan(ProcessRoutines::class))
+        ->toThrow(RuntimeException::class);
 
     expect($routine->fresh()->last_run_at->equalTo($previousRunAt))->toBeTrue();
 });

@@ -30,8 +30,12 @@ class SendRoutine implements ShouldBeUnique, ShouldQueue
     public int $tries = 2;
 
     /**
-     * Hold the unique lock for an hour so a job lost before it runs cannot block
-     * the routine forever.
+     * Expire the dedupe lock after an hour so a job that vanishes before it runs
+     * does not leave its key behind for good.
+     *
+     * The lock only stops a duplicate going onto the queue. It has no say over
+     * last_run_at, which is what actually keeps the routine from running twice,
+     * and is released by failed() rather than by this timeout.
      */
     public int $uniqueFor = 3600;
 
