@@ -1,6 +1,7 @@
 <?php
 
 use Carbon\Carbon;
+use Illuminate\Contracts\Bus\Dispatcher;
 use Illuminate\Support\Facades\Queue;
 use Laraclaw\Console\Commands\ProcessRoutines;
 use Laraclaw\Jobs\SendRoutine;
@@ -106,4 +107,92 @@ it('only dispatches active routines when mixed with inactive ones', function () 
     $this->artisan(ProcessRoutines::class);
 
     Queue::assertPushed(SendRoutine::class, 1);
+});
+
+it('does not dispatch the same routine twice when a second pass overlaps the first', function () {
+    $routine = Routine::create([
+        'user_id' => $this->user->id,
+        'connector' => 'telegram',
+        'key' => 'user-123',
+        'prompt' => 'Only once',
+        'cron' => '* * * * *',
+        'is_active' => true,
+        'last_run_at' => null,
+    ]);
+
+    $this->artisan(ProcessRoutines::class);
+
+    // Drop the unique job lock so the second pass is stopped by the database
+    // claim alone, which is the guarantee we actually care about here.
+    releaseUniqueLock(new SendRoutine($routine->fresh(), null));
+
+    $this->artisan(ProcessRoutines::class);
+
+    Queue::assertPushed(SendRoutine::class, 1);
+    expect($routine->fresh()->last_run_at)->not->toBeNull();
+});
+
+it('dispatches the routine again once a failed job releases its claim', function () {
+    $routine = Routine::create([
+        'user_id' => $this->user->id,
+        'connector' => 'telegram',
+        'key' => 'user-123',
+        'prompt' => 'Retry me',
+        'cron' => '* * * * *',
+        'is_active' => true,
+        'last_run_at' => null,
+    ]);
+
+    $this->artisan(ProcessRoutines::class);
+
+    (new SendRoutine($routine->fresh(), null))->failed(new RuntimeException('agent exploded'));
+    releaseUniqueLock(new SendRoutine($routine->fresh(), null));
+
+    expect($routine->fresh()->last_run_at)->toBeNull();
+
+    $this->artisan(ProcessRoutines::class);
+
+    Queue::assertPushed(SendRoutine::class, 2);
+});
+
+it('restores the previous run time when a routine job fails', function () {
+    $previousRunAt = Carbon::create(2024, 1, 1, 9, 0, 0);
+
+    $routine = Routine::create([
+        'user_id' => $this->user->id,
+        'connector' => 'telegram',
+        'key' => 'user-123',
+        'prompt' => 'Weekly check-in',
+        'cron' => '0 9 * * 1',
+        'is_active' => true,
+        'last_run_at' => $previousRunAt,
+    ]);
+
+    (new SendRoutine($routine, $previousRunAt))->failed(new RuntimeException('agent exploded'));
+
+    expect($routine->fresh()->last_run_at->equalTo($previousRunAt))->toBeTrue();
+});
+
+it('restores the previous run time when the job cannot be queued', function () {
+    $previousRunAt = Carbon::create(2024, 1, 1, 9, 0, 0);
+    $this->travelTo(Carbon::create(2024, 1, 8, 10, 0, 0));
+
+    $routine = Routine::create([
+        'user_id' => $this->user->id,
+        'connector' => 'telegram',
+        'key' => 'user-123',
+        'prompt' => 'Weekly check-in',
+        'cron' => '0 9 * * 1',
+        'is_active' => true,
+        'last_run_at' => $previousRunAt,
+    ]);
+
+    $this->mock(Dispatcher::class)
+        ->shouldReceive('dispatch')
+        ->andThrow(new RuntimeException('queue is unreachable'));
+
+    expect(fn () => $this->artisan(ProcessRoutines::class))
+        ->toThrow(RuntimeException::class);
+
+    expect($routine->fresh()->last_run_at->equalTo($previousRunAt))->toBeTrue();
 });
