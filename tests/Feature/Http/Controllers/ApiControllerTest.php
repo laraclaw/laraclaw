@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 use Laraclaw\Agents\ChatBotAgent;
@@ -168,6 +169,30 @@ it('stores the conversation id on the thread', function () {
     $this->postJson('/api/message', ['text' => 'Hello'], apiHeaders());
 
     expect(Thread::where('connector', ConnectorType::Api)->where('conversation_id', 'conv-xyz')->exists())->toBeTrue();
+});
+
+it('waits for the turn already answering the thread instead of running beside it', function () {
+    $user = authenticatedUser();
+    mockAgent('Reply', 'conv-xyz');
+
+    // A request arrived first and is still being answered.
+    $thread = Thread::create([
+        'connector' => ConnectorType::Api,
+        'key' => $user->getAuthIdentifier() . ':shared-key',
+        'is_direct_message' => true,
+    ]);
+
+    config(['laraclaw.queue.thread_lock.sync_wait_for' => 0]);
+
+    // Holding the lock around a closure hands it back even when something inside
+    // blows up, so the next test does not inherit it.
+    $response = Cache::lock($thread->lockKey(), 60)->get(
+        fn () => $this->postJson('/api/message', ['text' => 'Hello', 'key' => 'shared-key'], apiHeaders()),
+    );
+
+    // Told to come back rather than allowed to open a rival conversation.
+    $response->assertStatus(429);
+    expect($thread->fresh()->conversation_id)->toBeNull();
 });
 
 it('handles commands and returns success without text', function () {

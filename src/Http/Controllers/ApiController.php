@@ -2,15 +2,18 @@
 
 namespace Laraclaw\Http\Controllers;
 
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Laraclaw\Agents\ChatBotAgent;
 use Laraclaw\Approvals\ApprovalFlow;
 use Laraclaw\Commands\CommandRegistry;
 use Laraclaw\Connectors\Api;
 use Laraclaw\DTOs\Attachment;
+use Laraclaw\DTOs\IncomingMessage;
 use Laraclaw\Models\Thread;
 use Laraclaw\Services\Attachments;
 use Laravel\Ai\Exceptions\ApprovalMismatchException;
@@ -65,7 +68,31 @@ class ApiController extends Controller
             return response()->json(['success' => true]);
         }
 
-        // Prompt the agent synchronously and return the response inline
+        // Two requests on one thread would otherwise read the same conversation and
+        // start one each, so the second waits here for the first to finish and then
+        // continues what it saved. Queued turns take this very same lock by name.
+        try {
+            return Cache::lock($thread->lockKey(), (int) config('laraclaw.queue.thread_lock.expires_after', 900))
+                ->block(
+                    (int) config('laraclaw.queue.thread_lock.sync_wait_for', 30),
+                    fn (): JsonResponse => $this->runTurn($thread->refresh(), $incomingMessage, $clientKey),
+                );
+        } catch (LockTimeoutException) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Another message on this conversation is still being answered. Try again shortly.',
+            ], 429);
+        }
+    }
+
+    /**
+     * Prompt the agent synchronously and build the reply.
+     *
+     * Called with the thread lock held and the row read again, so the agent
+     * continues whatever conversation the request ahead of it saved.
+     */
+    private function runTurn(Thread $thread, IncomingMessage $incomingMessage, string $clientKey): JsonResponse
+    {
         $agent = resolve(ChatBotAgent::class, ['message' => $incomingMessage, 'thread' => $thread]);
 
         // When the agent paused on a gated tool call, this request is the client's

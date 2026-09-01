@@ -2,10 +2,12 @@
 
 namespace Laraclaw\Jobs;
 
+use DateTimeInterface;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use Laraclaw\Agents\ChatBotAgent;
@@ -25,7 +27,12 @@ class SendRoutine implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $tries = 2;
+    /**
+     * Waiting for the thread lock costs an attempt but never an exception, so
+     * counting tries would drop a routine that simply queued behind a long turn.
+     * Two exceptions keeps the single retry this job has always had.
+     */
+    public int $maxExceptions = 2;
 
     /**
      * Bind the routine row that this job will fire on dispatch.
@@ -33,6 +40,34 @@ class SendRoutine implements ShouldQueue
     public function __construct(
         private Routine $routine,
     ) {}
+
+    /**
+     * Serialize this run against the messages arriving on the same thread.
+     *
+     * A routine prompts the agent and saves the conversation like any inbound
+     * message does, so it has to wait its turn or the two overwrite each other.
+     */
+    public function middleware(): array
+    {
+        return [
+            new WithoutOverlapping(Thread::lockKeyFor($this->routine->connector, $this->threadKey()))
+                ->shared()
+                ->withPrefix('')
+                ->releaseAfter(config('laraclaw.queue.thread_lock.retry_after', 5))
+                ->expireAfter(config('laraclaw.queue.thread_lock.expires_after', 900)),
+        ];
+    }
+
+    /**
+     * Keep retrying for as long as a turn ahead of this one could plausibly still be running.
+     *
+     * With this set Laravel stops counting attempts, which is what makes the
+     * releases above free. Without it every wait would burn one of the tries.
+     */
+    public function retryUntil(): DateTimeInterface
+    {
+        return now()->addSeconds((int) config('laraclaw.queue.thread_lock.queued_wait_for', 900));
+    }
 
     /**
      * Build an incoming message from the routine prompt, run it through the agent,
@@ -56,11 +91,7 @@ class SendRoutine implements ShouldQueue
         $isSlackConnector = $this->isSlackConnector();
         $isDirectMessage = $this->routine->connector->isDirectMessage($this->routine->key);
 
-        // Slack channel keys are stored as "channelId:threadTs". Strip the
-        // threadTs so the connector posts a new top level message each time.
-        $key = $isSlackConnector
-            ? explode(':', $this->routine->key, 2)[0]
-            : $this->routine->key;
+        $key = $this->threadKey();
 
         $message = new IncomingMessage(
             text: $this->routine->prompt,
@@ -115,7 +146,7 @@ class SendRoutine implements ShouldQueue
     }
 
     /**
-     * Log the failure when the job exhausts its retries.
+     * Log the failure when the job gives up.
      */
     public function failed(Throwable $exception): void
     {
@@ -125,6 +156,19 @@ class SendRoutine implements ShouldQueue
             'key' => $this->routine->key,
             'error' => $exception->getMessage(),
         ]);
+    }
+
+    /**
+     * Return the thread key this routine runs against.
+     *
+     * Slack channel keys are stored as "channelId:threadTs". Strip the threadTs
+     * so the connector posts a new top level message each time.
+     */
+    private function threadKey(): string
+    {
+        return $this->isSlackConnector()
+            ? explode(':', $this->routine->key, 2)[0]
+            : $this->routine->key;
     }
 
     /**

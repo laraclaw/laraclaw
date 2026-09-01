@@ -347,6 +347,26 @@ Messages are processed via Laravel's queue. Make sure a worker is running:
 php artisan queue:work
 ```
 
+Only one agent turn runs on a conversation at a time. Send two messages in quick
+succession and the second waits for the first to finish, then continues the same
+AI conversation instead of opening a rival one. Nothing is dropped: a turn that
+finds the conversation busy goes back on the queue and tries again. Routines
+running against the same chat queue behind inbound messages the same way, and an
+API request that finds the conversation busy waits, then answers with 429 if the
+turn ahead of it is still going.
+
+The waiting is tunable, and the defaults suit an agent whose turns take seconds:
+
+```dotenv
+LARACLAW_THREAD_LOCK_RETRY_AFTER=5        # seconds before a waiting turn tries again
+LARACLAW_THREAD_LOCK_EXPIRES_AFTER=900    # seconds a lock survives a worker that dies mid turn
+LARACLAW_THREAD_LOCK_QUEUED_WAIT_FOR=900  # seconds a queued turn keeps waiting before giving up
+LARACLAW_THREAD_LOCK_SYNC_WAIT_FOR=30     # seconds an API request blocks before answering 429
+```
+
+Raise `LARACLAW_THREAD_LOCK_EXPIRES_AFTER` above the longest turn your agent can
+take, or a slow turn loses its lock while it is still running.
+
 ## License
 
 MIT

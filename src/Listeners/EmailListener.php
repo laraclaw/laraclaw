@@ -5,14 +5,11 @@ namespace Laraclaw\Listeners;
 use DirectoryTree\ImapEngine\Laravel\Events\MessageReceived;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
-use Laraclaw\Agents\ChatBotAgent;
-use Laraclaw\Approvals\ApprovalFlow;
 use Laraclaw\Commands\CommandRegistry;
 use Laraclaw\Connectors\Email;
+use Laraclaw\Jobs\RunAgentTurn;
 use Laraclaw\Models\Thread;
 use Laraclaw\Services\Attachments;
-use Laravel\Ai\Responses\AgentResponse;
-use Throwable;
 
 /**
  * Handles incoming IMAP messages, validates them and queues the agent.
@@ -25,7 +22,6 @@ class EmailListener
     public function __construct(
         private readonly Attachments $attachments,
         private readonly CommandRegistry $commands,
-        private readonly ApprovalFlow $approvals,
     ) {}
 
     /**
@@ -58,37 +54,11 @@ class EmailListener
             return;
         }
 
-        // We need references to pass to the callback
-        $attachments = $this->attachments;
-        $approvals = $this->approvals;
-
-        $agent = resolve(ChatBotAgent::class, ['message' => $incomingMessage, 'thread' => $thread]);
-
-        // When the agent paused on a gated tool call, this email is the user's
-        // answer to it and resumes the paused run instead of starting a new turn.
-        $decisions = $approvals->decisionsFrom($thread, $incomingMessage);
-
-        // Queue the agent response, on callback deliver the reply via email
-        ($decisions ? $agent->queue($decisions) : $agent->queue(...$incomingMessage->toAgentInput()))
-            ->then(function (AgentResponse $response) use ($thread, $connector, $incomingMessage, $attachments, $approvals): void {
-                $thread->update(['conversation_id' => $response->conversationId]);
-
-                $connector->reply(
-                    thread: $thread,
-                    text: $approvals->capture($thread, $response) ?? $response->text,
-                    attachments: $attachments->outbound($incomingMessage->uuid)->getAll(),
-                );
-            })
-            ->catch(function (Throwable $e) use ($thread, $connector, $approvals): void {
-                // A stale resume leaves the thread pointing at a pause the conversation
-                // no longer has. Clear it, or every later message reads as an answer.
-                if ($notice = $approvals->recover($thread, $e)) {
-                    $connector->reply($thread, $notice);
-
-                    return;
-                }
-
-                Log::error('Email agent error', ['error' => $e->getMessage()]);
-            });
+        // Hand the turn to the queue, carrying the connector because an email reply
+        // has to quote the subject and message id of the mail being answered. The
+        // agent is built inside the job so it reads the conversation the previous
+        // turn saved, and the job holds a lock on the thread so two messages sent
+        // at once run one after the other.
+        RunAgentTurn::dispatch($thread, $incomingMessage, $connector);
     }
 }
