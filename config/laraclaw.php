@@ -20,6 +20,16 @@ return [
         'outgoing_attachments_path' => env('LARACLAW_OUTGOING_ATTACHMENTS_PATH', 'outbound'),
     ],
 
+    // Limits applied to every outbound HTTP request the agent makes, whether it
+    // comes from the web_request tool or from a file download
+    'http' => [
+        // Largest file download_url will write to a disk, in bytes
+        'max_download_bytes' => env('LARACLAW_MAX_DOWNLOAD_BYTES', 25 * 1024 * 1024),
+
+        // How many redirects a single request may follow before it is abandoned
+        'max_redirects' => env('LARACLAW_MAX_REDIRECTS', 5),
+    ],
+
     'memory' => [
         'enabled' => env('LARACLAW_MEMORY_ENABLED', false),
 

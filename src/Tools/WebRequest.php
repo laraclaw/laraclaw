@@ -4,12 +4,14 @@ namespace Laraclaw\Tools;
 
 use Exception;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
+use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
-use Illuminate\Support\Facades\Http;
+use Laraclaw\DTOs\IncomingMessage;
+use Laraclaw\Exceptions\OutboundRequestBlocked;
+use Laraclaw\Services\OutboundRequestPolicy;
 use Laravel\Ai\Tools\Request;
 use Override;
 use Stringable;
-use Symfony\Component\HttpFoundation\IpUtils;
 
 /**
  * Agent tool for making outbound HTTP requests (GET, POST, PUT, PATCH, DELETE, HEAD).
@@ -19,6 +21,14 @@ class WebRequest extends BaseTool
     private const int TIMEOUT = 15;
 
     private const MAX_RESPONSE_BYTES = 100 * 1024;
+
+    /**
+     * Bind the inbound message and the outbound request policy every hop is checked against.
+     */
+    public function __construct(
+        protected IncomingMessage $message,
+        private readonly OutboundRequestPolicy $policy = new OutboundRequestPolicy,
+    ) {}
 
     /**
      * Return the tool description shown to the agent.
@@ -43,23 +53,16 @@ class WebRequest extends BaseTool
     }
 
     /**
-     * Validate the URL and block private network addresses, then dispatch to the operation.
+     * Dispatch to the operation, turning a refused or failed request into a
+     * message the agent can read rather than an exception that kills the run.
      */
     #[Override]
     public function handle(Request $request): Stringable|string
     {
-        $url = $request['url'] ?? '';
-
-        if (! filter_var($url, FILTER_VALIDATE_URL)) {
-            return "Invalid URL: {$url}";
-        }
-
-        if ($this->isPrivateUrl($url)) {
-            return 'Requests to private/internal network addresses are not allowed.';
-        }
-
         try {
             return parent::handle($request);
+        } catch (OutboundRequestBlocked $e) {
+            return $e->getMessage();
         } catch (Exception $e) {
             return "HTTP request failed: {$e->getMessage()}";
         }
@@ -131,35 +134,27 @@ class WebRequest extends BaseTool
     // Helpers
 
     /**
-     * Execute the HTTP request with redirect safety and optional body/headers.
+     * Execute the request through the outbound policy, which validates the target
+     * and every redirect destination before anything leaves the machine.
      */
     private function send(string $method, Request $request): Response
     {
-        $url = $request['url'];
         $headers = $request['headers'] ?? null;
         $body = $request['body'] ?? null;
 
-        $pending = Http::timeout(self::TIMEOUT)->withOptions([
-            'allow_redirects' => [
-                'max' => 5,
-                'on_redirect' => function ($req): void {
-                    $redirectUrl = (string) $req->getUri();
-                    if ($this->isPrivateUrl($redirectUrl)) {
-                        throw new Exception('Redirect to private/internal network address blocked.');
-                    }
-                },
-            ],
-        ]);
+        return $this->policy->send($method, $request['url'], self::TIMEOUT, function (PendingRequest $pending, string $hop) use ($headers, $body): PendingRequest {
+            if (is_array($headers) && $headers !== []) {
+                $pending = $pending->withHeaders($headers);
+            }
 
-        if (is_array($headers) && $headers !== []) {
-            $pending = $pending->withHeaders($headers);
-        }
+            // A redirect off a POST usually becomes a GET, so the body is only
+            // reattached on the hops that still carry one.
+            if ($body !== null && in_array($hop, ['post', 'put', 'patch'], true)) {
+                return $pending->withBody($body, $this->detectContentType($body));
+            }
 
-        if ($body !== null && in_array($method, ['post', 'put', 'patch'], true)) {
-            $pending = $pending->withBody($body, $this->detectContentType($body));
-        }
-
-        return $pending->$method($url);
+            return $pending;
+        });
     }
 
     /**
@@ -201,62 +196,5 @@ class WebRequest extends BaseTool
             ->filter(fn ($v, $k): bool => in_array(strtolower((string) $k), $keep, true))
             ->map(fn ($v) => is_array($v) ? implode(', ', $v) : $v)
             ->all();
-    }
-
-    /**
-     * Return true if the URL resolves to any private or reserved IP address.
-     *
-     * Resolves ALL DNS records so a single public IP answer cannot hide a private
-     * one behind it (DNS rebinding defence). Every redirect URL is also checked, see send().
-     */
-    private function isPrivateUrl(string $url): bool
-    {
-        $host = parse_url($url, PHP_URL_HOST);
-
-        if ($host === null || $host === '') {
-            return true;
-        }
-
-        // Strip IPv6 brackets before DNS lookups
-        $host = trim($host, '[]');
-
-        $ips = collect(dns_get_record($host, DNS_A) ?: [])
-            ->pluck('ip')
-            ->merge(collect(dns_get_record($host, DNS_AAAA) ?: [])->pluck('ipv6'))
-            ->filter()
-            ->values()
-            ->all();
-
-        // No DNS records found, which may mean this is a raw IP literal. Fall back to gethostbyname().
-        if (empty($ips)) {
-            $resolved = gethostbyname($host);
-            $ips[] = $resolved;
-        }
-
-        foreach ($ips as $ip) {
-            if ($this->isPrivateIp($ip)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * Return true if $ip falls within any loopback, private, or reserved range.
-     */
-    private function isPrivateIp(string $ip): bool
-    {
-        return IpUtils::checkIp($ip, [
-            '127.0.0.0/8',
-            '10.0.0.0/8',
-            '172.16.0.0/12',
-            '192.168.0.0/16',
-            '169.254.0.0/16',
-            '0.0.0.0',
-            '::1/128',
-            'fc00::/7',
-            'fe80::/10',
-        ]);
     }
 }
