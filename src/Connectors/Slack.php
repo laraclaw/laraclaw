@@ -155,20 +155,33 @@ class Slack extends Connector
             return null;
         }
 
-        return Cache::remember(
-            self::SENDER_NAME_KEY . $userId,
-            self::SENDER_NAME_TTL,
-            fn (): string => self::fetchSenderName($userId),
-        );
+        $key = self::SENDER_NAME_KEY . $userId;
+        $cached = Cache::get($key);
+
+        if (filled($cached)) {
+            return $cached;
+        }
+
+        $name = self::fetchSenderName($userId);
+
+        // Only a real answer earns a place in the cache. Caching the fallback would
+        // pin everyone in the channel to a raw ID for a day over one bad request.
+        if ($name === null) {
+            return $userId;
+        }
+
+        Cache::put($key, $name, self::SENDER_NAME_TTL);
+
+        return $name;
     }
 
     /**
      * Ask Slack for the profile behind a user ID and pick the friendliest name on it.
      *
-     * A failed lookup falls back to the raw user ID so the agent still has something
-     * to tell participants apart with, and never breaks handling of the message.
+     * Returns null when the lookup fails, which leaves the caller free to fall back
+     * to the raw user ID without storing that guess as if it were the real name.
      */
-    private static function fetchSenderName(string $userId): string
+    private static function fetchSenderName(string $userId): ?string
     {
         try {
             $response = Http::withToken(self::token())
@@ -177,10 +190,10 @@ class Slack extends Connector
             if (! $response->successful() || ! $response->json('ok')) {
                 Log::warning('Slack user lookup failed', ['user' => $userId, 'status' => $response->status()]);
 
-                return $userId;
+                return null;
             }
 
-            $name = collect([
+            return collect([
                 $response->json('user.profile.real_name'),
                 $response->json('user.real_name'),
                 $response->json('user.profile.display_name'),
@@ -188,12 +201,10 @@ class Slack extends Connector
             ])
                 ->filter(fn (?string $candidate): bool => filled($candidate))
                 ->first();
-
-            return $name ?? $userId;
         } catch (Throwable $e) {
             Log::warning('Slack user lookup error', ['user' => $userId, 'error' => $e->getMessage()]);
 
-            return $userId;
+            return null;
         }
     }
 

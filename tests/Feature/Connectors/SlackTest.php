@@ -125,6 +125,20 @@ it('still processes the message when the sender lookup fails', function () {
         ->and($incoming->senderName)->toBe('U9');
 });
 
+it('retries a failed lookup instead of caching the fallback', function () {
+    Http::fakeSequence()
+        ->push(['ok' => false, 'error' => 'ratelimited'], 429)
+        ->push(['ok' => true, 'user' => ['profile' => ['real_name' => 'Noelia Rodriguez']]]);
+
+    $event = ['channel' => 'C123', 'ts' => '111.222', 'user' => 'U9', 'text' => 'hi'];
+
+    $first = Slack::createIncomingMessageFrom($event, app(Attachments::class));
+    $second = Slack::createIncomingMessageFrom($event, app(Attachments::class));
+
+    expect($first->senderName)->toBe('U9')
+        ->and($second->senderName)->toBe('Noelia Rodriguez');
+});
+
 it('reports no sender name when the event has no user', function () {
     Http::fake();
 
