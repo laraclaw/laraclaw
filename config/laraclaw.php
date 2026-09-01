@@ -126,6 +126,13 @@ return [
             // By default, the bot rejects emails that fail DKIM or SPF authentication checks
             'verify_sender_dkim_and_spf' => env('LARACLAW_EMAIL_VERIFY_SENDER_DKIM_AND_SPF', true),
 
+            // How many times a single email may be picked up again after a failed handoff
+            // before we give up on it, mark it seen and log the failure
+            'max_processing_attempts' => env('LARACLAW_EMAIL_MAX_PROCESSING_ATTEMPTS', 3),
+
+            // How long, in seconds, the record that an email was already processed is kept
+            'processed_retention' => env('LARACLAW_EMAIL_PROCESSED_RETENTION', 604800),
+
             // SMTP config for sending emails
             'smtp' => [
                 'host' => env('LARACLAW_SMTP_HOST'),

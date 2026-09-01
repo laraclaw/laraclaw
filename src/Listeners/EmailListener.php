@@ -11,6 +11,7 @@ use Laraclaw\Commands\CommandRegistry;
 use Laraclaw\Connectors\Email;
 use Laraclaw\Models\Thread;
 use Laraclaw\Services\Attachments;
+use Laraclaw\Services\ProcessedEmails;
 use Laravel\Ai\Responses\AgentResponse;
 use Throwable;
 
@@ -26,6 +27,7 @@ class EmailListener
         private readonly Attachments $attachments,
         private readonly CommandRegistry $commands,
         private readonly ApprovalFlow $approvals,
+        private readonly ProcessedEmails $processed,
     ) {}
 
     /**
@@ -44,16 +46,26 @@ class EmailListener
             return;
         }
 
+        $identifier = $this->identifierFor($event);
+
+        // The seen flag lives on the mail server and the work lives here, so the two
+        // can always come apart. Claim the message first and let the claim, not the
+        // flag, be what stops us from answering the same email twice.
+        if (! $this->processed->claim($identifier)) {
+            Email::markSeen($raw->uid());
+
+            return;
+        }
+
         $connector = Email::fromRawMessage($raw);
         $incomingMessage = Email::createIncomingMessageFrom($raw, $this->attachments);
         $thread = Thread::forMessage($incomingMessage);
 
-        // Mark the email as seen so it is not reprocessed on the next poll
-        Email::markSeen($raw->uid());
-
         // Handle commands
         if ($command = $this->commands->match($incomingMessage->text ?? '')) {
             $command->handle($incomingMessage, $thread);
+
+            $this->settle($identifier, $raw->uid());
 
             return;
         }
@@ -69,7 +81,7 @@ class EmailListener
         $decisions = $approvals->decisionsFrom($thread, $incomingMessage);
 
         // Queue the agent response, on callback deliver the reply via email
-        ($decisions ? $agent->queue($decisions) : $agent->queue(...$incomingMessage->toAgentInput()))
+        $queued = ($decisions ? $agent->queue($decisions) : $agent->queue(...$incomingMessage->toAgentInput()))
             ->then(function (AgentResponse $response) use ($thread, $connector, $incomingMessage, $attachments, $approvals): void {
                 $thread->update(['conversation_id' => $response->conversationId]);
 
@@ -90,5 +102,42 @@ class EmailListener
 
                 Log::error('Email agent error', ['error' => $e->getMessage()]);
             });
+
+        // The job is only pushed once the pending dispatch is released, so release it
+        // here and let the push, rather than the end of this method, be the moment the
+        // email counts as ours. A push that throws leaves the email unseen for a retry.
+        try {
+            unset($queued);
+        } catch (Throwable $e) {
+            Log::error('Laraclaw: failed to queue the agent for an incoming email', [
+                'identifier' => $identifier,
+                'error' => $e->getMessage(),
+            ]);
+
+            return;
+        }
+
+        $this->settle($identifier, $raw->uid());
+    }
+
+    /**
+     * Record the handoff and only then tell the mail server to stop offering the message.
+     */
+    private function settle(string $identifier, int $uid): void
+    {
+        $this->processed->confirm($identifier);
+
+        Email::markSeen($uid);
+    }
+
+    /**
+     * Build the deduplication key for an email.
+     *
+     * The Message-ID is the only identifier that survives a mailbox moving the
+     * message around. Fall back to the mailbox and UID when a sender omits it.
+     */
+    private function identifierFor(MessageReceived $event): string
+    {
+        return $event->message->messageId() ?? $event->mailbox . ':' . $event->message->uid();
     }
 }
