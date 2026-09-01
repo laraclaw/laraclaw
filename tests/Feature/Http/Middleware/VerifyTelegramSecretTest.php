@@ -52,3 +52,16 @@ it('attaches the middleware to the webhook route', function () {
     expect($route)->not->toBeNull()
         ->and($route->gatherMiddleware())->toContain('telegram.secret');
 });
+
+it('accepts a secret that PHP would read as falsy', function () {
+    // "0" is a legal secret token but a truthiness check on the header would
+    // have thrown it out, locking the webhook shut with no way to tell why.
+    config(['laraclaw.connectors.telegram.secret_token' => '0']);
+
+    $response = (new VerifyTelegramSecret)->handle(
+        makeTelegramRequest('0'),
+        fn () => response('ok'),
+    );
+
+    expect($response->getContent())->toBe('ok');
+});

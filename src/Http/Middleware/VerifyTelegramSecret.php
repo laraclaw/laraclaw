@@ -32,7 +32,7 @@ class VerifyTelegramSecret
 
         $header = $request->header(self::HEADER);
 
-        if (! $header || ! hash_equals((string) $secret, $header)) {
+        if ($header === null || ! hash_equals((string) $secret, (string) $header)) {
             abort(403, 'Invalid Telegram secret token.');
         }
 

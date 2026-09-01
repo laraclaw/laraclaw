@@ -147,14 +147,14 @@ class LaraclawServiceProvider extends ServiceProvider
             );
         }
 
-        if (config('laraclaw.connectors.telegram.enabled') && empty(config('laraclaw.connectors.telegram.secret_token'))) {
+        if (config('laraclaw.connectors.telegram.enabled') && blank(config('laraclaw.connectors.telegram.secret_token'))) {
             throw new RuntimeException(
                 'Laraclaw: LARACLAW_TELEGRAM_SECRET_TOKEN must be set when the Telegram connector is enabled. '
                 . 'Run "php artisan laraclaw:setup-connector telegram" to generate one and register the webhook.'
             );
         }
 
-        if (config('laraclaw.connectors.slack.enabled') && empty(config('laraclaw.connectors.slack.signing_secret'))) {
+        if (config('laraclaw.connectors.slack.enabled') && blank(config('laraclaw.connectors.slack.signing_secret'))) {
             throw new RuntimeException(
                 'Laraclaw: LARACLAW_SLACK_SIGNING_SECRET must be set when the Slack connector is enabled.'
             );
