@@ -2,9 +2,9 @@
 
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Queue;
-use Laraclaw\Console\Commands\ProcessHeartbeats;
-use Laraclaw\Jobs\SendHeartbeat;
-use Laraclaw\Models\Heartbeat;
+use Laraclaw\Console\Commands\ProcessRoutines;
+use Laraclaw\Jobs\SendRoutine;
+use Laraclaw\Models\Routine;
 
 beforeEach(function () {
     Queue::fake();
@@ -12,8 +12,8 @@ beforeEach(function () {
     config(['laraclaw.auth.admin_user_id' => $this->user->id]);
 });
 
-it('dispatches SendHeartbeat immediately when last_run_at is null', function () {
-    Heartbeat::create([
+it('dispatches SendRoutine immediately when last_run_at is null', function () {
+    Routine::create([
         'user_id' => $this->user->id,
         'connector' => 'telegram',
         'key' => 'user-123',
@@ -23,16 +23,16 @@ it('dispatches SendHeartbeat immediately when last_run_at is null', function () 
         'last_run_at' => null,
     ]);
 
-    $this->artisan(ProcessHeartbeats::class);
+    $this->artisan(ProcessRoutines::class);
 
-    Queue::assertPushed(SendHeartbeat::class, 1);
+    Queue::assertPushed(SendRoutine::class, 1);
 });
 
-it('dispatches SendHeartbeat when the next scheduled time has passed', function () {
+it('dispatches SendRoutine when the next scheduled time has passed', function () {
     // Freeze to Monday 2024-01-08 at 10:00 — next run after last Monday's 9am has elapsed
     $this->travelTo(Carbon::create(2024, 1, 8, 10, 0, 0));
 
-    Heartbeat::create([
+    Routine::create([
         'user_id' => $this->user->id,
         'connector' => 'telegram',
         'key' => 'user-123',
@@ -42,16 +42,16 @@ it('dispatches SendHeartbeat when the next scheduled time has passed', function 
         'last_run_at' => Carbon::create(2024, 1, 1, 9, 0, 0),  // Previous Monday at 9am
     ]);
 
-    $this->artisan(ProcessHeartbeats::class);
+    $this->artisan(ProcessRoutines::class);
 
-    Queue::assertPushed(SendHeartbeat::class, 1);
+    Queue::assertPushed(SendRoutine::class, 1);
 });
 
 it('does not dispatch when the next scheduled time has not yet passed', function () {
     // Freeze to 2024-01-08 at 08:00 — next 9am run is still one hour away
     $this->travelTo(Carbon::create(2024, 1, 8, 8, 0, 0));
 
-    Heartbeat::create([
+    Routine::create([
         'user_id' => $this->user->id,
         'connector' => 'telegram',
         'key' => 'user-123',
@@ -61,13 +61,13 @@ it('does not dispatch when the next scheduled time has not yet passed', function
         'last_run_at' => Carbon::create(2024, 1, 7, 9, 0, 0),  // Yesterday at 9am; next run is today at 9am
     ]);
 
-    $this->artisan(ProcessHeartbeats::class);
+    $this->artisan(ProcessRoutines::class);
 
-    Queue::assertNotPushed(SendHeartbeat::class);
+    Queue::assertNotPushed(SendRoutine::class);
 });
 
-it('does not dispatch for inactive heartbeats', function () {
-    Heartbeat::create([
+it('does not dispatch for inactive routines', function () {
+    Routine::create([
         'user_id' => $this->user->id,
         'connector' => 'telegram',
         'key' => 'user-123',
@@ -77,13 +77,13 @@ it('does not dispatch for inactive heartbeats', function () {
         'last_run_at' => null,
     ]);
 
-    $this->artisan(ProcessHeartbeats::class);
+    $this->artisan(ProcessRoutines::class);
 
-    Queue::assertNotPushed(SendHeartbeat::class);
+    Queue::assertNotPushed(SendRoutine::class);
 });
 
-it('only dispatches active heartbeats when mixed with inactive ones', function () {
-    Heartbeat::create([
+it('only dispatches active routines when mixed with inactive ones', function () {
+    Routine::create([
         'user_id' => $this->user->id,
         'connector' => 'telegram',
         'key' => 'user-123',
@@ -93,7 +93,7 @@ it('only dispatches active heartbeats when mixed with inactive ones', function (
         'last_run_at' => null,
     ]);
 
-    Heartbeat::create([
+    Routine::create([
         'user_id' => $this->user->id,
         'connector' => 'telegram',
         'key' => 'user-456',
@@ -103,7 +103,7 @@ it('only dispatches active heartbeats when mixed with inactive ones', function (
         'last_run_at' => null,
     ]);
 
-    $this->artisan(ProcessHeartbeats::class);
+    $this->artisan(ProcessRoutines::class);
 
-    Queue::assertPushed(SendHeartbeat::class, 1);
+    Queue::assertPushed(SendRoutine::class, 1);
 });

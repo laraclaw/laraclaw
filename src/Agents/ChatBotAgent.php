@@ -13,12 +13,12 @@ use Laraclaw\Skills\SkillRegistry;
 use Laraclaw\Tools\CalendarManager;
 use Laraclaw\Tools\EmailManager;
 use Laraclaw\Tools\FileManager;
-use Laraclaw\Tools\HeartbeatManager;
 use Laraclaw\Tools\ImageManager;
 use Laraclaw\Tools\MemoryManager;
 use Laraclaw\Tools\Persona;
 use Laraclaw\Tools\ReadDatabase;
 use Laraclaw\Tools\ReminderManager;
+use Laraclaw\Tools\RoutineManager;
 use Laraclaw\Tools\TextToSpeech;
 use Laraclaw\Tools\Tinker;
 use Laraclaw\Tools\ToolRegistry;
@@ -89,7 +89,7 @@ class ChatBotAgent implements Agent, Conversational, HasMiddleware, HasProviderO
             resolve(ImageManager::class, ['message' => $this->message]),
             resolve(FileManager::class, ['message' => $this->message]),
             resolve(ReminderManager::class, ['message' => $this->message]),
-            resolve(HeartbeatManager::class, ['message' => $this->message]),
+            resolve(RoutineManager::class, ['message' => $this->message]),
             resolve(WebRequest::class, ['message' => $this->message]),
         ];
 

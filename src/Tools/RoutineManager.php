@@ -5,28 +5,28 @@ namespace Laraclaw\Tools;
 use Cron\CronExpression;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laraclaw\Enums\ConnectorType;
-use Laraclaw\Models\Heartbeat;
+use Laraclaw\Models\Routine;
 use Laravel\Ai\Tools\Request;
 use Stringable;
 
 /**
- * Agent tool for creating, listing, and cancelling recurring heartbeats scheduled by cron.
+ * Agent tool for creating, listing, and cancelling recurring routines scheduled by cron.
  */
-class HeartbeatManager extends BaseTool
+class RoutineManager extends BaseTool
 {
     /**
      * Return the tool description shown to the agent.
      */
     public function description(): Stringable|string
     {
-        return 'Manage recurring scheduled prompts (heartbeats). Operations: create, list, cancel. '
+        return 'Manage recurring scheduled prompts (routines). Operations: create, list, cancel. '
             . 'Use create to schedule a recurring prompt on a cron schedule. '
-            . 'Each time the heartbeat fires, the prompt is sent to the agent for processing and the response is delivered. '
+            . 'Each time the routine fires, the prompt is sent to the agent for processing and the response is delivered. '
             . 'The cron field accepts standard 5-field cron expressions (e.g. "0 9 * * 1" for every Monday at 9am). '
             . 'Translate plain English schedules ("every weekday at 9am") into cron format. '
             . 'Cron expressions are evaluated in the timezone given to you as the current date and time, so no offset maths is needed. '
-            . 'Use list to see active heartbeats. '
-            . 'Use cancel to deactivate a heartbeat by ID.';
+            . 'Use list to see active routines. '
+            . 'Use cancel to deactivate a routine by ID.';
     }
 
     /**
@@ -36,7 +36,7 @@ class HeartbeatManager extends BaseTool
     {
         return [
             'operation' => $schema->string()->required()->description('Operation: create, list, or cancel'),
-            'id' => $schema->string()->description('Heartbeat ID (required for cancel)'),
+            'id' => $schema->string()->description('Routine ID (required for cancel)'),
             'prompt' => $schema->string()->description('Prompt for the agent to process on each occurrence (required for create)'),
             'cron' => $schema->string()->description('5-field cron expression, e.g. "0 9 * * 1" (required for create)'),
             'connector' => $schema->string()->description('Connector type to send on: telegram, slack, or email. Defaults to the current connector.'),
@@ -52,7 +52,7 @@ class HeartbeatManager extends BaseTool
     }
 
     /**
-     * Validate the cron expression and prompt, then persist a new active Heartbeat record.
+     * Validate the cron expression and prompt, then persist a new active Routine record.
      */
     protected function create(Request $request): string
     {
@@ -73,10 +73,10 @@ class HeartbeatManager extends BaseTool
         [$connector, $key] = $this->resolveConnector($request['connector'] ?? null);
 
         if ($connector === ConnectorType::Api) {
-            return 'API threads cannot receive heartbeats because the HTTP request closes before each tick fires. Pick telegram, slack, or email.';
+            return 'API threads cannot receive routines because the HTTP request closes before each tick fires. Pick telegram, slack, or email.';
         }
 
-        Heartbeat::create([
+        Routine::create([
             'user_id' => config('laraclaw.auth.admin_user_id'),
             'connector' => $connector,
             'key' => $key,
@@ -85,28 +85,28 @@ class HeartbeatManager extends BaseTool
             'is_active' => true,
         ]);
 
-        return "Heartbeat created with cron \"{$cron}\": {$prompt}";
+        return "Routine created with cron \"{$cron}\": {$prompt}";
     }
 
     /**
-     * Return all active heartbeats for the configured admin user as JSON.
+     * Return all active routines for the configured admin user as JSON.
      */
     protected function list(Request $request): string
     {
-        $heartbeats = Heartbeat::where('user_id', config('laraclaw.auth.admin_user_id'))
+        $routines = Routine::where('user_id', config('laraclaw.auth.admin_user_id'))
             ->where('is_active', true)
             ->orderBy('id')
             ->get(['id', 'connector', 'key', 'prompt', 'cron', 'last_run_at']);
 
-        if ($heartbeats->isEmpty()) {
-            return 'No active heartbeats.';
+        if ($routines->isEmpty()) {
+            return 'No active routines.';
         }
 
-        return json_encode($heartbeats->toArray(), JSON_PRETTY_PRINT);
+        return json_encode($routines->toArray(), JSON_PRETTY_PRINT);
     }
 
     /**
-     * Deactivate a heartbeat by ID (sets is_active to false).
+     * Deactivate a routine by ID (sets is_active to false).
      */
     protected function cancel(Request $request): string
     {
@@ -115,16 +115,16 @@ class HeartbeatManager extends BaseTool
             return 'The "id" parameter is required for cancel.';
         }
 
-        $heartbeat = Heartbeat::where('id', $id)
+        $routine = Routine::where('id', $id)
             ->where('user_id', config('laraclaw.auth.admin_user_id'))
             ->first();
 
-        if (! $heartbeat) {
-            return "Heartbeat {$id} not found.";
+        if (! $routine) {
+            return "Routine {$id} not found.";
         }
 
-        $heartbeat->update(['is_active' => false]);
+        $routine->update(['is_active' => false]);
 
-        return "Heartbeat {$id} cancelled.";
+        return "Routine {$id} cancelled.";
     }
 }

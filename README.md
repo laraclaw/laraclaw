@@ -335,7 +335,7 @@ Laraclaw has no timezone setting of its own. It follows `config('app.timezone')`
 APP_TIMEZONE=America/Argentina/Buenos_Aires
 ```
 
-The agent is told the current time in that zone along with its UTC offset, so "remind me tomorrow at 10am" means ten in the morning where you are. Reminders, heartbeat cron expressions, and calendar events all use it too, and anything the agent reports back is converted into it first.
+The agent is told the current time in that zone along with its UTC offset, so "remind me tomorrow at 10am" means ten in the morning where you are. Reminders, routine cron expressions, and calendar events all use it too, and anything the agent reports back is converted into it first.
 
 If you leave `APP_TIMEZONE` unset, Laravel defaults to UTC and so does Laraclaw.
 
