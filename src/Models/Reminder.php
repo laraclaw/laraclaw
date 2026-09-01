@@ -31,7 +31,7 @@ class Reminder extends Model
      */
     public function user(): BelongsTo
     {
-        return $this->belongsTo(config('laraclaw.auth.user_model'));
+        return $this->belongsTo(config('laraclaw.auth.user_model'), 'user_id');
     }
 
     /**

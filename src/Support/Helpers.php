@@ -3,9 +3,15 @@
 namespace Laraclaw\Support;
 
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Concerns\HasUlids;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\PostgresConnection;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Database\Schema\ForeignKeyDefinition;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 use League\CommonMark\Environment\Environment;
 use League\CommonMark\Extension\CommonMark\CommonMarkCoreExtension;
 use League\CommonMark\Extension\Strikethrough\StrikethroughExtension;
@@ -194,6 +200,107 @@ function databaseUsesPgVector(): bool
     } catch (Throwable) {
         return false;
     }
+}
+
+/**
+ * Resolve the configured user model into a fresh instance.
+ *
+ * Falls back to whatever the application's own auth provider is pointed at, so a
+ * host app that never set the Laraclaw key still resolves the model it actually
+ * authenticates with. A bad value is reported here rather than left to blow up
+ * somewhere deep in a migration with nothing to go on.
+ */
+function userModel(): Model
+{
+    $class = config('laraclaw.auth.user_model') ?: config('auth.providers.users.model');
+
+    if (! is_string($class) || ! class_exists($class)) {
+        throw new InvalidArgumentException('The configured Laraclaw user model does not exist: ' . var_export($class, true) . '. Set laraclaw.auth.user_model or auth.providers.users.model to an Eloquent model class.');
+    }
+
+    $model = new $class;
+
+    if (! $model instanceof Model) {
+        throw new InvalidArgumentException('The configured Laraclaw user model is not an Eloquent model: ' . $class . '.');
+    }
+
+    return $model;
+}
+
+/**
+ * Describe the primary key column of the user table as the database already has it.
+ *
+ * Returns null when the table has not been created yet, which is what happens if
+ * an application migrates the package before its own users table.
+ *
+ * @return array<string, mixed>|null
+ */
+function userKeyColumn(Model $model): ?array
+{
+    if (! Schema::hasTable($model->getTable())) {
+        return null;
+    }
+
+    return collect(Schema::getColumns($model->getTable()))
+        ->firstWhere('name', $model->getKeyName());
+}
+
+/**
+ * Add the foreign key column that points at the configured user model.
+ *
+ * The model itself is the source of truth for the table it lives in, the name of
+ * its primary key, and the type of that key, so an application keyed by UUID or
+ * ULID gets a column that matches rather than the bigint Laravel infers from the
+ * column name. A model with the default auto incrementing key produces exactly
+ * the same schema as a plain foreignId with a constrained call.
+ */
+function userForeignKey(Blueprint $table, string $column = 'user_id'): ForeignKeyDefinition
+{
+    $model = userModel();
+    $traits = class_uses_recursive($model);
+
+    // Only a character key needs the referenced column inspected, so an ordinary
+    // auto incrementing model never pays for the lookup.
+    $keyColumn = $model->getKeyType() === 'string' ? userKeyColumn($model) : null;
+
+    // HasUlids builds on HasUuids, so the ULID check has to come first or every
+    // ULID keyed model would be handed a UUID column.
+    $method = match (true) {
+        $model->getKeyType() !== 'string' => 'foreignId',
+        in_array(HasUlids::class, $traits, true) => 'foreignUlid',
+        in_array(HasUuids::class, $traits, true) => 'foreignUuid',
+        default => 'string',
+    };
+
+    $definition = $method === 'string'
+        ? $table->string($column, columnLength($keyColumn))
+        : $table->{$method}($column);
+
+    // MySQL refuses a foreign key between two character columns whose collations
+    // differ, so copy whatever the user table already uses instead of letting the
+    // connection default decide.
+    if ($method !== 'foreignId' && filled($keyColumn['collation'] ?? null)) {
+        $definition->collation($keyColumn['collation']);
+    }
+
+    return $table->foreign($column)
+        ->references($model->getKeyName())
+        ->on($model->getTable());
+}
+
+/**
+ * Read the declared length out of a column description, if it carries one.
+ *
+ * SQLite reports a bare "varchar" because it does not enforce widths, in which
+ * case there is nothing to copy and the Laravel default applies.
+ *
+ * @param  array<string, mixed>|null  $column
+ */
+function columnLength(?array $column): ?int
+{
+    return preg_match('/\((\d+)\)/', (string) ($column['type'] ?? ''), $matches)
+        ? (int) $matches[1]
+        : null;
 }
 
 /**
