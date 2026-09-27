@@ -51,19 +51,13 @@ abstract class BaseTool implements Approvable, Tool
      */
     public function handle(Request $request): Stringable|string
     {
-        $operation = $request['operation'];
-
-        if (! in_array($operation, $this->operations(), true)) {
-            return "Unknown operation '{$operation}'. Available: " . implode(', ', $this->operations());
-        }
-
-        if ($error = $this->missingParameter($operation, $request)) {
+        if ($error = $this->validateOperation($request)) {
             return $error;
         }
 
         // Operation names use snake_case because that is what the JSON schema
         // exposes to the model, but PHP methods are camelCase.
-        return $this->{Str::camel($operation)}($request);
+        return $this->{Str::camel($request['operation'])}($request);
     }
 
     /**
@@ -95,6 +89,24 @@ abstract class BaseTool implements Approvable, Tool
         return Approval::required(is_callable($template)
             ? $template($request)
             : interpolate($template, $request->toArray()));
+    }
+
+    /**
+     * Check the operation exists and every parameter it needs is present.
+     *
+     * Returns the message for the agent, or null when the request is well formed.
+     * Subclasses that do their own checks before dispatching call this first so a
+     * malformed request is reported as such rather than as a missing file.
+     */
+    protected function validateOperation(Request $request): ?string
+    {
+        $operation = $request['operation'];
+
+        if (! in_array($operation, $this->operations(), true)) {
+            return "Unknown operation '{$operation}'. Available: " . implode(', ', $this->operations());
+        }
+
+        return $this->missingParameter($operation, $request);
     }
 
     /**

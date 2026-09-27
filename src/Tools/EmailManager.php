@@ -154,7 +154,7 @@ class EmailManager extends BaseTool
      */
     protected function read(Request $request): string
     {
-        $message = $this->find($request, withBody: true);
+        $message = $this->find($request, with: ['withHeaders', 'withFlags', 'withSize', 'withBody']);
 
         if (! $message instanceof MessageInterface) {
             return $this->notFound($request);
@@ -190,7 +190,7 @@ class EmailManager extends BaseTool
      */
     protected function reply(Request $request): string
     {
-        $original = $this->find($request, withBody: true);
+        $original = $this->find($request, with: ['withHeaders', 'withBody']);
 
         if (! $original instanceof MessageInterface) {
             return $this->notFound($request);
@@ -449,13 +449,18 @@ class EmailManager extends BaseTool
 
     /**
      * Fetch the message the request names, or null when the folder has no such UID.
+     *
+     * Only the parts named in $with are loaded, since a flag change needs nothing
+     * beyond the UID while a full read wants headers, flags, size and body.
+     *
+     * @param  string[]  $with  the loader methods to call on the query, such as withBody
      */
-    private function find(Request $request, string $folderKey = 'folder', bool $withBody = false): ?MessageInterface
+    private function find(Request $request, string $folderKey = 'folder', array $with = []): ?MessageInterface
     {
         $query = $this->folder($request, $folderKey)->messages();
 
-        if ($withBody) {
-            $query = $query->withHeaders()->withBody();
+        foreach ($with as $loader) {
+            $query = $query->{$loader}();
         }
 
         $message = $query->find((int) $request['uid']);

@@ -64,12 +64,12 @@ class ImageManager extends BaseTool
     }
 
     /**
-     * Check the disk, the path and that the file really is an image before dispatching.
+     * Check the operation, the disk, the path and that the file really is an image before dispatching.
      */
     #[Override]
     public function handle(Request $request): Stringable|string
     {
-        if ($error = $this->validateDiskAccess($request['disk'] ?? '', $request['path'] ?? '')) {
+        if ($error = $this->validateOperation($request) ?? $this->validateDiskAccess($request['disk'] ?? '', $request['path'] ?? '')) {
             return $error;
         }
 
@@ -206,7 +206,7 @@ class ImageManager extends BaseTool
      */
     protected function optimize(Request $request): string
     {
-        $quality = $request->integer('quality') ? max(1, min(100, $request->integer('quality'))) : 100;
+        $quality = isset($request['quality']) ? max(1, min(100, (int) $request['quality'])) : 100;
         $target = $this->siblingPath($request['path'], '_optimized');
 
         return $this->transform($request, $target, fn (): string => 'Optimized', $quality)

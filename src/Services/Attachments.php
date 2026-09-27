@@ -87,7 +87,7 @@ class Attachments
      */
     private function path(?string $filename = null): string
     {
-        return collect([$this->base, $this->uuid, $filename])->filter()->implode('/');
+        return collect([$this->base, $this->uuid, $filename])->reject(fn (?string $segment): bool => $segment === null || $segment === '')->implode('/');
     }
 
     /**
