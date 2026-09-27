@@ -35,7 +35,7 @@ class ReminderManager extends BaseTool
         return [
             'operation' => $schema->string()->required()->description('Operation: create, list, or cancel'),
             'id' => $schema->string()->description('Reminder ID (required for cancel)'),
-            'message' => $schema->string()->description('Message to send (required for create)'),
+            'message' => $schema->string()->description('Message to send (required for create). It is delivered word for word at that time, so write what the user should read then: "Time to do the dishes", not "Remind me to do the dishes".'),
             'remind_at' => $schema->string()->description('When to send. Prefer ISO 8601 worked out from the current date and time you were given. Plain English like "tomorrow at 10am" also works. (required for create)'),
             'connector' => $schema->string()->description('Connector type to send on: telegram, slack, or email. Defaults to the current connector.'),
         ];

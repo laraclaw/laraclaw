@@ -86,7 +86,7 @@ class SendRoutine implements ShouldBeUnique, ShouldQueue
             : $this->routine->key;
 
         $message = new IncomingMessage(
-            text: $this->routine->prompt,
+            text: $this->framedPrompt(),
             connector: $this->routine->connector,
             key: $key,
             isDirectMessage: $isDirectMessage,
@@ -158,6 +158,26 @@ class SendRoutine implements ShouldBeUnique, ShouldQueue
         ]);
 
         Routine::whereKey($this->routine->getKey())->update(['last_run_at' => $this->previousRunAt]);
+    }
+
+    /**
+     * Wrap the stored prompt so the agent knows a routine is firing rather than
+     * the user asking for one.
+     *
+     * The prompt tends to be stored in the user's own words, "remind me to do the
+     * dishes", and it lands in a conversation where the last thing the agent did
+     * was agree to schedule exactly that. Sent bare, the agent reads it as the same
+     * request coming round again and answers "sure, every weekday at 7am" instead
+     * of saying "do the dishes".
+     */
+    private function framedPrompt(): string
+    {
+        return 'This is a scheduled routine going off, not a new message from the user. '
+            . 'It was set up earlier and is firing now on its schedule. '
+            . 'Carry out the instruction below and reply with what the user should read at this moment. '
+            . 'Do not schedule, reschedule, or confirm anything.'
+            . PHP_EOL . PHP_EOL
+            . $this->routine->prompt;
     }
 
     /**

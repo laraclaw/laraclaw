@@ -37,7 +37,7 @@ class RoutineManager extends BaseTool
         return [
             'operation' => $schema->string()->required()->description('Operation: create, list, or cancel'),
             'id' => $schema->string()->description('Routine ID (required for cancel)'),
-            'prompt' => $schema->string()->description('Prompt for the agent to process on each occurrence (required for create)'),
+            'prompt' => $schema->string()->description('Prompt for the agent to process on each occurrence (required for create). Write it as the instruction to carry out when the routine fires, not as the request to schedule it: "Tell the user to do the dishes", not "Remind me to do the dishes".'),
             'cron' => $schema->string()->description('5-field cron expression, e.g. "0 9 * * 1" (required for create)'),
             'connector' => $schema->string()->description('Connector type to send on: telegram, slack, or email. Defaults to the current connector.'),
         ];
