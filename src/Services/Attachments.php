@@ -13,6 +13,7 @@ use Laraclaw\DTOs\Attachment;
 class Attachments
 {
     private string $uuid;
+
     private string $base;
 
     /**
@@ -42,10 +43,9 @@ class Attachments
      */
     public function set(string $filename, string $content): string
     {
-        $path = "{$this->base}/{$this->uuid}/{$filename}";
-        Storage::disk($this->disk())->put($path, $content);
+        Storage::disk($this->disk())->put($this->path($filename), $content);
 
-        return $path;
+        return $this->path($filename);
     }
 
     /**
@@ -53,10 +53,9 @@ class Attachments
      */
     public function putFile(string $filename, UploadedFile $file): string
     {
-        $directory = "{$this->base}/{$this->uuid}";
-        Storage::disk($this->disk())->putFileAs($directory, $file, $filename);
+        Storage::disk($this->disk())->putFileAs($this->path(), $file, $filename);
 
-        return "{$directory}/{$filename}";
+        return $this->path($filename);
     }
 
     /**
@@ -64,7 +63,7 @@ class Attachments
      */
     public function get(string $filename): ?string
     {
-        return Storage::disk($this->disk())->get("{$this->base}/{$this->uuid}/{$filename}");
+        return Storage::disk($this->disk())->get($this->path($filename));
     }
 
     /**
@@ -74,13 +73,21 @@ class Attachments
     {
         $disk = $this->disk();
 
-        return collect(Storage::disk($disk)->files("{$this->base}/{$this->uuid}"))
+        return collect(Storage::disk($disk)->files($this->path()))
             ->map(fn (string $file): Attachment => new Attachment(
                 path: $file,
                 disk: $disk,
                 mimeType: Storage::disk($disk)->mimeType($file) ?: 'application/octet-stream',
                 filename: basename($file),
             ));
+    }
+
+    /**
+     * Build the path of the current scope's folder, or of a file inside it.
+     */
+    private function path(?string $filename = null): string
+    {
+        return collect([$this->base, $this->uuid, $filename])->filter()->implode('/');
     }
 
     /**

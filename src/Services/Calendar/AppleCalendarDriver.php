@@ -14,6 +14,7 @@ use Laraclaw\DTOs\CalendarEvent;
 use Laraclaw\Services\Calendar\Contracts\CalendarDriver;
 use RuntimeException;
 use Sabre\VObject\Component\VCalendar;
+use Sabre\VObject\Component\VEvent;
 use Sabre\VObject\Reader;
 use SimpleXMLElement;
 
@@ -63,29 +64,9 @@ class AppleCalendarDriver implements CalendarDriver
     {
         $uid = Str::uuid()->toString();
         $vcalendar = new VCalendar;
-        $vevent = $vcalendar->add('VEVENT', [
-            'SUMMARY' => $event->title,
-            'DTSTART' => $event->start,
-            'DTEND' => $event->end,
-            'UID' => $uid,
-        ]);
 
-        if ($event->description !== null) {
-            $vevent->add('DESCRIPTION', $event->description);
-        }
-
-        if ($event->location !== null) {
-            $vevent->add('LOCATION', $event->location);
-        }
-
-        foreach ($event->attendees ?? [] as $email) {
-            $vevent->add('ATTENDEE', "mailto:{$email}", ['RSVP' => 'TRUE']);
-        }
-
-        $this->http()->send('PUT', "{$this->resolveCalendarUrl()}/{$uid}.ics", [
-            'headers' => ['Content-Type' => 'text/calendar'],
-            'body' => $vcalendar->serialize(),
-        ]);
+        $this->apply($vcalendar->add('VEVENT', ['UID' => $uid]), $event);
+        $this->put("{$this->resolveCalendarUrl()}/{$uid}.ics", $vcalendar);
 
         return $uid;
     }
@@ -97,39 +78,9 @@ class AppleCalendarDriver implements CalendarDriver
     {
         $url = "{$this->resolveCalendarUrl()}/{$id}.ics";
         $vcalendar = Reader::read($this->http()->send('GET', $url)->body());
-        $vevent = $vcalendar->VEVENT;
 
-        if ($event->title !== null) {
-            $vevent->SUMMARY = $event->title;
-        }
-
-        if ($event->start instanceof DateTimeImmutable) {
-            $vevent->DTSTART = $event->start;
-        }
-
-        if ($event->end instanceof DateTimeImmutable) {
-            $vevent->DTEND = $event->end;
-        }
-
-        if ($event->description !== null) {
-            $vevent->DESCRIPTION = $event->description;
-        }
-
-        if ($event->location !== null) {
-            $vevent->LOCATION = $event->location;
-        }
-
-        if ($event->attendees !== null) {
-            unset($vevent->ATTENDEE);
-            foreach ($event->attendees as $email) {
-                $vevent->add('ATTENDEE', "mailto:{$email}", ['RSVP' => 'TRUE']);
-            }
-        }
-
-        $this->http()->send('PUT', $url, [
-            'headers' => ['Content-Type' => 'text/calendar'],
-            'body' => $vcalendar->serialize(),
-        ]);
+        $this->apply($vcalendar->VEVENT, $event);
+        $this->put($url, $vcalendar);
     }
 
     /**
@@ -138,6 +89,39 @@ class AppleCalendarDriver implements CalendarDriver
     public function delete(string $id): void
     {
         $this->http()->send('DELETE', "{$this->resolveCalendarUrl()}/{$id}.ics");
+    }
+
+    /**
+     * Copy every field the event sets onto the VEVENT, leaving the rest as they were.
+     *
+     * A null attendee list means leave the guests alone; an empty one clears them.
+     */
+    private function apply(VEvent $vevent, CalendarEvent $event): void
+    {
+        foreach (['SUMMARY' => $event->title, 'DTSTART' => $event->start, 'DTEND' => $event->end, 'DESCRIPTION' => $event->description, 'LOCATION' => $event->location] as $property => $value) {
+            if ($value !== null) {
+                $vevent->{$property} = $value;
+            }
+        }
+
+        if ($event->attendees !== null) {
+            unset($vevent->ATTENDEE);
+
+            foreach ($event->attendees as $email) {
+                $vevent->add('ATTENDEE', "mailto:{$email}", ['RSVP' => 'TRUE']);
+            }
+        }
+    }
+
+    /**
+     * Write a calendar object to the server.
+     */
+    private function put(string $url, VCalendar $vcalendar): void
+    {
+        $this->http()->send('PUT', $url, [
+            'headers' => ['Content-Type' => 'text/calendar'],
+            'body' => $vcalendar->serialize(),
+        ]);
     }
 
     /**
@@ -225,37 +209,24 @@ class AppleCalendarDriver implements CalendarDriver
      */
     private function parseMultiStatus(string $body): array
     {
-        $events = [];
-
-        foreach ($this->loadXml($body)->xpath('//c:calendar-data') as $data) {
-            $vcalendar = Reader::read((string) $data);
-
-            if (! isset($vcalendar->VEVENT)) {
-                continue;
-            }
-
-            $vevent = $vcalendar->VEVENT;
-            $attendees = [];
-
-            foreach ($vevent->ATTENDEE ?? [] as $attendee) {
-                $email = str_replace('mailto:', '', (string) $attendee->getValue());
-                if ($email !== '') {
-                    $attendees[] = $email;
-                }
-            }
-
-            $events[] = new CalendarEvent(
+        return collect($this->loadXml($body)->xpath('//c:calendar-data'))
+            ->map(fn (SimpleXMLElement $data) => Reader::read((string) $data)->VEVENT)
+            ->filter()
+            ->map(fn (VEvent $vevent): CalendarEvent => new CalendarEvent(
                 title: (string) $vevent->SUMMARY,
                 start: new DateTimeImmutable($vevent->DTSTART->getDateTime()->format('c')),
                 end: new DateTimeImmutable($vevent->DTEND->getDateTime()->format('c')),
                 description: isset($vevent->DESCRIPTION) ? (string) $vevent->DESCRIPTION : null,
                 location: isset($vevent->LOCATION) ? (string) $vevent->LOCATION : null,
                 id: (string) $vevent->UID,
-                attendees: $attendees,
-            );
-        }
-
-        return $events;
+                attendees: collect($vevent->ATTENDEE ?? [])
+                    ->map(fn ($attendee): string => str_replace('mailto:', '', (string) $attendee->getValue()))
+                    ->filter()
+                    ->values()
+                    ->all(),
+            ))
+            ->values()
+            ->all();
     }
 
     /**

@@ -41,26 +41,7 @@ class GoogleCalendarDriver implements CalendarDriver
      */
     public function create(CalendarEvent $event): string
     {
-        $spatieEvent = $this->newEvent();
-        $spatieEvent->name = $event->title;
-        $spatieEvent->startDateTime = Carbon::instance($event->start);
-        $spatieEvent->endDateTime = Carbon::instance($event->end);
-
-        if ($event->description !== null) {
-            $spatieEvent->description = $event->description;
-        }
-
-        if ($event->location !== null) {
-            $spatieEvent->location = $event->location;
-        }
-
-        foreach ($event->attendees ?? [] as $email) {
-            $spatieEvent->addAttendee(['email' => $email]);
-        }
-
-        $saved = $spatieEvent->save();
-
-        return $saved->id;
+        return $this->apply($this->newEvent(), $event)->save()->id;
     }
 
     /**
@@ -68,36 +49,7 @@ class GoogleCalendarDriver implements CalendarDriver
      */
     public function update(string $id, CalendarEvent $event): void
     {
-        $spatieEvent = $this->findEvent($id);
-
-        if ($event->title !== null) {
-            $spatieEvent->name = $event->title;
-        }
-
-        if ($event->start instanceof DateTimeImmutable) {
-            $spatieEvent->startDateTime = Carbon::instance($event->start);
-        }
-
-        if ($event->end instanceof DateTimeImmutable) {
-            $spatieEvent->endDateTime = Carbon::instance($event->end);
-        }
-
-        if ($event->description !== null) {
-            $spatieEvent->description = $event->description;
-        }
-
-        if ($event->location !== null) {
-            $spatieEvent->location = $event->location;
-        }
-
-        if ($event->attendees !== null) {
-            $spatieEvent->googleEvent->setAttendees([]);
-            foreach ($event->attendees as $email) {
-                $spatieEvent->addAttendee(['email' => $email]);
-            }
-        }
-
-        $spatieEvent->save();
+        $this->apply($this->findEvent($id), $event)->save();
     }
 
     /**
@@ -130,5 +82,43 @@ class GoogleCalendarDriver implements CalendarDriver
     protected function findEvent(string $id): SpatieEvent
     {
         return SpatieEvent::find($id);
+    }
+
+    /**
+     * Copy every field the event sets onto the Spatie event, leaving the rest as they were.
+     *
+     * A null attendee list means leave the guests alone; an empty one clears them.
+     */
+    private function apply(SpatieEvent $spatieEvent, CalendarEvent $event): SpatieEvent
+    {
+        if ($event->title !== null) {
+            $spatieEvent->name = $event->title;
+        }
+
+        if ($event->start instanceof DateTimeImmutable) {
+            $spatieEvent->startDateTime = Carbon::instance($event->start);
+        }
+
+        if ($event->end instanceof DateTimeImmutable) {
+            $spatieEvent->endDateTime = Carbon::instance($event->end);
+        }
+
+        if ($event->description !== null) {
+            $spatieEvent->description = $event->description;
+        }
+
+        if ($event->location !== null) {
+            $spatieEvent->location = $event->location;
+        }
+
+        if ($event->attendees !== null) {
+            $spatieEvent->googleEvent->setAttendees([]);
+
+            foreach ($event->attendees as $email) {
+                $spatieEvent->addAttendee(['email' => $email]);
+            }
+        }
+
+        return $spatieEvent;
     }
 }

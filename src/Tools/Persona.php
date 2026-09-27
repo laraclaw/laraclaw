@@ -82,8 +82,10 @@ class Persona implements Tool
             return 'The "persona" parameter is required for the switch operation.';
         }
 
-        if (! in_array($persona, $this->availablePersonas(), true)) {
-            return "Unknown persona '{$persona}'. Available: " . implode(', ', $this->availablePersonas());
+        $available = $this->availablePersonas();
+
+        if (! in_array($persona, $available, true)) {
+            return "Unknown persona '{$persona}'. Available: " . implode(', ', $available);
         }
 
         $this->thread?->update(['persona' => $persona]);

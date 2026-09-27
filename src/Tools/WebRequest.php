@@ -190,11 +190,9 @@ class WebRequest extends BaseTool
      */
     private function summarizeHeaders(array $headers): array
     {
-        $keep = ['content-type', 'content-length', 'location', 'x-request-id'];
-
         return collect($headers)
-            ->filter(fn ($v, $k): bool => in_array(strtolower((string) $k), $keep, true))
-            ->map(fn ($v) => is_array($v) ? implode(', ', $v) : $v)
+            ->mapWithKeys(fn (array|string $value, string $name): array => [strtolower($name) => implode(', ', (array) $value)])
+            ->only(['content-type', 'content-length', 'location', 'x-request-id'])
             ->all();
     }
 }

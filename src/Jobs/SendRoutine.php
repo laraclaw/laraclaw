@@ -58,53 +58,16 @@ class SendRoutine implements ShouldBeUnique, ShouldQueue
     }
 
     /**
-     * Build an incoming message from the routine prompt, run it through the agent,
-     * and deliver the response via the connector.
+     * Run the routine prompt through the agent and deliver the response via the connector.
      *
-     * Conversation behavior depends on the connector:
-     *
-     * DMs (Slack, Telegram, Email) and Telegram groups:
-     *   Continue the user's existing conversation so the agent has full context
-     *   of prior interactions. The Thread row is reused and conversation_id is
-     *   persisted after each run.
-     *
-     * Slack channels (non DM):
-     *   Each run posts a new top level message and starts a fresh agent
-     *   conversation. The threadTs is stripped from the key so the reply does
-     *   not land inside the old Slack thread, and conversation_id is nulled in
-     *   memory without writing it back so no state carries over between runs.
+     * DMs and Telegram groups continue the user's existing conversation so the agent
+     * has the context of prior turns. A Slack channel gets a fresh top level post and
+     * a fresh conversation each time, so nothing carries over between runs.
      */
     public function handle(): void
     {
-        $isSlackConnector = $this->isSlackConnector();
-        $isDirectMessage = $this->routine->connector->isDirectMessage($this->routine->key);
-
-        // Slack channel keys are stored as "channelId:threadTs". Strip the
-        // threadTs so the connector posts a new top level message each time.
-        $key = $isSlackConnector
-            ? explode(':', $this->routine->key, 2)[0]
-            : $this->routine->key;
-
-        $message = new IncomingMessage(
-            text: $this->framedPrompt(),
-            connector: $this->routine->connector,
-            key: $key,
-            isDirectMessage: $isDirectMessage,
-        );
-
-        // For DMs and groups this finds the existing thread so the agent can
-        // continue its conversation. For Slack channels the thread row is
-        // reused but conversation_id is cleared below.
-        $thread = Thread::firstOrCreate(
-            ['connector' => $this->routine->connector, 'key' => $key],
-            ['is_direct_message' => $isDirectMessage],
-        );
-
-        // Null the conversation in memory so the agent starts fresh. We
-        // deliberately do not persist this; see the note after prompt().
-        if ($isSlackConnector) {
-            $thread->conversation_id = null;
-        }
+        $message = $this->message();
+        $thread = $this->thread($message);
 
         $agent = resolve(ChatBotAgent::class, ['message' => $message, 'thread' => $thread]);
         $response = $agent->prompt(...$message->toAgentInput());
@@ -112,21 +75,19 @@ class SendRoutine implements ShouldBeUnique, ShouldQueue
         // A routine fires with nobody waiting on it, so a gated tool call cannot be
         // answered inline. Slack channels throw their conversation away after each run
         // and so could never be resumed; reject there and let the agent report back.
-        if ($response->hasPendingApprovals() && $isSlackConnector) {
+        if ($response->hasPendingApprovals() && $this->isSlackChannel()) {
             $response = $agent
                 ->continue($response->conversationId, as: $thread->user())
                 ->prompt(Decision::rejectAll('Automated routine runs cannot approve tool calls.'));
         }
 
-        // Persist conversation_id only for channels that benefit from
-        // continuity. Slack channels discard it so the next run starts clean.
-        if (! $isSlackConnector) {
+        if (! $this->isSlackChannel()) {
             $thread->update(['conversation_id' => $response->conversationId]);
         }
 
         // Everywhere else the thread is resumable, so the pause becomes a question the
         // user can answer with their next message like any other approval.
-        $question = $isSlackConnector ? null : resolve(ApprovalFlow::class)->capture($thread, $response);
+        $question = $this->isSlackChannel() ? null : resolve(ApprovalFlow::class)->capture($thread, $response);
 
         $thread->connector()->reply(
             thread: $thread,
@@ -161,6 +122,39 @@ class SendRoutine implements ShouldBeUnique, ShouldQueue
     }
 
     /**
+     * Build the message the agent is prompted with, addressed to where the routine posts.
+     *
+     * Slack channel keys are stored as "channelId:threadTs". The threadTs is
+     * dropped so the connector posts a new top level message each time.
+     */
+    private function message(): IncomingMessage
+    {
+        return new IncomingMessage(
+            text: $this->framedPrompt(),
+            connector: $this->routine->connector,
+            key: $this->isSlackChannel() ? explode(':', $this->routine->key, 2)[0] : $this->routine->key,
+            isDirectMessage: $this->routine->connector->isDirectMessage($this->routine->key),
+        );
+    }
+
+    /**
+     * Find or create the thread the routine posts to.
+     *
+     * A Slack channel forgets its conversation in memory only, so the agent starts
+     * fresh without the reset being written back.
+     */
+    private function thread(IncomingMessage $message): Thread
+    {
+        $thread = Thread::forMessage($message);
+
+        if ($this->isSlackChannel()) {
+            $thread->conversation_id = null;
+        }
+
+        return $thread;
+    }
+
+    /**
      * Wrap the stored prompt so the agent knows a routine is firing rather than
      * the user asking for one.
      *
@@ -184,7 +178,7 @@ class SendRoutine implements ShouldBeUnique, ShouldQueue
      * Check if this routine targets a Slack channel (not a DM).
      * Slack DM keys are bare user IDs, while channel keys contain a colon separator.
      */
-    private function isSlackConnector(): bool
+    private function isSlackChannel(): bool
     {
         return $this->routine->connector === ConnectorType::Slack
             && str_contains($this->routine->key, ':');
