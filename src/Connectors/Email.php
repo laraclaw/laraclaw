@@ -32,9 +32,6 @@ class Email extends Connector
         }
     }
 
-    /** @var Attachment[] */
-    private array $attachments = [];
-
     /**
      * Capture the recipient's address and the headers needed to thread the reply.
      */
@@ -199,53 +196,23 @@ class Email extends Connector
     }
 
     /**
-     * Send a reply to the given thread, optionally with file attachments.
+     * Send the reply as a threaded email, attaching whatever the agent produced.
      */
     public function reply(?Thread $thread, string $text, ?Collection $attachments = null): void
     {
-        if ($attachments?->isNotEmpty()) {
-            $this->handleAttachments($attachments);
-        }
-
-        $this->send($text);
-    }
-
-    /**
-     * Append outbound attachments to the staging list before the reply is sent.
-     */
-    private function handleAttachments(Collection $attachments): void
-    {
-        $this->attachments = array_merge($this->attachments, $attachments->all());
-    }
-
-    /**
-     * Send the text reply, including any queued attachments.
-     */
-    private function send(string $message): void
-    {
         $mailable = new ConnectorReply(
-            body: $this->renderMarkdown($message),
+            body: new CommonMarkConverter()->convert($text)->getContent(),
             inReplyTo: $this->messageId,
         );
 
-        foreach ($this->attachments as $attachment) {
-            $mailable->attach(
-                Storage::disk($attachment->disk)->path($attachment->path),
-                ['as' => $attachment->filename ?? basename($attachment->path)],
-            );
-        }
+        $attachments?->each(fn (Attachment $attachment) => $mailable->attach(
+            Storage::disk($attachment->disk)->path($attachment->path),
+            ['as' => $attachment->filename ?? basename($attachment->path)],
+        ));
 
         $mailable->to($this->senderEmail, $this->senderName)
             ->subject('Re: ' . ($this->subject ?? 'No Subject'));
 
         Mail::send($mailable);
-    }
-
-    /**
-     * Convert Markdown to HTML for use as the email body.
-     */
-    private function renderMarkdown(string $content): string
-    {
-        return (new CommonMarkConverter)->convert($content)->getContent();
     }
 }

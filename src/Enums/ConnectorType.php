@@ -40,12 +40,22 @@ enum ConnectorType: string
      */
     public function isDirectMessage(string $key): bool
     {
+        return $this->connectorClass()::isDirectMessage($key);
+    }
+
+    /**
+     * Return the connector implementation behind this type.
+     *
+     * @return class-string<Connector>
+     */
+    private function connectorClass(): string
+    {
         return match ($this) {
-            self::Telegram => Telegram::isDirectMessage($key),
-            self::Slack => Slack::isDirectMessage($key),
-            self::Email => Email::isDirectMessage($key),
-            self::Terminal => Terminal::isDirectMessage($key),
-            self::Api => Api::isDirectMessage($key),
+            self::Telegram => Telegram::class,
+            self::Slack => Slack::class,
+            self::Email => Email::class,
+            self::Terminal => Terminal::class,
+            self::Api => Api::class,
         };
     }
 }

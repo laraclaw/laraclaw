@@ -126,39 +126,33 @@ class Telegram extends Connector
     /**
      * Download all media from the incoming message to storage.
      *
+     * A photo arrives as several sizes of the same picture, so only the largest
+     * is kept. Everything else is one file with a MIME type Telegram may omit.
+     *
      * @return Attachment[]
      */
     private static function saveAttachments(TelegramMessage $message, Api $bot, Attachments $attachments): array
     {
-        $files = [];
-        $photo = $message->getPhoto();
+        $largestPhoto = collect($message->getPhoto() ?? [])->sortByDesc(fn (PhotoSize $size): int => $size->getFileSize() ?? 0)->first();
 
-        if ($photo !== null && $photo !== []) {
-            $largest = collect($photo)->sortByDesc(fn (PhotoSize $p): int => $p->getFileSize() ?? 0)->first();
-            $files[] = self::downloadFile($largest->getFileId(), 'image/jpeg', null, $bot, $attachments);
-        }
-
-        $audio = $message->getAudio();
-        if ($audio) {
-            $files[] = self::downloadFile($audio->getFileId(), $audio->getMimeType() ?? 'audio/mpeg', $audio->getFileName(), $bot, $attachments);
-        }
-
-        $voice = $message->getVoice();
-        if ($voice) {
-            $files[] = self::downloadFile($voice->getFileId(), $voice->getMimeType() ?? 'audio/ogg', null, $bot, $attachments);
-        }
-
-        $video = $message->getVideo();
-        if ($video) {
-            $files[] = self::downloadFile($video->getFileId(), $video->getMimeType() ?? 'video/mp4', $video->getFileName(), $bot, $attachments);
-        }
-
-        $document = $message->getDocument();
-        if ($document) {
-            $files[] = self::downloadFile($document->getFileId(), $document->getMimeType() ?? 'application/octet-stream', $document->getFileName(), $bot, $attachments);
-        }
-
-        return collect($files)->filter()->toArray();
+        return collect([
+            [$largestPhoto, 'image/jpeg'],
+            [$message->getAudio(), 'audio/mpeg'],
+            [$message->getVoice(), 'audio/ogg'],
+            [$message->getVideo(), 'video/mp4'],
+            [$message->getDocument(), 'application/octet-stream'],
+        ])
+            ->filter(fn (array $media): bool => (bool) $media[0])
+            ->map(fn (array $media): ?Attachment => self::downloadFile(
+                $media[0]->getFileId(),
+                $media[0]->getMimeType() ?? $media[1],
+                $media[0]->getFileName(),
+                $bot,
+                $attachments,
+            ))
+            ->filter()
+            ->values()
+            ->all();
     }
 
     /**
@@ -249,33 +243,21 @@ class Telegram extends Connector
     }
 
     /**
-     * Send each attachment using the appropriate Telegram method based on type.
+     * Send each attachment with the Telegram method that matches its type.
      */
     private function handleAttachments(Collection $attachments): void
     {
         foreach ($attachments as $attachment) {
-            if ($attachment->isAudio()) {
-                $this->withTempFile($attachment, function (string $tempPath): void {
-                    $this->bot->sendVoice([
-                        'chat_id' => $this->chatId,
-                        'voice' => new InputFile($tempPath),
-                    ]);
-                });
-            } elseif ($attachment->isImage()) {
-                $this->withTempFile($attachment, function (string $tempPath): void {
-                    $this->bot->sendPhoto([
-                        'chat_id' => $this->chatId,
-                        'photo' => new InputFile($tempPath),
-                    ]);
-                });
-            } else {
-                $this->withTempFile($attachment, function (string $tempPath): void {
-                    $this->bot->sendDocument([
-                        'chat_id' => $this->chatId,
-                        'document' => new InputFile($tempPath),
-                    ]);
-                });
-            }
+            [$method, $field] = match (true) {
+                $attachment->isAudio() => ['sendVoice', 'voice'],
+                $attachment->isImage() => ['sendPhoto', 'photo'],
+                default => ['sendDocument', 'document'],
+            };
+
+            $this->withTempFile($attachment, fn (string $tempPath): TelegramMessage => $this->bot->{$method}([
+                'chat_id' => $this->chatId,
+                $field => new InputFile($tempPath),
+            ]));
         }
     }
 

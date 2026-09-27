@@ -2,11 +2,11 @@
 
 namespace Laraclaw\Tools;
 
-use Carbon\Carbon;
 use DateTimeImmutable;
 use DateTimeZone;
 use Exception;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
+use InvalidArgumentException;
 use Laraclaw\DTOs\CalendarEvent;
 use Laraclaw\DTOs\IncomingMessage;
 use Laraclaw\Services\Calendar\Contracts\CalendarDriver;
@@ -22,8 +22,17 @@ use function Laraclaw\Support\parseNaturalDate;
  */
 class CalendarManager extends BaseTool
 {
+    private const array UPDATABLE = ['title', 'start', 'end', 'description', 'location', 'attendees'];
+
     protected array $requiresApproval = [
         'delete' => 'Delete event "{title}"?',
+    ];
+
+    protected array $requires = [
+        'list' => ['start', 'end'],
+        'create' => ['title', 'start'],
+        'update' => ['id'],
+        'delete' => ['id'],
     ];
 
     /**
@@ -52,7 +61,7 @@ class CalendarManager extends BaseTool
             'id' => $schema->string()->description('Event ID (required for update/delete)'),
             'title' => $schema->string()->description('Event title (required for create and delete)'),
             'start' => $schema->string()->description('Start date/time (required for list and create)'),
-            'end' => $schema->string()->description('End date/time (required for list, optional for create — defaults to start + 1h)'),
+            'end' => $schema->string()->description('End date/time (required for list, optional for create, defaults to start + 1h)'),
             'description' => $schema->string()->description('Event description'),
             'location' => $schema->string()->description('Event location'),
             'attendees' => $schema->array()->items($schema->string())->description('Email addresses of guests to invite'),
@@ -60,13 +69,15 @@ class CalendarManager extends BaseTool
     }
 
     /**
-     * Run the requested operation and catch any calendar driver exceptions as a string error.
+     * Run the requested operation, reporting an unreadable date or a driver failure as text.
      */
     #[Override]
     public function handle(Request $request): Stringable|string
     {
         try {
             return parent::handle($request);
+        } catch (InvalidArgumentException $e) {
+            return $e->getMessage();
         } catch (Exception $e) {
             return "Calendar operation failed: {$e->getMessage()}";
         }
@@ -85,24 +96,7 @@ class CalendarManager extends BaseTool
      */
     protected function list(Request $request): string
     {
-        $start = $request['start'] ?? null;
-        $end = $request['end'] ?? null;
-
-        if ($start === null || $end === null) {
-            return 'Both "start" and "end" are required for the list operation.';
-        }
-
-        $startDate = $this->parseDate($start);
-        $endDate = $this->parseDate($end);
-
-        if (! $startDate instanceof DateTimeImmutable) {
-            return "Could not parse start date: {$start}";
-        }
-        if (! $endDate instanceof DateTimeImmutable) {
-            return "Could not parse end date: {$end}";
-        }
-
-        $events = $this->driver->list($startDate, $endDate);
+        $events = $this->driver->list($this->date($request, 'start'), $this->date($request, 'end'));
 
         // Calendar servers answer in whatever timezone the event was written in,
         // which can be any of several across one list. Normalize them so the
@@ -110,14 +104,14 @@ class CalendarManager extends BaseTool
         $timezone = new DateTimeZone(appTimezone());
 
         return collect($events)
-            ->map(fn (CalendarEvent $e): array => [
-                'id' => $e->id,
-                'title' => $e->title,
-                'start' => $e->start->setTimezone($timezone)->format('c'),
-                'end' => $e->end->setTimezone($timezone)->format('c'),
-                'description' => $e->description,
-                'location' => $e->location,
-                'attendees' => $e->attendees,
+            ->map(fn (CalendarEvent $event): array => [
+                'id' => $event->id,
+                'title' => $event->title,
+                'start' => $event->start->setTimezone($timezone)->format('c'),
+                'end' => $event->end->setTimezone($timezone)->format('c'),
+                'description' => $event->description,
+                'location' => $event->location,
+                'attendees' => $event->attendees,
             ])
             ->toJson(JSON_PRETTY_PRINT);
     }
@@ -127,38 +121,16 @@ class CalendarManager extends BaseTool
      */
     protected function create(Request $request): string
     {
-        $title = $request['title'] ?? null;
-        $start = $request['start'] ?? null;
+        $start = $this->date($request, 'start');
 
-        if ($title === null) {
-            return 'The "title" parameter is required for the create operation.';
-        }
-        if ($start === null) {
-            return 'The "start" parameter is required for the create operation.';
-        }
-
-        $startDate = $this->parseDate($start);
-        if (! $startDate instanceof DateTimeImmutable) {
-            return "Could not parse start date: {$start}";
-        }
-
-        $endDate = isset($request['end']) ? $this->parseDate($request['end']) : null;
-        if (isset($request['end']) && ! $endDate instanceof DateTimeImmutable) {
-            return "Could not parse end date: {$request['end']}";
-        }
-
-        $endDate ??= DateTimeImmutable::createFromMutable(Carbon::instance($startDate)->addHour()->toDateTime());
-
-        $event = new CalendarEvent(
-            title: $title,
-            start: $startDate,
-            end: $endDate,
+        $id = $this->driver->create(new CalendarEvent(
+            title: $request['title'],
+            start: $start,
+            end: $this->date($request, 'end') ?? $start->modify('+1 hour'),
             description: $request['description'] ?? null,
             location: $request['location'] ?? null,
             attendees: $request['attendees'] ?? [],
-        );
-
-        $id = $this->driver->create($event);
+        ));
 
         return "Event created with ID: {$id}";
     }
@@ -168,44 +140,20 @@ class CalendarManager extends BaseTool
      */
     protected function update(Request $request): string
     {
-        $id = $request['id'] ?? null;
-        if ($id === null) {
-            return 'The "id" parameter is required for the update operation.';
+        if (! collect(self::UPDATABLE)->contains(fn (string $field): bool => isset($request[$field]))) {
+            return 'At least one field (' . implode(', ', self::UPDATABLE) . ') is required for the update operation.';
         }
 
-        $title = $request['title'] ?? null;
-        $start = $request['start'] ?? null;
-        $end = $request['end'] ?? null;
-        $description = $request['description'] ?? null;
-        $location = $request['location'] ?? null;
-        $attendees = $request['attendees'] ?? null;
+        $this->driver->update($request['id'], new CalendarEvent(
+            title: $request['title'] ?? null,
+            start: $this->date($request, 'start'),
+            end: $this->date($request, 'end'),
+            description: $request['description'] ?? null,
+            location: $request['location'] ?? null,
+            attendees: $request['attendees'] ?? null,
+        ));
 
-        if ($title === null && $start === null && $end === null && $description === null && $location === null && $attendees === null) {
-            return 'At least one field (title, start, end, description, location, attendees) is required for the update operation.';
-        }
-
-        $startDate = $start !== null ? $this->parseDate($start) : null;
-        if ($start !== null && ! $startDate instanceof DateTimeImmutable) {
-            return "Could not parse start date: {$start}";
-        }
-
-        $endDate = $end !== null ? $this->parseDate($end) : null;
-        if ($end !== null && ! $endDate instanceof DateTimeImmutable) {
-            return "Could not parse end date: {$end}";
-        }
-
-        $event = new CalendarEvent(
-            title: $title,
-            start: $startDate,
-            end: $endDate,
-            description: $description,
-            location: $location,
-            attendees: $attendees,
-        );
-
-        $this->driver->update($id, $event);
-
-        return "Event {$id} updated.";
+        return "Event {$request['id']} updated.";
     }
 
     /**
@@ -213,24 +161,27 @@ class CalendarManager extends BaseTool
      */
     protected function delete(Request $request): string
     {
-        $id = $request['id'] ?? null;
-        if ($id === null) {
-            return 'The "id" parameter is required for the delete operation.';
-        }
+        $this->driver->delete($request['id']);
 
-        $title = $request['title'] ?? $id;
-
-        $this->driver->delete($id);
+        $title = $request['title'] ?? $request['id'];
 
         return "Event '{$title}' deleted.";
     }
 
     /**
-     * Parse a plain English or ISO 8601 date string into a DateTimeImmutable.
-     * Returns null if the value cannot be understood as a date.
+     * Read a date argument, or null when the request leaves it out.
+     *
+     * @throws InvalidArgumentException when the value is present but cannot be read as a date
      */
-    private function parseDate(string $value): ?DateTimeImmutable
+    private function date(Request $request, string $key): ?DateTimeImmutable
     {
-        return parseNaturalDate($value)?->toDateTimeImmutable();
+        $value = $request[$key] ?? null;
+
+        if ($value === null) {
+            return null;
+        }
+
+        return parseNaturalDate($value)?->toDateTimeImmutable()
+            ?? throw new InvalidArgumentException("Could not parse {$key} date: {$value}");
     }
 }

@@ -5,6 +5,7 @@ namespace Laraclaw\Console\Commands;
 use Google_Client;
 use Google_Service_Calendar;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\File;
 
 use function Laravel\Prompts\error;
 use function Laravel\Prompts\info;
@@ -57,17 +58,13 @@ class GoogleCalendarAuth extends Command
         $token = $client->fetchAccessTokenWithAuthCode($code);
 
         if (isset($token['error'])) {
-            error('Failed to fetch token: ' . $token['error_description'] ?? $token['error']);
+            error('Failed to fetch token: ' . ($token['error_description'] ?? $token['error']));
 
             return self::FAILURE;
         }
 
-        $tokenDir = dirname((string) $tokenJson);
-        if (! is_dir($tokenDir)) {
-            mkdir($tokenDir, 0755, true);
-        }
-
-        file_put_contents($tokenJson, json_encode($token));
+        File::ensureDirectoryExists(dirname((string) $tokenJson));
+        File::put($tokenJson, json_encode($token));
 
         info('Token saved. Google Calendar is ready to use.');
 

@@ -5,6 +5,7 @@ namespace Laraclaw\Tools;
 use DirectoryTree\ImapEngine\Address;
 use DirectoryTree\ImapEngine\FolderInterface;
 use DirectoryTree\ImapEngine\Laravel\Facades\Imap;
+use DirectoryTree\ImapEngine\MailboxInterface;
 use DirectoryTree\ImapEngine\MessageInterface;
 use Exception;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
@@ -12,6 +13,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Laraclaw\DTOs\IncomingMessage;
 use Laravel\Ai\Tools\Request;
 use Override;
@@ -28,7 +30,16 @@ class EmailManager extends BaseTool
 
     private const int MAX_BODY = 50000;
 
-    protected array $requiresApproval = [];
+    protected array $requires = [
+        'read' => ['uid'],
+        'send' => ['to', 'subject', 'body'],
+        'reply' => ['uid', 'body'],
+        'move' => ['uid', 'folder'],
+        'label' => ['uid', 'folder'],
+        'mark_read' => ['uid'],
+        'mark_unread' => ['uid'],
+        'create_folder' => ['folder'],
+    ];
 
     /**
      * Bind the inbound message and IMAP mailbox name, then register the delete approval prompts.
@@ -38,17 +49,13 @@ class EmailManager extends BaseTool
         private readonly string $mailbox,
     ) {
         $this->requiresApproval['delete'] = function (Request $request): string {
-            $uids = collect($request->array('uids') ?: [$request->string('uid')->value()])->filter();
+            $uids = $this->oneOrMany($request, 'uid', 'uids')->implode(', ');
             $folder = $request->string('folder')->value() ?: 'INBOX';
 
-            return "Delete messages {$uids->implode(', ')} from {$folder}?";
+            return "Delete messages {$uids} from {$folder}?";
         };
 
-        $this->requiresApproval['delete_folder'] = function (Request $request): string {
-            $folders = collect($request->array('folders') ?: [$request->string('folder')->value()])->filter();
-
-            return "Delete folder {$folders->implode(', ')}?";
-        };
+        $this->requiresApproval['delete_folder'] = fn (Request $request): string => 'Delete folder ' . $this->oneOrMany($request, 'folder', 'folders')->implode(', ') . '?';
     }
 
     /**
@@ -85,7 +92,7 @@ class EmailManager extends BaseTool
                     'mime_type' => $schema->string()->description('Optional MIME type'),
                 ])
             )->description('Files to attach (use disk/path from [Attached files] metadata in the conversation)'),
-            'search' => $schema->string()->description('Plain text search for inbox — matches anywhere in the message (subject, sender, body). Do NOT use Gmail query syntax like "from:" or "subject:" — just use plain words. To filter by sender, use from_filter instead.'),
+            'search' => $schema->string()->description('Plain text search for inbox. Matches anywhere in the message (subject, sender, body). Do NOT use Gmail query syntax like "from:" or "subject:", just plain words. To filter by sender, use from_filter instead.'),
             'from_filter' => $schema->string()->description('Filter inbox by sender email or name (partial match, e.g. "netflix" matches "info@members.netflix.com")'),
             'limit' => $schema->integer()->description('Max messages to return for inbox (default 10, max 20)'),
         ];
@@ -126,30 +133,20 @@ class EmailManager extends BaseTool
      */
     protected function inbox(Request $request): string
     {
-        $folder = $this->getFolder($request['folder'] ?? 'INBOX');
-        $limit = min((int) ($request['limit'] ?? 10), self::MAX_LIST);
-        $search = $request['search'] ?? null;
-        $fromFilter = $request['from_filter'] ?? null;
+        $query = $this->folder($request)->messages()->leaveUnread()->withHeaders()->withFlags()->withSize();
 
-        $query = $folder->messages()->leaveUnread()->withHeaders()->withFlags()->withSize();
-
-        if ($fromFilter) {
-            $query->from($fromFilter);
+        if ($from = $request['from_filter'] ?? null) {
+            $query->from($from);
         }
 
-        if ($search) {
+        if ($search = $request['search'] ?? null) {
             $query->text($search);
         }
 
-        $messages = $query->newest()->limit($limit)->get();
+        $messages = collect($query->newest()->limit(min((int) ($request['limit'] ?? 10), self::MAX_LIST))->get())
+            ->map(fn (MessageInterface $message): array => $this->summarize($message));
 
-        $result = collect($messages)->map(fn (MessageInterface $m): array => $this->summarize($m));
-
-        if ($result->isEmpty()) {
-            return 'No messages found.';
-        }
-
-        return $result->toJson(JSON_PRETTY_PRINT);
+        return $messages->isEmpty() ? 'No messages found.' : $messages->toJson(JSON_PRETTY_PRINT);
     }
 
     /**
@@ -157,40 +154,23 @@ class EmailManager extends BaseTool
      */
     protected function read(Request $request): string
     {
-        $uid = $request['uid'] ?? null;
-        if ($uid === null) {
-            return 'The "uid" parameter is required for the read operation.';
-        }
-
-        $folder = $this->getFolder($request['folder'] ?? 'INBOX');
-        $message = $folder->messages()->withHeaders()->withBody()->find((int) $uid);
+        $message = $this->find($request, with: ['withHeaders', 'withFlags', 'withSize', 'withBody']);
 
         if (! $message instanceof MessageInterface) {
-            return "Message with UID {$uid} not found.";
+            return $this->notFound($request);
         }
 
         $body = $message->text() ?? stripHtml($message->html()) ?? '(no body)';
 
-        if (strlen($body) > self::MAX_BODY) {
-            $body = substr($body, 0, self::MAX_BODY) . "\n\n[Truncated: body exceeds 50KB]";
-        }
-
-        $from = $message->from();
-        $data = [
-            'uid' => $message->uid(),
-            'subject' => $message->subject(),
-            'from' => $from ? ['email' => $from->email(), 'name' => $from->name()] : null,
-            'to' => collect($message->to())->map(fn ($a): array => $a->toArray())->all(),
-            'cc' => collect($message->cc())->map(fn ($a): array => $a->toArray())->all(),
-            'date' => $message->date()?->toIso8601String(),
+        return json_encode([
+            ...$this->summarize($message),
+            'to' => collect($message->to())->map(fn (Address $address): array => $address->toArray())->all(),
+            'cc' => collect($message->cc())->map(fn (Address $address): array => $address->toArray())->all(),
             'message_id' => $message->messageId(),
-            'has_attachments' => $message->hasAttachments(),
             'attachment_count' => $message->attachmentCount(),
             'flags' => $message->flags(),
-            'body' => $body,
-        ];
-
-        return json_encode($data, JSON_PRETTY_PRINT);
+            'body' => Str::limit($body, self::MAX_BODY, "\n\n[Truncated: body exceeds 50KB]"),
+        ], JSON_PRETTY_PRINT);
     }
 
     /**
@@ -198,23 +178,11 @@ class EmailManager extends BaseTool
      */
     protected function send(Request $request): string
     {
-        $to = $request['to'] ?? null;
-        $subject = $request['subject'] ?? null;
-        $body = $request['body'] ?? null;
+        $to = (array) $request['to'];
 
-        if (empty($to)) {
-            return 'The "to" parameter is required for the send operation.';
-        }
-        if ($subject === null) {
-            return 'The "subject" parameter is required for the send operation.';
-        }
-        if ($body === null) {
-            return 'The "body" parameter is required for the send operation.';
-        }
+        $this->compose($request['body'], $to, $request['subject'], $request);
 
-        $this->compose($body, $to, $subject, $request);
-
-        return 'Email sent to ' . implode(', ', (array) $to) . " with subject \"{$subject}\".";
+        return 'Email sent to ' . implode(', ', $to) . " with subject \"{$request['subject']}\".";
     }
 
     /**
@@ -222,46 +190,36 @@ class EmailManager extends BaseTool
      */
     protected function reply(Request $request): string
     {
-        $uid = $request['uid'] ?? null;
-        $body = $request['body'] ?? null;
-
-        if ($uid === null) {
-            return 'The "uid" parameter is required for the reply operation.';
-        }
-        if ($body === null) {
-            return 'The "body" parameter is required for the reply operation.';
-        }
-
-        $folder = $this->getFolder($request['folder'] ?? 'INBOX');
-        $original = $folder->messages()->withHeaders()->withBody()->find((int) $uid);
+        $original = $this->find($request, with: ['withHeaders', 'withBody']);
 
         if (! $original instanceof MessageInterface) {
-            return "Message with UID {$uid} not found.";
+            return $this->notFound($request);
         }
 
         $replyTo = $original->replyTo() ?? $original->from();
+
         if (! $replyTo instanceof Address) {
             return 'Cannot determine reply address for this message.';
         }
 
-        $subject = $original->subject() ?? 'No Subject';
-        if (! str_starts_with(strtolower($subject), 're:')) {
-            $subject = 'Re: ' . $subject;
-        }
+        $subject = Str::of($original->subject() ?? 'No Subject')->when(
+            fn ($subject): bool => ! $subject->lower()->startsWith('re:'),
+            fn ($subject) => $subject->prepend('Re: '),
+        )->value();
 
         $to = $request->array('to') ?: [$replyTo->email()];
         $messageId = $original->messageId();
 
-        $this->compose($body, $to, $subject, $request, function ($msg) use ($messageId): void {
+        $this->compose($request['body'], $to, $subject, $request, function ($mail) use ($messageId): void {
             if ($messageId) {
-                $msg->getHeaders()->addTextHeader('In-Reply-To', $messageId);
-                $msg->getHeaders()->addTextHeader('References', $messageId);
+                $mail->getHeaders()->addTextHeader('In-Reply-To', $messageId);
+                $mail->getHeaders()->addTextHeader('References', $messageId);
             }
         });
 
         $original->markAnswered();
 
-        return 'Reply sent to ' . implode(', ', (array) $to) . " with subject \"{$subject}\".";
+        return 'Reply sent to ' . implode(', ', $to) . " with subject \"{$subject}\".";
     }
 
     /**
@@ -269,15 +227,15 @@ class EmailManager extends BaseTool
      */
     protected function delete(Request $request): string
     {
-        $uids = collect($request->array('uids') ?: [$request['uid'] ?? null])->filter()->values()->all();
-        if ($uids === []) {
+        $uids = $this->oneOrMany($request, 'uid', 'uids');
+
+        if ($uids->isEmpty()) {
             return 'The "uid" or "uids" parameter is required for the delete operation.';
         }
 
-        $folderName = $request['folder'] ?? 'INBOX';
-        $folder = $this->getFolder($folderName);
+        $folder = $this->folder($request);
 
-        return collect($uids)
+        return $uids
             ->map(function (int $uid) use ($folder): string {
                 if (! $folder->messages()->find($uid) instanceof MessageInterface) {
                     return "UID {$uid}: not found";
@@ -295,27 +253,15 @@ class EmailManager extends BaseTool
      */
     protected function move(Request $request): string
     {
-        $uid = $request['uid'] ?? null;
-        $destination = $request['folder'] ?? null;
+        $folder = $this->folder($request, 'source_folder');
 
-        if ($uid === null) {
-            return 'The "uid" parameter is required for the move operation.';
-        }
-        if ($destination === null) {
-            return 'The "folder" parameter is required for the move operation (destination folder).';
+        if (! $this->find($request, 'source_folder') instanceof MessageInterface) {
+            return $this->notFound($request, 'source_folder');
         }
 
-        $sourceFolder = $request['source_folder'] ?? 'INBOX';
-        $folder = $this->getFolder($sourceFolder);
-        $message = $folder->messages()->find((int) $uid);
+        $folder->messages()->uid((int) $request['uid'])->move($request['folder'], expunge: true);
 
-        if (! $message instanceof MessageInterface) {
-            return "Message with UID {$uid} not found in {$sourceFolder}.";
-        }
-
-        $folder->messages()->uid((int) $uid)->move($destination, expunge: true);
-
-        return "Message {$uid} moved from {$sourceFolder} to {$destination}.";
+        return "Message {$request['uid']} moved from {$folder->path()} to {$request['folder']}.";
     }
 
     /**
@@ -323,27 +269,15 @@ class EmailManager extends BaseTool
      */
     protected function label(Request $request): string
     {
-        $uid = $request['uid'] ?? null;
-        $destination = $request['folder'] ?? null;
+        $folder = $this->folder($request, 'source_folder');
 
-        if ($uid === null) {
-            return 'The "uid" parameter is required for the label operation.';
-        }
-        if ($destination === null) {
-            return 'The "folder" parameter is required for the label operation (label/folder to apply).';
+        if (! $this->find($request, 'source_folder') instanceof MessageInterface) {
+            return $this->notFound($request, 'source_folder');
         }
 
-        $sourceFolder = $request['source_folder'] ?? 'INBOX';
-        $folder = $this->getFolder($sourceFolder);
-        $message = $folder->messages()->find((int) $uid);
+        $folder->messages()->uid((int) $request['uid'])->copy($request['folder']);
 
-        if (! $message instanceof MessageInterface) {
-            return "Message with UID {$uid} not found in {$sourceFolder}.";
-        }
-
-        $folder->messages()->uid((int) $uid)->copy($destination);
-
-        return "Label \"{$destination}\" applied to message {$uid} (message kept in {$sourceFolder}).";
+        return "Label \"{$request['folder']}\" applied to message {$request['uid']} (message kept in {$folder->path()}).";
     }
 
     /**
@@ -351,21 +285,7 @@ class EmailManager extends BaseTool
      */
     protected function markRead(Request $request): string
     {
-        $uid = $request['uid'] ?? null;
-        if ($uid === null) {
-            return 'The "uid" parameter is required for the mark_read operation.';
-        }
-
-        $folder = $this->getFolder($request['folder'] ?? 'INBOX');
-        $message = $folder->messages()->find((int) $uid);
-
-        if (! $message instanceof MessageInterface) {
-            return "Message with UID {$uid} not found.";
-        }
-
-        $message->markRead();
-
-        return "Message {$uid} marked as read.";
+        return $this->flag($request, 'markRead', 'read');
     }
 
     /**
@@ -373,21 +293,7 @@ class EmailManager extends BaseTool
      */
     protected function markUnread(Request $request): string
     {
-        $uid = $request['uid'] ?? null;
-        if ($uid === null) {
-            return 'The "uid" parameter is required for the mark_unread operation.';
-        }
-
-        $folder = $this->getFolder($request['folder'] ?? 'INBOX');
-        $message = $folder->messages()->find((int) $uid);
-
-        if (! $message instanceof MessageInterface) {
-            return "Message with UID {$uid} not found.";
-        }
-
-        $message->markUnread();
-
-        return "Message {$uid} marked as unread.";
+        return $this->flag($request, 'markUnread', 'unread');
     }
 
     /**
@@ -395,11 +301,8 @@ class EmailManager extends BaseTool
      */
     protected function folders(Request $request): string
     {
-        $mailbox = Imap::mailbox($this->mailbox);
-        $folders = $mailbox->folders()->get();
-
-        return collect($folders)
-            ->map(fn ($folder): array => ['path' => $folder->path(), 'name' => $folder->name()])
+        return collect($this->mailbox()->folders()->get())
+            ->map(fn (FolderInterface $folder): array => ['path' => $folder->path(), 'name' => $folder->name()])
             ->toJson(JSON_PRETTY_PRINT);
     }
 
@@ -408,14 +311,9 @@ class EmailManager extends BaseTool
      */
     protected function createFolder(Request $request): string
     {
-        $folder = $request['folder'] ?? null;
-        if ($folder === null) {
-            return 'The "folder" parameter is required for the create_folder operation.';
-        }
+        $this->mailbox()->folders()->create($request['folder']);
 
-        Imap::mailbox($this->mailbox)->folders()->create($folder);
-
-        return "Folder \"{$folder}\" created.";
+        return "Folder \"{$request['folder']}\" created.";
     }
 
     /**
@@ -423,15 +321,15 @@ class EmailManager extends BaseTool
      */
     protected function deleteFolder(Request $request): string
     {
-        $folders = collect($request->array('folders') ?: [$request['folder'] ?? null])->filter()->values()->all();
+        $folders = $this->oneOrMany($request, 'folder', 'folders');
 
-        if ($folders === []) {
+        if ($folders->isEmpty()) {
             return 'The "folder" or "folders" parameter is required for the delete_folder operation.';
         }
 
-        $mailbox = Imap::mailbox($this->mailbox);
+        $mailbox = $this->mailbox();
 
-        return collect($folders)
+        return $folders
             ->map(function (string $folder) use ($mailbox): string {
                 try {
                     $mailbox->folders()->findOrFail($folder)->delete();
@@ -445,30 +343,45 @@ class EmailManager extends BaseTool
     }
 
     /**
+     * Set a read flag on the message the request names.
+     */
+    private function flag(Request $request, string $method, string $state): string
+    {
+        $message = $this->find($request);
+
+        if (! $message instanceof MessageInterface) {
+            return $this->notFound($request);
+        }
+
+        $message->{$method}();
+
+        return "Message {$request['uid']} marked as {$state}.";
+    }
+
+    /**
      * Build and send a mail message, applying recipients, headers, and attachments.
      */
     private function compose(string $body, array $to, string $subject, Request $request, ?callable $extra = null): void
     {
         $fromAddress = config("imap.mailboxes.{$this->mailbox}.username");
 
-        Mail::raw($body, function ($msg) use ($to, $subject, $fromAddress, $request, $extra): void {
-            $msg->to($to);
-            $msg->subject($subject);
+        Mail::raw($body, function ($mail) use ($to, $subject, $fromAddress, $request, $extra): void {
+            $mail->to($to)->subject($subject);
 
             if ($fromAddress) {
-                $msg->from($fromAddress);
+                $mail->from($fromAddress);
             }
 
             if (! empty($request['cc'])) {
-                $msg->cc($request['cc']);
+                $mail->cc($request['cc']);
             }
 
             if (! empty($request['bcc'])) {
-                $msg->bcc($request['bcc']);
+                $mail->bcc($request['bcc']);
             }
 
             foreach ($this->message->attachments as $attachment) {
-                $msg->attachData(
+                $mail->attachData(
                     Storage::disk($attachment->disk)->get($attachment->path),
                     $attachment->filename ?? basename((string) $attachment->path),
                     ['mime' => $attachment->mimeType ?? 'application/octet-stream'],
@@ -476,15 +389,11 @@ class EmailManager extends BaseTool
             }
 
             foreach ($this->requestedAttachments($request) as $item) {
-                $msg->attachData(
-                    Storage::disk($item['disk'])->get($item['path']),
-                    $item['filename'],
-                    ['mime' => $item['mime_type']],
-                );
+                $mail->attachData(Storage::disk($item['disk'])->get($item['path']), $item['filename'], ['mime' => $item['mime_type']]);
             }
 
             if ($extra) {
-                $extra($msg);
+                $extra($mail);
             }
         });
     }
@@ -528,11 +437,67 @@ class EmailManager extends BaseTool
     }
 
     /**
-     * Retrieve a mailbox folder by path, throwing if not found.
+     * Read the values of a batch argument, falling back to its singular twin.
+     *
+     * array() tolerates a missing key where plain $request['uids'] would throw
+     * before the fallback ever ran.
      */
-    private function getFolder(string $path): FolderInterface
+    private function oneOrMany(Request $request, string $one, string $many): Collection
     {
-        return Imap::mailbox($this->mailbox)->folders()->findOrFail($path);
+        return collect($request->array($many) ?: [$request[$one] ?? null])->filter()->values();
+    }
+
+    /**
+     * Fetch the message the request names, or null when the folder has no such UID.
+     *
+     * Only the parts named in $with are loaded, since a flag change needs nothing
+     * beyond the UID while a full read wants headers, flags, size and body.
+     *
+     * @param  string[]  $with  the loader methods to call on the query, such as withBody
+     */
+    private function find(Request $request, string $folderKey = 'folder', array $with = []): ?MessageInterface
+    {
+        $query = $this->folder($request, $folderKey)->messages();
+
+        foreach ($with as $loader) {
+            $query = $query->{$loader}();
+        }
+
+        $message = $query->find((int) $request['uid']);
+
+        return $message instanceof MessageInterface ? $message : null;
+    }
+
+    /**
+     * Word a missing message the same way everywhere.
+     */
+    private function notFound(Request $request, string $folderKey = 'folder'): string
+    {
+        return "Message with UID {$request['uid']} not found in {$this->folderName($request, $folderKey)}.";
+    }
+
+    /**
+     * Open the folder the request names, defaulting to the inbox.
+     */
+    private function folder(Request $request, string $key = 'folder'): FolderInterface
+    {
+        return $this->mailbox()->folders()->findOrFail($this->folderName($request, $key));
+    }
+
+    /**
+     * Read the folder name from the request, defaulting to the inbox.
+     */
+    private function folderName(Request $request, string $key): string
+    {
+        return $request[$key] ?? 'INBOX';
+    }
+
+    /**
+     * Open the configured mailbox.
+     */
+    private function mailbox(): MailboxInterface
+    {
+        return Imap::mailbox($this->mailbox);
     }
 
     /**

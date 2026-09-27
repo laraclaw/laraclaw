@@ -268,13 +268,14 @@ class Slack extends Connector
 
         $isDm = str_starts_with((string) $this->channelId, 'D');
 
-        if ($attachments?->isNotEmpty()) {
-            $this->handleAttachments($attachments);
-        }
+        $attachments?->each(fn (Attachment $attachment): bool => $this->uploadFile(
+            Storage::disk($attachment->disk)->path($attachment->path),
+            $attachment->filename ?? basename($attachment->path),
+        ));
 
         $payload = [
             'channel' => $this->channelId,
-            'text' => $this->toMrkdwn($text),
+            'text' => markdownToMrkdwn($text),
         ];
 
         if (! $isDm && $this->threadTs) {
@@ -284,11 +285,9 @@ class Slack extends Connector
         $response = Http::withToken(self::token())
             ->post('https://slack.com/api/chat.postMessage', $payload);
 
-        if (! $isDm && ! $this->threadTs && $response->successful()) {
-            $data = $response->json();
-            if ($data['ok'] && isset($data['ts'])) {
-                $this->threadTs = $data['ts'];
-            }
+        // The first message in a channel opens the thread every later one replies in.
+        if (! $isDm && ! $this->threadTs && $response->successful() && $response->json('ok')) {
+            $this->threadTs = $response->json('ts');
         }
     }
 
@@ -303,35 +302,6 @@ class Slack extends Connector
         } else {
             $this->channelId = $key;
         }
-    }
-
-    /**
-     * Upload each attachment to Slack via the external upload API.
-     */
-    private function handleAttachments(Collection $attachments): void
-    {
-        foreach ($attachments as $attachment) {
-            $this->uploadAttachment($attachment);
-        }
-    }
-
-    /**
-     * Upload a single attachment DTO to Slack.
-     */
-    private function uploadAttachment(Attachment $attachment): bool
-    {
-        return $this->uploadFile(
-            Storage::disk($attachment->disk)->path($attachment->path),
-            $attachment->filename ?? basename($attachment->path),
-        );
-    }
-
-    /**
-     * Convert Markdown to Slack mrkdwn format.
-     */
-    private function toMrkdwn(string $text): string
-    {
-        return markdownToMrkdwn($text);
     }
 
     /**

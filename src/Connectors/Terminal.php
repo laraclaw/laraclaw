@@ -23,8 +23,7 @@ class Terminal extends Connector
     }
 
     /**
-     * Build an IncomingMessage from a raw Slack event payload,
-     * downloading any file attachments to storage.
+     * Build an IncomingMessage from a line typed at the terminal.
      */
     public static function createIncomingMessageFrom(string $input, Authenticatable $user): IncomingMessage
     {

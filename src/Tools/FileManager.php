@@ -5,6 +5,7 @@ namespace Laraclaw\Tools;
 use Exception;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Laraclaw\DTOs\IncomingMessage;
@@ -20,11 +21,18 @@ use Stringable;
  */
 class FileManager extends BaseTool
 {
-    private const MAX_READ_BYTES = 100 * 1024;
+    private const int MAX_READ_BYTES = 100 * 1024;
 
     private const int DOWNLOAD_TIMEOUT = 30;
 
-    protected array $requiresApproval = [];
+    protected array $requires = [
+        'write' => ['content'],
+        'append' => ['content'],
+        'move' => ['destination'],
+        'copy' => ['destination'],
+        'save_attachment' => ['source'],
+        'download_url' => ['url'],
+    ];
 
     /**
      * Bind the inbound message, the attachment writer and the outbound request
@@ -36,9 +44,9 @@ class FileManager extends BaseTool
         private readonly OutboundRequestPolicy $policy = new OutboundRequestPolicy,
     ) {
         $this->requiresApproval['delete'] = function (Request $request): string {
-            $paths = collect($request->array('paths') ?: [$request->string('path')->value()])->filter();
+            $paths = $this->requestedPaths($request)->map(fn (string $path): string => "`{$path}`")->implode(', ');
 
-            return "Delete {$paths->map(fn ($p): string => "`{$p}`")->implode(', ')} from disk \"{$request->string('disk')}\"?";
+            return "Delete {$paths} from disk \"{$request->string('disk')}\"?";
         };
     }
 
@@ -101,8 +109,6 @@ class FileManager extends BaseTool
         return ['list', 'read', 'write', 'append', 'delete', 'move', 'copy', 'exists', 'mkdir', 'save_attachment', 'attach_to_reply', 'download_url'];
     }
 
-    // Operations
-
     /**
      * List files and directories at the given path.
      */
@@ -115,13 +121,12 @@ class FileManager extends BaseTool
             return "Cannot list system directory '{$path}'.";
         }
 
-        $entries = collect($storage->files($path))
-            ->map(fn ($file): array => ['name' => $file, 'size' => $storage->size($file), 'type' => 'file'])
+        return collect($storage->files($path))
+            ->map(fn (string $file): array => ['name' => $file, 'size' => $storage->size($file), 'type' => 'file'])
             ->merge(collect($storage->directories($path))
-                ->map(fn ($dir): array => ['name' => $dir, 'size' => 0, 'type' => 'directory']))
-            ->reject(fn ($entry): bool => $this->isProtectedPath($entry['name']));
-
-        return $entries->toJson(JSON_PRETTY_PRINT);
+                ->map(fn (string $dir): array => ['name' => $dir, 'size' => 0, 'type' => 'directory']))
+            ->reject(fn (array $entry): bool => $this->isProtectedPath($entry['name']))
+            ->toJson(JSON_PRETTY_PRINT);
     }
 
     /**
@@ -136,17 +141,15 @@ class FileManager extends BaseTool
             return "File not found: {$path}";
         }
 
-        $contents = $storage->get($path);
+        $contents = (string) $storage->get($path);
 
         if (! mb_check_encoding($contents, 'UTF-8')) {
             return "Cannot read {$path}: binary file.";
         }
 
-        if (strlen((string) $contents) > self::MAX_READ_BYTES) {
-            return substr((string) $contents, 0, self::MAX_READ_BYTES) . "\n\n[Truncated: file exceeds 100KB]";
-        }
-
-        return $contents;
+        return strlen($contents) > self::MAX_READ_BYTES
+            ? substr($contents, 0, self::MAX_READ_BYTES) . "\n\n[Truncated: file exceeds 100KB]"
+            : $contents;
     }
 
     /**
@@ -154,12 +157,7 @@ class FileManager extends BaseTool
      */
     protected function write(Request $request): string
     {
-        if (($request['content'] ?? null) === null) {
-            return 'The "content" parameter is required for the write operation.';
-        }
-
-        $storage = $this->storage($request);
-        $storage->put($request['path'], $request['content']);
+        $this->storage($request)->put($request['path'], $request['content']);
 
         return "Written to {$request['path']}.";
     }
@@ -169,10 +167,6 @@ class FileManager extends BaseTool
      */
     protected function append(Request $request): string
     {
-        if (($request['content'] ?? null) === null) {
-            return 'The "content" parameter is required for the append operation.';
-        }
-
         $this->storage($request)->append($request['path'], $request['content']);
 
         return "Appended to {$request['path']}.";
@@ -184,44 +178,24 @@ class FileManager extends BaseTool
     protected function delete(Request $request): string
     {
         $storage = $this->storage($request);
-        // array() and ?? tolerate a missing key. Plain $request['paths'] does not:
-        // the model usually sends only the singular "path", and the elvis operator
-        // reads the key before testing it, so it throws instead of falling back.
-        $paths = collect($request->array('paths') ?: [$request['path'] ?? null])->filter()->values()->all();
+        $paths = $this->requestedPaths($request);
 
-        if (empty($paths)) {
+        if ($paths->isEmpty()) {
             return 'No paths provided for delete.';
         }
 
-        foreach ($paths as $p) {
-            if ($this->pathEscapesDisk($request['disk'], $p)) {
+        foreach ($paths as $path) {
+            if ($this->pathEscapesDisk($request['disk'], $path)) {
                 return 'Path traversal is not allowed.';
             }
-            if ($this->isProtectedPath($p)) {
-                return "Cannot delete system directory '{$p}'.";
+
+            if ($this->isProtectedPath($path)) {
+                return "Cannot delete system directory '{$path}'.";
             }
         }
 
-        return collect($paths)
-            ->map(function ($p) use ($storage): string {
-                if ($storage->fileExists($p)) {
-                    $storage->delete($p);
-
-                    return $storage->fileExists($p)
-                        ? "{$p}: failed to delete file"
-                        : "{$p}: deleted";
-                }
-
-                if ($storage->directoryExists($p)) {
-                    $storage->deleteDirectory($p);
-
-                    return $storage->directoryExists($p)
-                        ? "{$p}: failed to delete directory"
-                        : "{$p}: deleted";
-                }
-
-                return "{$p}: not found";
-            })
+        return $paths
+            ->map(fn (string $path): string => $path . ': ' . $this->deletePath($storage, $path))
             ->implode('; ') . '.';
     }
 
@@ -230,27 +204,11 @@ class FileManager extends BaseTool
      */
     protected function move(Request $request): string
     {
-        if (($request['destination'] ?? null) === null) {
-            return 'The "destination" parameter is required for the move operation.';
+        if ($this->isProtectedPath($request['path'])) {
+            return "Cannot move system directory '{$request['path']}'.";
         }
 
-        $storage = $this->storage($request);
-        $path = $request['path'];
-
-        if ($this->isProtectedPath($path)) {
-            return "Cannot move system directory '{$path}'.";
-        }
-
-        if (! $storage->exists($path)) {
-            return "File not found: {$path}";
-        }
-
-        $actual = $this->uniqueFilePath($storage, $request['destination']);
-        $storage->move($path, $actual);
-
-        return $actual !== $request['destination']
-            ? "'{$request['destination']}' was taken, moved {$path} to '{$actual}'."
-            : "Moved {$path} to {$actual}.";
+        return $this->transfer($request, 'moved', fn (Filesystem $storage, string $from, string $to) => $storage->move($from, $to));
     }
 
     /**
@@ -258,23 +216,7 @@ class FileManager extends BaseTool
      */
     protected function copy(Request $request): string
     {
-        if (($request['destination'] ?? null) === null) {
-            return 'The "destination" parameter is required for the copy operation.';
-        }
-
-        $storage = $this->storage($request);
-        $path = $request['path'];
-
-        if (! $storage->exists($path)) {
-            return "File not found: {$path}";
-        }
-
-        $actual = $this->uniqueFilePath($storage, $request['destination']);
-        $storage->copy($path, $actual);
-
-        return $actual !== $request['destination']
-            ? "'{$request['destination']}' was taken, copied {$path} to '{$actual}'."
-            : "Copied {$path} to {$actual}.";
+        return $this->transfer($request, 'copied', fn (Filesystem $storage, string $from, string $to) => $storage->copy($from, $to));
     }
 
     /**
@@ -325,12 +267,7 @@ class FileManager extends BaseTool
      */
     protected function saveAttachment(Request $request): string
     {
-        $source = $request['source'] ?? null;
-
-        if ($source === null) {
-            return 'The "source" parameter is required for the save_attachment operation.';
-        }
-
+        $source = $request['source'];
         $attachmentsDisk = Storage::disk(config('laraclaw.filesystem.attachments_disk', 'local'));
 
         if (! $attachmentsDisk->exists($source)) {
@@ -356,11 +293,7 @@ class FileManager extends BaseTool
      */
     protected function downloadUrl(Request $request): string
     {
-        $url = $request['url'] ?? null;
-
-        if (! $url) {
-            return 'The "url" parameter is required for the download_url operation.';
-        }
+        $url = $request['url'];
 
         try {
             $temporary = $this->policy->download($url, self::DOWNLOAD_TIMEOUT, $this->maxDownloadBytes());
@@ -373,10 +306,9 @@ class FileManager extends BaseTool
         $stream = null;
 
         try {
-            $storage = $this->storage($request);
             $path = $request['path'];
 
-            // If path looks like a directory (no extension), derive a filename from the URL
+            // A path with no extension names a directory, so the file takes its name from the URL.
             if (! pathinfo((string) $path, PATHINFO_EXTENSION)) {
                 $path = rtrim((string) $path, '/') . '/' . $this->filenameFromUrl((string) $url);
             }
@@ -387,6 +319,7 @@ class FileManager extends BaseTool
                 return $error;
             }
 
+            $storage = $this->storage($request);
             $actual = $this->uniqueFilePath($storage, $path);
             $stream = fopen($temporary, 'r');
 
@@ -394,11 +327,9 @@ class FileManager extends BaseTool
                 return "Could not open the downloaded file for {$url}.";
             }
 
-            if (! $storage->put($actual, $stream)) {
-                return "Could not write the download to {$actual}.";
-            }
-
-            return "Downloaded to {$actual}.";
+            return $storage->put($actual, $stream)
+                ? "Downloaded to {$actual}."
+                : "Could not write the download to {$actual}.";
         } finally {
             if (is_resource($stream)) {
                 fclose($stream);
@@ -410,51 +341,97 @@ class FileManager extends BaseTool
         }
     }
 
-    // Helpers
+    /**
+     * Move or copy the file to its destination, picking a free name when the destination is taken.
+     */
+    private function transfer(Request $request, string $verb, callable $action): string
+    {
+        $storage = $this->storage($request);
+        $path = $request['path'];
+
+        if (! $storage->exists($path)) {
+            return "File not found: {$path}";
+        }
+
+        $actual = $this->uniqueFilePath($storage, $request['destination']);
+        $action($storage, $path, $actual);
+
+        return $actual !== $request['destination']
+            ? "'{$request['destination']}' was taken, {$verb} {$path} to '{$actual}'."
+            : ucfirst($verb) . " {$path} to {$actual}.";
+    }
+
+    /**
+     * Delete whatever lives at the path and report what happened to it.
+     */
+    private function deletePath(Filesystem $storage, string $path): string
+    {
+        if ($storage->fileExists($path)) {
+            $storage->delete($path);
+
+            return $storage->fileExists($path) ? 'failed to delete file' : 'deleted';
+        }
+
+        if ($storage->directoryExists($path)) {
+            $storage->deleteDirectory($path);
+
+            return $storage->directoryExists($path) ? 'failed to delete directory' : 'deleted';
+        }
+
+        return 'not found';
+    }
+
+    /**
+     * Read the paths a delete names, whether the model sent the plural or the singular argument.
+     *
+     * array() and ?? tolerate a missing key. Plain $request['paths'] does not: the
+     * model usually sends only the singular "path", and the elvis operator reads
+     * the key before testing it, so it throws instead of falling back.
+     */
+    private function requestedPaths(Request $request): Collection
+    {
+        return collect($request->array('paths') ?: [$request['path'] ?? null])->filter()->values();
+    }
 
     /**
      * Return the given path if it is free, otherwise append an incrementing integer
      * until a unique path is found.
      */
-    protected function uniqueFilePath(Filesystem $storage, string $path): string
+    private function uniqueFilePath(Filesystem $storage, string $path): string
     {
-        if (! $storage->exists($path)) {
-            return $path;
-        }
-
         $dir = dirname($path) === '.' ? '' : dirname($path) . '/';
-        $ext = pathinfo($path, PATHINFO_EXTENSION);
         $name = pathinfo($path, PATHINFO_FILENAME);
+        $ext = pathinfo($path, PATHINFO_EXTENSION);
 
-        $i = 1;
-
-        do {
-            $candidate = $dir . $name . $i . ($ext !== '' ? '.' . $ext : '');
-            $i++;
-        } while ($storage->exists($candidate));
-
-        return $candidate;
+        return $this->firstFree(
+            fn (int $i): string => $i === 0 ? $path : $dir . $name . $i . ($ext !== '' ? '.' . $ext : ''),
+            fn (string $candidate): bool => $storage->exists($candidate),
+        );
     }
 
     /**
      * Return the given directory path if it is free, otherwise append an incrementing integer.
      */
-    protected function uniqueDirPath(Filesystem $storage, string $path): string
+    private function uniqueDirPath(Filesystem $storage, string $path): string
     {
         $normalized = rtrim($path, '/');
 
-        if (! $storage->directoryExists($normalized)) {
-            return $path;
+        return $this->firstFree(
+            fn (int $i): string => $i === 0 ? $path : $normalized . $i,
+            fn (string $candidate): bool => $storage->directoryExists(rtrim($candidate, '/')),
+        );
+    }
+
+    /**
+     * Walk the candidates from zero up and return the first one that is not taken.
+     */
+    private function firstFree(callable $candidate, callable $taken): string
+    {
+        for ($i = 0; ; $i++) {
+            if (! $taken($candidate($i))) {
+                return $candidate($i);
+            }
         }
-
-        $i = 1;
-
-        do {
-            $candidate = $normalized . $i;
-            $i++;
-        } while ($storage->directoryExists($candidate));
-
-        return $candidate;
     }
 
     /**

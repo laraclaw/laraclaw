@@ -4,6 +4,7 @@ namespace Laraclaw\Tools;
 
 use Cron\CronExpression;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
+use Illuminate\Database\Eloquent\Builder;
 use Laraclaw\Enums\ConnectorType;
 use Laraclaw\Models\Routine;
 use Laravel\Ai\Tools\Request;
@@ -14,6 +15,11 @@ use Stringable;
  */
 class RoutineManager extends BaseTool
 {
+    protected array $requires = [
+        'create' => ['prompt', 'cron'],
+        'cancel' => ['id'],
+    ];
+
     /**
      * Return the tool description shown to the agent.
      */
@@ -52,22 +58,12 @@ class RoutineManager extends BaseTool
     }
 
     /**
-     * Validate the cron expression and prompt, then persist a new active Routine record.
+     * Validate the cron expression, resolve the connector, and persist a new active Routine record.
      */
     protected function create(Request $request): string
     {
-        $prompt = $request['prompt'] ?? null;
-        $cron = $request['cron'] ?? null;
-
-        if (! $prompt) {
-            return 'The "prompt" parameter is required for create.';
-        }
-        if (! $cron) {
-            return 'The "cron" parameter is required for create.';
-        }
-
-        if (! CronExpression::isValidExpression($cron)) {
-            return "Invalid cron expression \"{$cron}\". Use standard 5-field syntax, e.g. \"0 9 * * 1\".";
+        if (! CronExpression::isValidExpression($request['cron'])) {
+            return "Invalid cron expression \"{$request['cron']}\". Use standard 5-field syntax, e.g. \"0 9 * * 1\".";
         }
 
         [$connector, $key] = $this->resolveConnector($request['connector'] ?? null);
@@ -80,12 +76,12 @@ class RoutineManager extends BaseTool
             'user_id' => config('laraclaw.auth.admin_user_id'),
             'connector' => $connector,
             'key' => $key,
-            'prompt' => $prompt,
-            'cron' => $cron,
+            'prompt' => $request['prompt'],
+            'cron' => $request['cron'],
             'is_active' => true,
         ]);
 
-        return "Routine created with cron \"{$cron}\": {$prompt}";
+        return "Routine created with cron \"{$request['cron']}\": {$request['prompt']}";
     }
 
     /**
@@ -93,16 +89,14 @@ class RoutineManager extends BaseTool
      */
     protected function list(Request $request): string
     {
-        $routines = Routine::where('user_id', config('laraclaw.auth.admin_user_id'))
+        $routines = $this->owned()
             ->where('is_active', true)
             ->orderBy('id')
             ->get(['id', 'connector', 'key', 'prompt', 'cron', 'last_run_at']);
 
-        if ($routines->isEmpty()) {
-            return 'No active routines.';
-        }
-
-        return json_encode($routines->toArray(), JSON_PRETTY_PRINT);
+        return $routines->isEmpty()
+            ? 'No active routines.'
+            : $routines->toJson(JSON_PRETTY_PRINT);
     }
 
     /**
@@ -110,21 +104,22 @@ class RoutineManager extends BaseTool
      */
     protected function cancel(Request $request): string
     {
-        $id = $request['id'] ?? null;
-        if (! $id) {
-            return 'The "id" parameter is required for cancel.';
-        }
-
-        $routine = Routine::where('id', $id)
-            ->where('user_id', config('laraclaw.auth.admin_user_id'))
-            ->first();
+        $routine = $this->owned()->find($request['id']);
 
         if (! $routine) {
-            return "Routine {$id} not found.";
+            return "Routine {$request['id']} not found.";
         }
 
         $routine->update(['is_active' => false]);
 
-        return "Routine {$id} cancelled.";
+        return "Routine {$request['id']} cancelled.";
+    }
+
+    /**
+     * Query the routines that belong to the configured admin user.
+     */
+    private function owned(): Builder
+    {
+        return Routine::where('user_id', config('laraclaw.auth.admin_user_id'));
     }
 }

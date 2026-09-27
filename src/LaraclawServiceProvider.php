@@ -214,6 +214,7 @@ class LaraclawServiceProvider extends ServiceProvider
             }
 
             $smtp = config('laraclaw.connectors.email.smtp');
+
             if ($smtp['host']) {
                 config([
                     'mail.default' => 'smtp',
@@ -229,6 +230,7 @@ class LaraclawServiceProvider extends ServiceProvider
 
             $imap = config('laraclaw.connectors.email.imap');
             $mailbox = config('laraclaw.connectors.email.imap.mailbox', 'default');
+
             if ($imap['host']) {
                 config([
                     "imap.mailboxes.{$mailbox}.host" => $imap['host'],
@@ -345,17 +347,17 @@ class LaraclawServiceProvider extends ServiceProvider
 
         $this->app->extend(GoogleCalendar::class, function (GoogleCalendar $calendar): GoogleCalendar {
             $client = $calendar->getService()->getClient();
+
+            if (! $client->isAccessTokenExpired() || ! $client->getRefreshToken()) {
+                return $calendar;
+            }
+
+            $client->fetchAccessTokenWithRefreshToken($client->getRefreshToken());
+
             $tokenPath = config('laraclaw.tools.calendar_manager.google.token_json');
 
-            if ($client->isAccessTokenExpired() && $client->getRefreshToken()) {
-                $client->fetchAccessTokenWithRefreshToken($client->getRefreshToken());
-                $encoded = json_encode($client->getAccessToken());
-                if ($encoded !== false) {
-                    $written = file_put_contents($tokenPath, $encoded);
-                    if ($written === false) {
-                        Log::warning('Failed to write Google OAuth token', ['path' => $tokenPath]);
-                    }
-                }
+            if (file_put_contents($tokenPath, json_encode($client->getAccessToken())) === false) {
+                Log::warning('Failed to write Google OAuth token', ['path' => $tokenPath]);
             }
 
             return $calendar;

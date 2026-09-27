@@ -3,6 +3,7 @@
 namespace Laraclaw\Tools;
 
 use Illuminate\Contracts\JsonSchema\JsonSchema;
+use Illuminate\Database\Eloquent\Builder;
 use Laraclaw\Enums\ConnectorType;
 use Laraclaw\Models\Reminder;
 use Laravel\Ai\Tools\Request;
@@ -16,6 +17,11 @@ use function Laraclaw\Support\parseNaturalDate;
  */
 class ReminderManager extends BaseTool
 {
+    protected array $requires = [
+        'create' => ['message', 'remind_at'],
+        'cancel' => ['id'],
+    ];
+
     /**
      * Return the tool description shown to the agent.
      */
@@ -54,20 +60,10 @@ class ReminderManager extends BaseTool
      */
     protected function create(Request $request): string
     {
-        $message = $request['message'] ?? null;
-        $remindAt = $request['remind_at'] ?? null;
+        $remindAt = parseNaturalDate($request['remind_at']);
 
-        if (! $message) {
-            return 'The "message" parameter is required for create.';
-        }
         if (! $remindAt) {
-            return 'The "remind_at" parameter is required for create.';
-        }
-
-        $remindAtDate = parseNaturalDate($remindAt);
-
-        if (! $remindAtDate) {
-            return "Could not parse remind_at: {$remindAt}. Work out the exact time yourself and pass it as ISO 8601.";
+            return "Could not parse remind_at: {$request['remind_at']}. Work out the exact time yourself and pass it as ISO 8601.";
         }
 
         [$connector, $key] = $this->resolveConnector($request['connector'] ?? null);
@@ -80,11 +76,11 @@ class ReminderManager extends BaseTool
             'user_id' => config('laraclaw.auth.admin_user_id'),
             'connector' => $connector,
             'key' => $key,
-            'message' => $message,
-            'remind_at' => $remindAtDate,
+            'message' => $request['message'],
+            'remind_at' => $remindAt,
         ]);
 
-        return "Reminder set for {$remindAtDate->toDateTimeString()} (" . appTimezone() . "): {$message}";
+        return "Reminder set for {$remindAt->toDateTimeString()} (" . appTimezone() . "): {$request['message']}";
     }
 
     /**
@@ -92,16 +88,13 @@ class ReminderManager extends BaseTool
      */
     protected function list(Request $request): string
     {
-        $reminders = Reminder::where('user_id', config('laraclaw.auth.admin_user_id'))
-            ->whereNull('sent_at')
+        $reminders = $this->owned()
             ->orderBy('remind_at')
             ->get(['id', 'connector', 'key', 'message', 'remind_at']);
 
-        if ($reminders->isEmpty()) {
-            return 'No pending reminders.';
-        }
-
-        return json_encode($reminders->toArray(), JSON_PRETTY_PRINT);
+        return $reminders->isEmpty()
+            ? 'No pending reminders.'
+            : $reminders->toJson(JSON_PRETTY_PRINT);
     }
 
     /**
@@ -109,22 +102,22 @@ class ReminderManager extends BaseTool
      */
     protected function cancel(Request $request): string
     {
-        $id = $request['id'] ?? null;
-        if (! $id) {
-            return 'The "id" parameter is required for cancel.';
-        }
-
-        $reminder = Reminder::where('id', $id)
-            ->where('user_id', config('laraclaw.auth.admin_user_id'))
-            ->whereNull('sent_at')
-            ->first();
+        $reminder = $this->owned()->find($request['id']);
 
         if (! $reminder) {
-            return "Reminder {$id} not found or already sent.";
+            return "Reminder {$request['id']} not found or already sent.";
         }
 
         $reminder->delete();
 
-        return "Reminder {$id} cancelled.";
+        return "Reminder {$request['id']} cancelled.";
+    }
+
+    /**
+     * Query the unsent reminders that belong to the configured admin user.
+     */
+    private function owned(): Builder
+    {
+        return Reminder::where('user_id', config('laraclaw.auth.admin_user_id'))->whereNull('sent_at');
     }
 }

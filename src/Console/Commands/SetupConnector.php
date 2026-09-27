@@ -22,6 +22,8 @@ class SetupConnector extends Command
 {
     use ConfiguresEnv;
 
+    private const array CONNECTORS = ['telegram', 'slack', 'email', 'api'];
+
     protected $signature = 'laraclaw:setup-connector {connector : The connector to configure (telegram, slack, email, api)}';
 
     protected $description = 'Configure a Laraclaw connector';
@@ -42,19 +44,13 @@ class SetupConnector extends Command
             return self::FAILURE;
         }
 
-        $handled = match ($connector) {
-            'telegram' => $this->setupTelegram($user) ?? true,
-            'slack' => $this->setupSlack($user) ?? true,
-            'email' => $this->setupEmail($user) ?? true,
-            'api' => $this->setupApi($user) ?? true,
-            default => false,
-        };
-
-        if (! $handled) {
-            $this->error("Unknown connector '{$connector}'. Valid options: telegram, slack, email, api.");
+        if (! in_array($connector, self::CONNECTORS, true)) {
+            $this->error("Unknown connector '{$connector}'. Valid options: " . implode(', ', self::CONNECTORS) . '.');
 
             return self::FAILURE;
         }
+
+        $this->{'setup' . ucfirst($connector)}($user);
 
         return self::SUCCESS;
     }
