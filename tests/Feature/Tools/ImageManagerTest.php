@@ -24,6 +24,10 @@ function imageRequest(array $data): Request
 }
 
 beforeEach(function () {
+    if (! function_exists('imagecreatetruecolor')) {
+        $this->markTestSkipped('The GD extension is not installed.');
+    }
+
     Storage::fake('workspace');
     Storage::fake('attachments');
 
