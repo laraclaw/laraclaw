@@ -4,7 +4,6 @@ namespace Laraclaw\Agents;
 
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
-use Laraclaw\Agents\Middleware\TranscribeAudio;
 use Laraclaw\DTOs\IncomingMessage;
 use Laraclaw\Models\Thread;
 use Laraclaw\Services\Calendar\Contracts\CalendarDriver;
@@ -25,24 +24,29 @@ use Laraclaw\Tools\ToolRegistry;
 use Laraclaw\Tools\UseSkill;
 use Laraclaw\Tools\WebRequest;
 use Laravel\Ai\Ai;
+use Laravel\Ai\Approvals\Decisions;
 use Laravel\Ai\Concerns\RemembersConversations;
 use Laravel\Ai\Contracts\Agent;
+use Laravel\Ai\Contracts\AgentInput;
 use Laravel\Ai\Contracts\Conversational;
-use Laravel\Ai\Contracts\HasMiddleware;
 use Laravel\Ai\Contracts\HasProviderOptions;
 use Laravel\Ai\Contracts\HasTools;
 use Laravel\Ai\Contracts\Providers\SupportsWebSearch;
 use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Enums\Lab;
+use Laravel\Ai\Messages\UserMessage;
 use Laravel\Ai\Promptable;
 use Laravel\Ai\Providers\Tools\WebSearch;
+use Laravel\Ai\Responses\AgentResponse;
 use RuntimeException;
 
 use function Laraclaw\Support\appTimezone;
 
-class ChatBotAgent implements Agent, Conversational, HasMiddleware, HasProviderOptions, HasTools
+class ChatBotAgent implements Agent, Conversational, HasProviderOptions, HasTools
 {
-    use Promptable, RemembersConversations;
+    use Promptable, RemembersConversations {
+        Promptable::prompt as private promptWithText;
+    }
 
     /**
      * Resolve the owner from the thread and bind the existing conversation, if any.
@@ -128,13 +132,27 @@ class ChatBotAgent implements Agent, Conversational, HasMiddleware, HasProviderO
     }
 
     /**
-     * Return the middleware that runs before each prompt.
+     * Run the agent, swapping a voice note for its transcript on the way in.
+     *
+     * This happens here rather than in agent middleware because the SDK records
+     * the user message before any middleware runs, and middleware now wraps each
+     * model step instead of the run. Rewriting the prompt at the door means the
+     * transcript is what gets stored in the conversation, so the next turn still
+     * knows what was said. Queued messages reach this method on the worker, so
+     * the webhook never waits on the transcription.
      */
-    public function middleware(): array
-    {
-        return [
-            new TranscribeAudio($this->message),
-        ];
+    public function prompt(
+        AgentInput|UserMessage|Decisions|string $prompt,
+        array $attachments = [],
+        Lab|array|string|null $provider = null,
+        ?string $model = null,
+        ?int $timeout = null,
+    ): AgentResponse {
+        if (is_string($prompt)) {
+            $prompt = new TranscribeAudio($this->message)->handle($prompt);
+        }
+
+        return $this->promptWithText($prompt, $attachments, $provider, $model, $timeout);
     }
 
     /**

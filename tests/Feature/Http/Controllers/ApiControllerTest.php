@@ -14,7 +14,7 @@ use Laraclaw\Models\Account;
 use Laraclaw\Models\Thread;
 use Laravel\Ai\Responses\AgentResponse;
 use Laravel\Ai\Responses\Data\Meta;
-use Laravel\Ai\Responses\Data\Usage;
+use Laravel\Ai\Responses\Data\TextUsage;
 
 function apiToken(): string
 {
@@ -40,7 +40,7 @@ function authenticatedUser(): \Illuminate\Foundation\Auth\User
 
 function mockAgent(string $text = 'Hello from agent', ?string $conversationId = 'conv-123'): void
 {
-    $response = new AgentResponse('inv-1', $text, new Usage, new Meta);
+    $response = new AgentResponse('inv-1', $text, new TextUsage, new Meta);
     $response->conversationId = $conversationId;
 
     $agent = Mockery::mock(ChatBotAgent::class);
@@ -283,7 +283,7 @@ it('sanitizes uploaded filenames with path traversal attempts', function () {
 it('returns outbound attachments in the response', function () {
     authenticatedUser();
 
-    $response = new AgentResponse('inv-1', 'Here is your file', new Usage, new Meta);
+    $response = new AgentResponse('inv-1', 'Here is your file', new TextUsage, new Meta);
     $response->conversationId = 'conv-1';
 
     $agent = Mockery::mock(ChatBotAgent::class);

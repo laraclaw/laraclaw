@@ -5,7 +5,7 @@ namespace Laraclaw\Listeners;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Laravel\Ai\Events\AgentPrompted;
-use Laravel\Ai\Responses\Data\Usage;
+use Laravel\Ai\Responses\Data\TextUsage;
 
 /**
  * Log token usage and cost, and optionally write full request/response payloads to disk.
@@ -26,8 +26,12 @@ class LogAgentRequest
 
     /**
      * Log token counts and estimated USD cost.
+     *
+     * The input count already includes the tokens read from or written to the
+     * prompt cache, so those are taken back out before the base rate is applied
+     * and billed once each at their own rate.
      */
-    private function logUsage(Usage $usage): void
+    private function logUsage(TextUsage $usage): void
     {
         // Sonnet 4.6 pricing per million tokens (USD)
         $inputRate = 3.00;
@@ -35,17 +39,20 @@ class LogAgentRequest
         $cacheWriteRate = 3.75;
         $cacheReadRate = 0.30;
 
-        $cost = ($usage->promptTokens * $inputRate / 1_000_000)
-            + ($usage->completionTokens * $outputRate / 1_000_000)
-            + ($usage->cacheWriteInputTokens * $cacheWriteRate / 1_000_000)
-            + ($usage->cacheReadInputTokens * $cacheReadRate / 1_000_000);
+        $cacheWriteTokens = $usage->cacheWriteInputTokens ?? 0;
+        $cacheReadTokens = $usage->cacheReadInputTokens ?? 0;
+
+        $cost = ($usage->uncachedInputTokens() * $inputRate / 1_000_000)
+            + ($usage->outputTokens * $outputRate / 1_000_000)
+            + ($cacheWriteTokens * $cacheWriteRate / 1_000_000)
+            + ($cacheReadTokens * $cacheReadRate / 1_000_000);
 
         Log::info('Agent usage', [
-            'input_tokens' => $usage->promptTokens,
-            'output_tokens' => $usage->completionTokens,
-            'cache_write_tokens' => $usage->cacheWriteInputTokens,
-            'cache_read_tokens' => $usage->cacheReadInputTokens,
-            'total_tokens' => $usage->promptTokens + $usage->completionTokens + $usage->cacheWriteInputTokens + $usage->cacheReadInputTokens,
+            'input_tokens' => $usage->inputTokens,
+            'output_tokens' => $usage->outputTokens,
+            'cache_write_tokens' => $cacheWriteTokens,
+            'cache_read_tokens' => $cacheReadTokens,
+            'total_tokens' => $usage->totalTokens(),
             'cost_usd' => round($cost, 6),
         ]);
     }

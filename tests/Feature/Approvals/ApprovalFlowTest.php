@@ -8,7 +8,7 @@ use Laravel\Ai\Approvals\PendingApproval;
 use Laravel\Ai\Exceptions\ApprovalMismatchException;
 use Laravel\Ai\Responses\AgentResponse;
 use Laravel\Ai\Responses\Data\Meta;
-use Laravel\Ai\Responses\Data\Usage;
+use Laravel\Ai\Responses\Data\TextUsage;
 
 function approvalThread(array $pending = []): Thread
 {
@@ -122,7 +122,7 @@ it('leaves other failures alone so the caller still handles them', function () {
 it('clears a recorded pause once the turn resolves', function () {
     $thread = approvalThread(pendingPayload());
 
-    $question = app(ApprovalFlow::class)->capture($thread, new AgentResponse('fake-invocation', 'All done.', new Usage, new Meta));
+    $question = app(ApprovalFlow::class)->capture($thread, new AgentResponse('fake-invocation', 'All done.', new TextUsage, new Meta));
 
     expect($question)->toBeNull()
         ->and($thread->fresh()->isAwaitingApproval())->toBeFalse();

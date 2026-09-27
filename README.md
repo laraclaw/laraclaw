@@ -349,6 +349,12 @@ Messages are processed via Laravel's queue. Make sure a worker is running:
 php artisan queue:work
 ```
 
+## Upgrading
+
+### To 0.7
+
+Laraclaw 0.7 runs on laravel/ai 1.0, which stores conversations differently from the beta releases. If you have been running an earlier Laraclaw, the SDK's conversation tables need a one time migration before you deploy. Let any pending tool approvals finish first, copy the backfill migration from the [laravel/ai upgrade guide](https://github.com/laravel/ai/blob/1.x/UPGRADE.md#conversation-messages-now-store-steps) into your app, then run `php artisan migrate`. A fresh install needs nothing extra.
+
 ## License
 
 MIT
