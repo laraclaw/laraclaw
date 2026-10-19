@@ -1,12 +1,9 @@
 <?php
 
-use Laraclaw\Agents\Middleware\TranscribeAudio;
+use Laraclaw\Agents\TranscribeAudio;
 use Laraclaw\DTOs\Attachment;
 use Laraclaw\DTOs\IncomingMessage;
 use Laraclaw\Enums\ConnectorType;
-use Laravel\Ai\Contracts\Agent;
-use Laravel\Ai\Contracts\Providers\TextProvider;
-use Laravel\Ai\Prompts\AgentPrompt;
 use Laravel\Ai\Transcription;
 
 function voiceNote(?string $text = null): IncomingMessage
@@ -27,29 +24,13 @@ function voiceNote(?string $text = null): IncomingMessage
 }
 
 /**
- * Run the middleware and hand back the prompt text it passed downstream.
+ * Run the transcription over the prompt the message would produce and hand back the result.
  */
-function transcribedText(IncomingMessage $message): ?string
+function transcribedText(IncomingMessage $message): string
 {
-    [$text, $files] = $message->toAgentInput();
+    [$text] = $message->toAgentInput();
 
-    $prompt = new AgentPrompt(
-        agent: Mockery::mock(Agent::class),
-        prompt: $text ?? '',
-        attachments: $files,
-        provider: Mockery::mock(TextProvider::class),
-        model: 'test-model',
-    );
-
-    $seen = null;
-
-    (new TranscribeAudio($message))->handle($prompt, function (AgentPrompt $p) use (&$seen) {
-        $seen = $p->prompt;
-
-        return $p;
-    });
-
-    return $seen;
+    return (new TranscribeAudio($message))->handle($text ?? '');
 }
 
 it('transcribes a voice note even though the prompt lists the attached file', function () {

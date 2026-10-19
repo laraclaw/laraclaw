@@ -4,10 +4,9 @@ namespace Laraclaw\Listeners;
 
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
-use Laraclaw\Commands\CommandRegistry;
+use Laraclaw\Agents\Dispatcher;
 use Laraclaw\Connectors\Telegram;
 use Laraclaw\Events\TelegramMessageReceived;
-use Laraclaw\Jobs\RunAgentTurn;
 use Laraclaw\Models\Thread;
 use Laraclaw\Services\Attachments;
 
@@ -17,11 +16,11 @@ use Laraclaw\Services\Attachments;
 class TelegramListener
 {
     /**
-     * Inject the attachment writer and the command registry consulted before dispatching to the agent.
+     * Inject the attachment writer and the dispatcher that queues the agent.
      */
     public function __construct(
         private readonly Attachments $attachments,
-        private readonly CommandRegistry $commands,
+        private readonly Dispatcher $dispatcher,
     ) {}
 
     /**
@@ -29,34 +28,18 @@ class TelegramListener
      */
     public function __invoke(TelegramMessageReceived $event): void
     {
-        $raw = $event->message;
-
-        // Validate the incoming Telegram message
         try {
-            Telegram::validateEvent($raw);
+            Telegram::validateEvent($event->message);
         } catch (ValidationException $e) {
             Log::debug('Telegram event skipped', ['code' => $e->getMessage()]);
 
             return;
         }
 
-        $connector = new Telegram($raw->getChat()->getId(), $event->bot);
-        $incomingMessage = Telegram::createIncomingMessageFrom($raw, $event->bot, $this->attachments);
-        $thread = Thread::forMessage($incomingMessage);
+        $message = Telegram::createIncomingMessageFrom($event->message, $event->bot, $this->attachments);
 
-        // Show a typing indicator to acknowledge the incoming message
-        $connector->showTypingIndicator();
+        new Telegram($event->message->getChat()->getId(), $event->bot)->showTypingIndicator();
 
-        // Handle commands
-        if ($command = $this->commands->match($incomingMessage->text ?? '')) {
-            $command->handle($incomingMessage, $thread);
-
-            return;
-        }
-
-        // Hand the turn to the queue. The agent is built inside the job so it
-        // reads the conversation the previous turn saved, and the job holds a
-        // lock on the thread so two messages sent at once run one after the other.
-        RunAgentTurn::dispatch($thread, $incomingMessage);
+        $this->dispatcher->queue($message, Thread::forMessage($message));
     }
 }
