@@ -8,6 +8,8 @@ use Illuminate\Support\Str;
 use Laraclaw\Console\Concerns\ConfiguresEnv;
 use Laraclaw\Enums\ConnectorType;
 use Laraclaw\Models\Account;
+use Telegram\Bot\Api;
+use Telegram\Bot\Exceptions\TelegramSDKException;
 
 use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\info;
@@ -19,6 +21,8 @@ use function Laravel\Prompts\text;
 class SetupConnector extends Command
 {
     use ConfiguresEnv;
+
+    private const array CONNECTORS = ['telegram', 'slack', 'email', 'api'];
 
     protected $signature = 'laraclaw:setup-connector {connector : The connector to configure (telegram, slack, email, api)}';
 
@@ -40,19 +44,13 @@ class SetupConnector extends Command
             return self::FAILURE;
         }
 
-        $handled = match ($connector) {
-            'telegram' => $this->setupTelegram($user) ?? true,
-            'slack' => $this->setupSlack($user) ?? true,
-            'email' => $this->setupEmail($user) ?? true,
-            'api' => $this->setupApi($user) ?? true,
-            default => false,
-        };
-
-        if (! $handled) {
-            $this->error("Unknown connector '{$connector}'. Valid options: telegram, slack, email, api.");
+        if (! in_array($connector, self::CONNECTORS, true)) {
+            $this->error("Unknown connector '{$connector}'. Valid options: " . implode(', ', self::CONNECTORS) . '.');
 
             return self::FAILURE;
         }
+
+        $this->{'setup' . ucfirst($connector)}($user);
 
         return self::SUCCESS;
     }
@@ -67,12 +65,53 @@ class SetupConnector extends Command
         $token = $this->askEnv('Bot token (from BotFather)', 'LARACLAW_TELEGRAM_TOKEN', secret: true, placeholder: '1234567890:ABCdef…');
         $chatId = $this->askAccount('Your Telegram chat ID (send /start to @userinfobot to get it)', $user->getAuthIdentifier(), 'telegram', placeholder: '123456789');
 
-        $this->saveEnv(['LARACLAW_TELEGRAM_TOKEN' => $token, 'LARACLAW_TELEGRAM_ENABLED' => 'true']);
+        // Telegram sends this back on every webhook call, and it is the only thing
+        // that tells a real update apart from anyone who guessed the endpoint.
+        $secretToken = $this->readEnv('LARACLAW_TELEGRAM_SECRET_TOKEN') ?? Str::random(64);
+
+        $this->saveEnv([
+            'LARACLAW_TELEGRAM_TOKEN' => $token,
+            'LARACLAW_TELEGRAM_SECRET_TOKEN' => $secretToken,
+            'LARACLAW_TELEGRAM_ENABLED' => 'true',
+        ]);
 
         Account::updateOrCreate(
             ['user_id' => $user->getAuthIdentifier(), 'connector' => 'telegram'],
             ['account' => $chatId],
         );
+
+        $this->registerTelegramWebhook($token, $secretToken);
+    }
+
+    /**
+     * Point the bot at this app's webhook URL, handing Telegram the secret to echo back.
+     *
+     * The secret only guards the endpoint once Telegram knows about it, so an
+     * install that skips this step will see its own updates rejected.
+     */
+    private function registerTelegramWebhook(string $token, string $secretToken): void
+    {
+        $url = text(
+            label: 'Public webhook URL',
+            placeholder: 'https://your-app.com/telegram/webhook',
+            default: url('/telegram/webhook'),
+            required: true,
+        );
+
+        if (! confirm("Register {$url} with Telegram now?")) {
+            info('Skipped. Call setWebhook yourself with secret_token set to LARACLAW_TELEGRAM_SECRET_TOKEN, or Telegram updates will be rejected.');
+
+            return;
+        }
+
+        try {
+            new Api($token)->setWebhook(['url' => $url, 'secret_token' => $secretToken]);
+
+            info('Webhook registered.');
+        } catch (TelegramSDKException $e) {
+            $this->error('Could not register the webhook: ' . $e->getMessage());
+            $this->warn('Register it yourself with secret_token set to LARACLAW_TELEGRAM_SECRET_TOKEN.');
+        }
     }
 
     /**

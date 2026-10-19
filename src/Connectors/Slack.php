@@ -17,6 +17,7 @@ use Laraclaw\Enums\ConnectorType;
 use Laraclaw\Models\Account;
 use Laraclaw\Models\Thread;
 use Laraclaw\Services\Attachments;
+use Laraclaw\Services\AttachmentSizeGuard;
 use RuntimeException;
 use Throwable;
 
@@ -192,7 +193,7 @@ class Slack extends Connector
         $fileName = $file['name'] ?? 'attachment';
 
         try {
-            $response = Http::withToken(self::token())->get($url);
+            $response = Http::withToken(self::token())->withOptions(['stream' => true])->get($url);
 
             if (! $response->successful()) {
                 Log::warning('Slack file download failed', ['url' => $url, 'status' => $response->status()]);
@@ -200,8 +201,14 @@ class Slack extends Connector
                 return null;
             }
 
+            $body = AttachmentSizeGuard::body($response, ['connector' => 'slack', 'url' => $url]);
+
+            if ($body === null) {
+                return null;
+            }
+
             $disk = config('laraclaw.filesystem.attachments_disk', 'local');
-            $path = $attachments->set($fileName, $response->body());
+            $path = $attachments->set($fileName, $body);
 
             return new Attachment(path: $path, disk: $disk, mimeType: $mimeType, filename: $fileName);
         } catch (Throwable $e) {
@@ -261,13 +268,14 @@ class Slack extends Connector
 
         $isDm = str_starts_with((string) $this->channelId, 'D');
 
-        if ($attachments?->isNotEmpty()) {
-            $this->handleAttachments($attachments);
-        }
+        $attachments?->each(fn (Attachment $attachment): bool => $this->uploadFile(
+            Storage::disk($attachment->disk)->path($attachment->path),
+            $attachment->filename ?? basename($attachment->path),
+        ));
 
         $payload = [
             'channel' => $this->channelId,
-            'text' => $this->toMrkdwn($text),
+            'text' => markdownToMrkdwn($text),
         ];
 
         if (! $isDm && $this->threadTs) {
@@ -277,11 +285,9 @@ class Slack extends Connector
         $response = Http::withToken(self::token())
             ->post('https://slack.com/api/chat.postMessage', $payload);
 
-        if (! $isDm && ! $this->threadTs && $response->successful()) {
-            $data = $response->json();
-            if ($data['ok'] && isset($data['ts'])) {
-                $this->threadTs = $data['ts'];
-            }
+        // The first message in a channel opens the thread every later one replies in.
+        if (! $isDm && ! $this->threadTs && $response->successful() && $response->json('ok')) {
+            $this->threadTs = $response->json('ts');
         }
     }
 
@@ -296,35 +302,6 @@ class Slack extends Connector
         } else {
             $this->channelId = $key;
         }
-    }
-
-    /**
-     * Upload each attachment to Slack via the external upload API.
-     */
-    private function handleAttachments(Collection $attachments): void
-    {
-        foreach ($attachments as $attachment) {
-            $this->uploadAttachment($attachment);
-        }
-    }
-
-    /**
-     * Upload a single attachment DTO to Slack.
-     */
-    private function uploadAttachment(Attachment $attachment): bool
-    {
-        return $this->uploadFile(
-            Storage::disk($attachment->disk)->path($attachment->path),
-            $attachment->filename ?? basename($attachment->path),
-        );
-    }
-
-    /**
-     * Convert Markdown to Slack mrkdwn format.
-     */
-    private function toMrkdwn(string $text): string
-    {
-        return markdownToMrkdwn($text);
     }
 
     /**

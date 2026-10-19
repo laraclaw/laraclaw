@@ -13,6 +13,7 @@ use Laraclaw\Connectors\Api;
 use Laraclaw\DTOs\Attachment;
 use Laraclaw\Models\Thread;
 use Laraclaw\Services\Attachments;
+use Laraclaw\Services\AttachmentSizeGuard;
 use Laravel\Ai\Exceptions\ApprovalMismatchException;
 use Laravel\Ai\Responses\AgentResponse;
 
@@ -21,6 +22,16 @@ use Laravel\Ai\Responses\AgentResponse;
  */
 class ApiController extends Controller
 {
+    /**
+     * Length of the laraclaw_threads.key column the composed thread key has to fit.
+     */
+    private const int THREAD_KEY_COLUMN_LENGTH = 255;
+
+    /**
+     * Ceiling on the prompt text, so one request cannot hand the agent an unbounded blob.
+     */
+    private const int MAX_TEXT_LENGTH = 100000;
+
     /**
      * Inject the attachment writer and the command registry consulted before dispatching to the agent.
      */
@@ -36,10 +47,10 @@ class ApiController extends Controller
     public function __invoke(Request $request): JsonResponse
     {
         $request->validate([
-            'text' => ['required_without:attachments', 'nullable', 'string'],
-            'key' => ['nullable', 'string'],
+            'text' => ['required_without:attachments', 'nullable', 'string', 'max:' . self::MAX_TEXT_LENGTH],
+            'key' => ['nullable', 'string', 'max:' . $this->maxClientKeyLength($request)],
             'attachments' => ['nullable', 'array'],
-            'attachments.*' => ['file'],
+            'attachments.*' => ['file', 'max:' . AttachmentSizeGuard::maxKilobytes()],
         ]);
 
         $clientKey = blank($request->input('key')) ? (string) Str::uuid() : $request->input('key');
@@ -89,6 +100,20 @@ class ApiController extends Controller
         $question = $this->approvals->capture($thread, $response);
 
         return $this->buildResponse($response, $clientKey, $incomingMessage->uuid, $question);
+    }
+
+    /**
+     * Return how long a client supplied key may be before the stored thread key overflows.
+     *
+     * The key we persist carries the user id and a colon in front of whatever the
+     * client sent, so the client half has to leave room for that prefix. Without
+     * this the database raises its own error instead of a validation response.
+     */
+    private function maxClientKeyLength(Request $request): int
+    {
+        $prefixLength = strlen((string) $request->user()->getAuthIdentifier()) + 1;
+
+        return max(1, self::THREAD_KEY_COLUMN_LENGTH - $prefixLength);
     }
 
     /**

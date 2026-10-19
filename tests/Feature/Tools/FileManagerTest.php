@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Laraclaw\DTOs\IncomingMessage;
 use Laraclaw\Enums\ConnectorType;
@@ -320,4 +321,166 @@ it('builds the approval prompt from the singular path', function () {
 
     expect($approval)->not->toBeNull()
         ->and($approval->reason)->toContain('test.txt');
+});
+
+it('refuses a download_url that points straight at a private address', function () {
+    Http::preventStrayRequests();
+
+    $result = fileTool()->handle(fileRequest([
+        'operation' => 'download_url',
+        'disk' => 'workspace',
+        'path' => 'grabbed.txt',
+        'url' => 'http://169.254.169.254/latest/meta-data/',
+    ]));
+
+    expect($result)->toBe('Requests to private/internal network addresses are not allowed.');
+    expect(Storage::disk('workspace')->exists('grabbed.txt'))->toBeFalse();
+});
+
+it('refuses a download_url that is redirected to a private address', function () {
+    Http::fake([
+        'example.com/bait' => Http::response('', 302, ['Location' => 'http://127.0.0.1/secrets']),
+    ]);
+
+    $result = fileTool()->handle(fileRequest([
+        'operation' => 'download_url',
+        'disk' => 'workspace',
+        'path' => 'grabbed.txt',
+        'url' => 'https://example.com/bait',
+    ]));
+
+    expect($result)->toBe('Requests to private/internal network addresses are not allowed.');
+    expect(Storage::disk('workspace')->exists('grabbed.txt'))->toBeFalse();
+});
+
+it('refuses a download_url with a scheme outside the allowlist', function () {
+    Http::preventStrayRequests();
+
+    $result = fileTool()->handle(fileRequest([
+        'operation' => 'download_url',
+        'disk' => 'workspace',
+        'path' => 'grabbed.txt',
+        'url' => 'file:///etc/passwd',
+    ]));
+
+    expect($result)->toContain('Only http and https URLs are allowed');
+});
+
+it('downloads a public URL and streams it onto the disk', function () {
+    Http::fake([
+        'example.com/report.txt' => Http::response('hello from the internet', 200),
+    ]);
+
+    $result = fileTool()->handle(fileRequest([
+        'operation' => 'download_url',
+        'disk' => 'workspace',
+        'path' => 'downloads/report.txt',
+        'url' => 'https://example.com/report.txt',
+    ]));
+
+    expect($result)->toBe('Downloaded to downloads/report.txt.');
+    expect(Storage::disk('workspace')->get('downloads/report.txt'))->toBe('hello from the internet');
+});
+
+it('derives the filename from the URL when the path names a directory', function () {
+    Http::fake([
+        'example.com/files/notes.md' => Http::response('# notes', 200),
+    ]);
+
+    $result = fileTool()->handle(fileRequest([
+        'operation' => 'download_url',
+        'disk' => 'workspace',
+        'path' => 'downloads',
+        'url' => 'https://example.com/files/notes.md',
+    ]));
+
+    expect($result)->toBe('Downloaded to downloads/notes.md.');
+    expect(Storage::disk('workspace')->get('downloads/notes.md'))->toBe('# notes');
+});
+
+it('refuses a download bigger than the configured cap', function () {
+    config(['laraclaw.http.max_download_bytes' => 1024]);
+
+    Http::fake([
+        'example.com/huge.bin' => Http::response(str_repeat('a', 4096), 200),
+    ]);
+
+    $result = fileTool()->handle(fileRequest([
+        'operation' => 'download_url',
+        'disk' => 'workspace',
+        'path' => 'huge.bin',
+        'url' => 'https://example.com/huge.bin',
+    ]));
+
+    expect($result)->toContain('exceeds the');
+    expect(Storage::disk('workspace')->exists('huge.bin'))->toBeFalse();
+});
+
+it('reports a failed download without writing anything', function () {
+    Http::fake([
+        'example.com/missing.txt' => Http::response('nope', 404),
+    ]);
+
+    $result = fileTool()->handle(fileRequest([
+        'operation' => 'download_url',
+        'disk' => 'workspace',
+        'path' => 'missing.txt',
+        'url' => 'https://example.com/missing.txt',
+    ]));
+
+    expect($result)->toContain('Failed to download URL (HTTP 404)');
+    expect(Storage::disk('workspace')->exists('missing.txt'))->toBeFalse();
+});
+
+it('does not let a URL ending in a dot segment aim the write at the parent directory', function () {
+    Http::fake([
+        'example.com/*' => Http::response('payload', 200),
+    ]);
+
+    $result = fileTool()->handle(fileRequest([
+        'operation' => 'download_url',
+        'disk' => 'workspace',
+        'path' => 'downloads',
+        'url' => 'https://example.com/files/..',
+    ]));
+
+    // basename() gives ".." here, so the derived target is "downloads/..",
+    // which points at the directory itself. uniqueFilePath then mangles that
+    // into the hidden file "downloads/.1" rather than refusing it.
+    expect($result)->not->toContain('..');
+    expect($result)->toStartWith('Downloaded to downloads/');
+
+    $written = Storage::disk('workspace')->files('downloads');
+    expect($written)->toHaveCount(1);
+    expect(basename((string) $written[0]))->not->toStartWith('.');
+    expect(Storage::disk('workspace')->get($written[0]))->toBe('payload');
+});
+
+it('does not let a URL ending in a single dot aim the write at the directory itself', function () {
+    Http::fake([
+        'example.com/*' => Http::response('payload', 200),
+    ]);
+
+    $result = fileTool()->handle(fileRequest([
+        'operation' => 'download_url',
+        'disk' => 'workspace',
+        'path' => 'downloads',
+        'url' => 'https://example.com/files/.',
+    ]));
+
+    expect($result)->toStartWith('Downloaded to downloads/');
+    expect($result)->not->toContain('downloads/.');
+});
+
+it('turns a connection failure into a message instead of letting it escape', function () {
+    Http::fake(fn () => throw new RuntimeException('could not resolve host'));
+
+    $result = fileTool()->handle(fileRequest([
+        'operation' => 'download_url',
+        'disk' => 'workspace',
+        'path' => 'thing.txt',
+        'url' => 'https://example.com/thing.txt',
+    ]));
+
+    expect($result)->toContain('Failed to download URL: could not resolve host');
 });

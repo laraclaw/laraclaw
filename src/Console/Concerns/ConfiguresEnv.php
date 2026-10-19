@@ -27,11 +27,11 @@ trait ConfiguresEnv
             }
         }
 
-        return $input
-            ? $input()
-            : ($secret
-                ? password($label, required: true)
-                : text($label, placeholder: $placeholder, required: true));
+        return match (true) {
+            $input instanceof Closure => $input(),
+            $secret => password($label, required: true),
+            default => text($label, placeholder: $placeholder, required: true),
+        };
     }
 
     /**

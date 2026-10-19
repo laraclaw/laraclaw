@@ -18,6 +18,21 @@ return [
         'attachments_disk' => env('LARACLAW_ATTACHMENTS_DISK', 'local'),
         'incoming_attachments_path' => env('LARACLAW_INCOMING_ATTACHMENTS_PATH', 'inbound'),
         'outgoing_attachments_path' => env('LARACLAW_OUTGOING_ATTACHMENTS_PATH', 'outbound'),
+
+        // Biggest attachment the bot accepts, in kilobytes. Applies to API uploads
+        // and to files downloaded from Telegram, Slack, and email alike, so the
+        // budget holds even where no web server upload limit is in the way.
+        'max_attachment_kilobytes' => env('LARACLAW_MAX_ATTACHMENT_KILOBYTES', 20480),
+    ],
+
+    // Limits applied to every outbound HTTP request the agent makes, whether it
+    // comes from the web_request tool or from a file download
+    'http' => [
+        // Largest file download_url will write to a disk, in bytes
+        'max_download_bytes' => env('LARACLAW_MAX_DOWNLOAD_BYTES', 25 * 1024 * 1024),
+
+        // How many redirects a single request may follow before it is abandoned
+        'max_redirects' => env('LARACLAW_MAX_REDIRECTS', 5),
     ],
 
     'memory' => [
@@ -113,6 +128,11 @@ return [
         'telegram' => [
             'enabled' => env('LARACLAW_TELEGRAM_ENABLED', false),
             'token' => env('LARACLAW_TELEGRAM_TOKEN'),
+
+            // Shared secret passed to setWebhook and returned by Telegram in the
+            // X-Telegram-Bot-Api-Secret-Token header on every webhook request.
+            // The setup command generates one and registers it for you.
+            'secret_token' => env('LARACLAW_TELEGRAM_SECRET_TOKEN'),
         ],
         'slack' => [
             'enabled' => env('LARACLAW_SLACK_ENABLED', false),

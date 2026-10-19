@@ -1,10 +1,13 @@
 <?php
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Laraclaw\Connectors\Slack;
 use Laraclaw\Enums\ConnectorType;
 use Laraclaw\Models\Account;
+use Laraclaw\Services\Attachments;
 
 function slackRequest(array $payload): Request
 {
@@ -166,3 +169,49 @@ it('accepts empty text with files', function () {
 
     Slack::validateEvent($request);
 })->throwsNoExceptions();
+
+/**
+ * Build the Slack event payload for a DM carrying one downloadable file.
+ */
+function slackFileEvent(string $name = 'huge.bin'): array
+{
+    return [
+        'type' => 'message',
+        'channel' => 'D123',
+        'user' => 'U123',
+        'text' => 'here you go',
+        'files' => [['name' => $name, 'mimetype' => 'application/octet-stream', 'url_private_download' => 'https://files.slack.com/huge.bin']],
+    ];
+}
+
+it('refuses a slack download bigger than the size budget', function () {
+    Storage::fake('attachments');
+    config([
+        'laraclaw.filesystem.attachments_disk' => 'attachments',
+        'laraclaw.filesystem.incoming_attachments_path' => 'inbound',
+        'laraclaw.connectors.slack.bot_token' => 'xoxb-test-token',
+        'laraclaw.filesystem.max_attachment_kilobytes' => 1,
+    ]);
+    Http::fake(['files.slack.com/*' => Http::response(str_repeat('x', 5000))]);
+
+    $incoming = Slack::createIncomingMessageFrom(slackFileEvent(), app(Attachments::class));
+
+    expect($incoming->attachments)->toBeEmpty()
+        ->and(Storage::disk('attachments')->allFiles('inbound'))->toBeEmpty();
+});
+
+it('keeps a slack download inside the size budget', function () {
+    Storage::fake('attachments');
+    config([
+        'laraclaw.filesystem.attachments_disk' => 'attachments',
+        'laraclaw.filesystem.incoming_attachments_path' => 'inbound',
+        'laraclaw.connectors.slack.bot_token' => 'xoxb-test-token',
+        'laraclaw.filesystem.max_attachment_kilobytes' => 10,
+    ]);
+    Http::fake(['files.slack.com/*' => Http::response(str_repeat('x', 5000))]);
+
+    $incoming = Slack::createIncomingMessageFrom(slackFileEvent('fine.bin'), app(Attachments::class));
+
+    expect($incoming->attachments)->toHaveCount(1)
+        ->and($incoming->attachments[0]->filename)->toBe('fine.bin');
+});

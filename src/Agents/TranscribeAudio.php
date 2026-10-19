@@ -1,15 +1,16 @@
 <?php
 
-namespace Laraclaw\Agents\Middleware;
+namespace Laraclaw\Agents;
 
-use Closure;
 use Illuminate\Support\Facades\Log;
 use Laraclaw\DTOs\Attachment;
 use Laraclaw\DTOs\IncomingMessage;
-use Laravel\Ai\Prompts\AgentPrompt;
 use Laravel\Ai\Transcription;
 use Throwable;
 
+/**
+ * Turns a voice note into the text the agent is actually prompted with.
+ */
 class TranscribeAudio
 {
     /**
@@ -20,31 +21,35 @@ class TranscribeAudio
     ) {}
 
     /**
-     * Transcribe the first audio attachment when the sender wrote no text of their own.
+     * Put the transcript of the first audio attachment on top of the prompt when the sender wrote no text of their own.
      */
-    public function handle(AgentPrompt $prompt, Closure $next): mixed
+    public function handle(string $prompt): string
     {
         // Test the message rather than the prompt. A voice note carries no text, but
         // the prompt still lists the attached file, so it is never blank and this
         // used to skip transcription for exactly the messages that needed it.
-        if (blank($this->message->text)) {
-            $audio = collect($this->message->attachments)->first(fn (Attachment $a): bool => $a->isAudio());
-
-            if ($audio) {
-                return $next($this->transcribe($prompt, $audio));
-            }
+        if (filled($this->message->text)) {
+            return $prompt;
         }
 
-        return $next($prompt);
+        $audio = collect($this->message->attachments)->first(fn (Attachment $a): bool => $a->isAudio());
+
+        if (! $audio) {
+            return $prompt;
+        }
+
+        // Prepend rather than replace so the attachment notes survive and
+        // tools can still reach the original file on disk.
+        return $this->transcribe($audio) . PHP_EOL . PHP_EOL . $prompt;
     }
 
     /**
-     * Return the prompt with the transcript on top, or with a note when the audio could not be read.
+     * Return the transcript, or a note for the agent when the audio could not be read.
      */
-    private function transcribe(AgentPrompt $prompt, Attachment $audio): AgentPrompt
+    private function transcribe(Attachment $audio): string
     {
         try {
-            $transcribed = Transcription::fromStorage($audio->path, $audio->disk)->generate()->text;
+            return Transcription::fromStorage($audio->path, $audio->disk)->generate()->text;
         } catch (Throwable $e) {
             // Audio we cannot transcribe should not take the whole message down.
             // Letting this bubble leaves the sender staring at silence, so tell
@@ -55,11 +60,7 @@ class TranscribeAudio
                 'error' => $e->getMessage(),
             ]);
 
-            return $prompt->prepend('The user sent a voice message that could not be transcribed. Say so and ask them to type it instead.');
+            return 'The user sent a voice message that could not be transcribed. Say so and ask them to type it instead.';
         }
-
-        // Prepend rather than replace so the attachment notes survive and
-        // tools can still reach the original file on disk.
-        return $prompt->prepend($transcribed);
     }
 }

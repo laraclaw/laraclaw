@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\File;
 use Laraclaw\Agents\ChatBotAgent;
+use Laraclaw\DTOs\Attachment;
 use Laraclaw\DTOs\IncomingMessage;
 use Laraclaw\Enums\ConnectorType;
 use Laraclaw\Models\Account;
@@ -11,15 +12,16 @@ use Laraclaw\Skills\SkillRegistry;
 use Laraclaw\Tools\ToolRegistry;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\Conversational;
-use Laravel\Ai\Contracts\HasMiddleware;
 use Laravel\Ai\Contracts\HasProviderOptions;
 use Laravel\Ai\Contracts\HasTools;
 use Laravel\Ai\Enums\Lab;
+use Laravel\Ai\Prompts\AgentPrompt;
 use Laravel\Ai\Providers\Tools\WebSearch;
+use Laravel\Ai\Transcription;
 
-function makeAgent(array $config = [], ?string $senderName = null): ChatBotAgent
+function makeAgent(array $config = [], ?string $senderName = null, ?IncomingMessage $message = null): ChatBotAgent
 {
-    $message = new IncomingMessage(
+    $message ??= new IncomingMessage(
         text: 'hello',
         connector: ConnectorType::Terminal,
         key: 'user-1',
@@ -64,7 +66,6 @@ it('implements every agent contract the prompt loop expects', function () {
     expect($agent)
         ->toBeInstanceOf(Agent::class)
         ->toBeInstanceOf(Conversational::class)
-        ->toBeInstanceOf(HasMiddleware::class)
         ->toBeInstanceOf(HasProviderOptions::class)
         ->toBeInstanceOf(HasTools::class);
 });
@@ -299,11 +300,36 @@ it('adds WebSearch when the active provider supports it', function () {
     expect($tools)->toContain(WebSearch::class);
 });
 
-it('returns the TranscribeAudio middleware', function () {
-    $middleware = makeAgent()->middleware();
+it('prompts with the transcript when the message is a voice note', function () {
+    // The transcript has to be in the prompt itself, not added by middleware,
+    // because the SDK stores the user message before middleware runs. Otherwise
+    // the conversation history would hold an empty turn for every voice note.
+    ChatBotAgent::fake(['On it.']);
+    Transcription::fake(['walk the dog at six']);
 
-    expect($middleware)->toHaveCount(1);
-    expect($middleware[0])->toBeInstanceOf(Laraclaw\Agents\Middleware\TranscribeAudio::class);
+    $agent = makeAgent(message: new IncomingMessage(
+        text: null,
+        connector: ConnectorType::Terminal,
+        key: 'user-1',
+        isDirectMessage: true,
+        attachments: [new Attachment(path: 'inbound/uuid/voice.oga', disk: 'local', mimeType: 'audio/ogg', filename: 'voice.oga')],
+    ));
+
+    $agent->prompt(...$agent->message->toAgentInput());
+
+    ChatBotAgent::assertPrompted(fn (AgentPrompt $prompt): bool => str_starts_with($prompt->prompt, 'walk the dog at six')
+        && str_contains($prompt->prompt, 'inbound/uuid/voice.oga'));
+});
+
+it('prompts with the text as written when the sender typed it', function () {
+    ChatBotAgent::fake(['Hi.']);
+    Transcription::fake(['should never be used']);
+
+    $agent = makeAgent();
+
+    $agent->prompt(...$agent->message->toAgentInput());
+
+    ChatBotAgent::assertPrompted(fn (AgentPrompt $prompt): bool => $prompt->prompt === 'hello');
 });
 
 it('tells the agent to search memory before saying it does not know', function () {
