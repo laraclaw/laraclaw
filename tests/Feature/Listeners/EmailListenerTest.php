@@ -8,13 +8,14 @@ use DirectoryTree\ImapEngine\Laravel\ImapManager;
 use DirectoryTree\ImapEngine\MailboxInterface;
 use DirectoryTree\ImapEngine\MessageInterface;
 use DirectoryTree\ImapEngine\MessageQueryInterface;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Queue;
+use Laraclaw\Connectors\Email;
 use Laraclaw\Enums\ConnectorType;
 use Laraclaw\Enums\EmailClaim;
+use Laraclaw\Jobs\RunAgentTurn;
 use Laraclaw\Models\Account;
 use Laraclaw\Services\ProcessedEmails;
-use Laravel\Ai\Jobs\InvokeAgent;
 
 function makeRawEmail(string $from, string $subject = 'Hello', string $authResults = 'dkim=pass spf=pass'): MessageInterface
 {
@@ -93,13 +94,29 @@ it('rejects and logs a warning when DKIM/SPF authentication fails', function () 
 it('accepts emails that fail DKIM/SPF when verification is disabled', function () {
     config(['laraclaw.connectors.email.verify_sender_dkim_and_spf' => false]);
     registerEmailAccount('allowed@example.com');
+    Bus::fake();
+    mockImapInbox()->allows('flag');
 
     $raw = makeRawEmail('allowed@example.com', 'Test', 'dkim=fail spf=fail');
 
     app(Laraclaw\Listeners\EmailListener::class)(makeEvent($raw));
 
     Log::shouldNotHaveReceived('debug');
-})->todo('assert agent is queued once agent queue testing is set up');
+    Bus::assertDispatched(RunAgentTurn::class);
+});
+
+it('queues the turn with the connector that can reply to the mail', function () {
+    registerEmailAccount('allowed@example.com');
+    Bus::fake();
+    mockImapInbox()->allows('flag');
+
+    app(Laraclaw\Listeners\EmailListener::class)(makeEvent(makeRawEmail('allowed@example.com')));
+
+    // An email reply has to quote the subject and message id of the mail being
+    // answered, so the connector travels with the job rather than being rebuilt.
+    Bus::assertDispatched(RunAgentTurn::class, fn (RunAgentTurn $job): bool => $job->connector instanceof Email
+        && $job->message->connector === ConnectorType::Email);
+});
 
 it('does nothing when the email connector is disabled', function () {
     config(['laraclaw.connectors.email.enabled' => false]);
@@ -140,7 +157,7 @@ function mockImapInbox(?string $expectedMailbox = null): MessageInterface
 }
 
 it('marks the email seen exactly once after the agent job is queued', function () {
-    Queue::fake();
+    Bus::fake();
     registerEmailAccount('allowed@example.com');
 
     $stored = mockImapInbox();
@@ -148,7 +165,7 @@ it('marks the email seen exactly once after the agent job is queued', function (
 
     app(Laraclaw\Listeners\EmailListener::class)(makeEvent(makeRawEmail('allowed@example.com')));
 
-    Queue::assertPushed(InvokeAgent::class, 1);
+    Bus::assertDispatched(RunAgentTurn::class, 1);
 });
 
 it('leaves the email unseen when the agent job cannot be queued', function () {
@@ -168,7 +185,7 @@ it('leaves the email unseen when the agent job cannot be queued', function () {
 });
 
 it('does not queue the agent twice for an email it already handed off', function () {
-    Queue::fake();
+    Bus::fake();
     registerEmailAccount('allowed@example.com');
 
     $stored = mockImapInbox();
@@ -179,7 +196,7 @@ it('does not queue the agent twice for an email it already handed off', function
     $listener(makeEvent(makeRawEmail('allowed@example.com')));
     $listener(makeEvent(makeRawEmail('allowed@example.com')));
 
-    Queue::assertPushed(InvokeAgent::class, 1);
+    Bus::assertDispatched(RunAgentTurn::class, 1);
 });
 
 it('gives up on an email that keeps failing and marks it seen', function () {
@@ -200,7 +217,7 @@ it('gives up on an email that keeps failing and marks it seen', function () {
 });
 
 it('flags the message in the mailbox the event came from', function () {
-    Queue::fake();
+    Bus::fake();
     registerEmailAccount('allowed@example.com');
 
     // The listener must not fall back to the configured mailbox, or a second
@@ -213,7 +230,7 @@ it('flags the message in the mailbox the event came from', function () {
 
     app(Laraclaw\Listeners\EmailListener::class)(makeEvent(makeRawEmail('allowed@example.com'), 'work'));
 
-    Queue::assertPushed(InvokeAgent::class, 1);
+    Bus::assertDispatched(RunAgentTurn::class, 1);
 });
 
 it('leaves the claim open for the next poll when the handoff fails', function () {
