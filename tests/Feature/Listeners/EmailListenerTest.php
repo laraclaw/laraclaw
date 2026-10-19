@@ -1,15 +1,21 @@
 <?php
 
 use DirectoryTree\ImapEngine\Address;
+use DirectoryTree\ImapEngine\Enums\ImapFlag;
+use DirectoryTree\ImapEngine\FolderInterface;
 use DirectoryTree\ImapEngine\Laravel\Events\MessageReceived;
-use DirectoryTree\ImapEngine\Laravel\Facades\Imap;
+use DirectoryTree\ImapEngine\Laravel\ImapManager;
+use DirectoryTree\ImapEngine\MailboxInterface;
 use DirectoryTree\ImapEngine\MessageInterface;
+use DirectoryTree\ImapEngine\MessageQueryInterface;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Log;
 use Laraclaw\Connectors\Email;
 use Laraclaw\Enums\ConnectorType;
+use Laraclaw\Enums\EmailClaim;
 use Laraclaw\Jobs\RunAgentTurn;
 use Laraclaw\Models\Account;
+use Laraclaw\Services\ProcessedEmails;
 
 function makeRawEmail(string $from, string $subject = 'Hello', string $authResults = 'dkim=pass spf=pass'): MessageInterface
 {
@@ -30,31 +36,9 @@ function makeRawEmail(string $from, string $subject = 'Hello', string $authResul
     return $raw;
 }
 
-function makeEvent(MessageInterface $raw): MessageReceived
+function makeEvent(MessageInterface $raw, string $mailbox = 'default'): MessageReceived
 {
-    return new MessageReceived($raw, 'default');
-}
-
-/**
- * Stub the mailbox so flagging a message as seen needs no real IMAP connection.
- */
-function fakeImap(): void
-{
-    $messages = Mockery::mock();
-    $messages->allows('find')->andReturnNull();
-
-    $inbox = Mockery::mock();
-    $inbox->allows('messages')->andReturn($messages);
-
-    $mailbox = Mockery::mock();
-    $mailbox->allows('inbox')->andReturn($inbox);
-
-    $manager = Mockery::mock();
-    $manager->allows('mailbox')->andReturn($mailbox);
-
-    // Swap rather than mock the facade: resolving the real manager would need a
-    // configured mailbox that these tests deliberately do not have.
-    Imap::swap($manager);
+    return new MessageReceived($raw, $mailbox);
 }
 
 function registerEmailAccount(string $email): void
@@ -70,7 +54,6 @@ function registerEmailAccount(string $email): void
 
 beforeEach(function () {
     Log::spy();
-    Bus::fake();
     config(['laraclaw.connectors.email.enabled' => true]);
     config(['laraclaw.connectors.email.verify_sender_dkim_and_spf' => true]);
     config(['imap.mailboxes.default.username' => 'bot@example.com']);
@@ -111,7 +94,8 @@ it('rejects and logs a warning when DKIM/SPF authentication fails', function () 
 it('accepts emails that fail DKIM/SPF when verification is disabled', function () {
     config(['laraclaw.connectors.email.verify_sender_dkim_and_spf' => false]);
     registerEmailAccount('allowed@example.com');
-    fakeImap();
+    Bus::fake();
+    mockImapInbox()->allows('flag');
 
     $raw = makeRawEmail('allowed@example.com', 'Test', 'dkim=fail spf=fail');
 
@@ -123,7 +107,8 @@ it('accepts emails that fail DKIM/SPF when verification is disabled', function (
 
 it('queues the turn with the connector that can reply to the mail', function () {
     registerEmailAccount('allowed@example.com');
-    fakeImap();
+    Bus::fake();
+    mockImapInbox()->allows('flag');
 
     app(Laraclaw\Listeners\EmailListener::class)(makeEvent(makeRawEmail('allowed@example.com')));
 
@@ -143,4 +128,120 @@ it('does nothing when the email connector is disabled', function () {
     Log::shouldHaveReceived('debug')
         ->once()
         ->withArgs(fn ($msg, $ctx) => $ctx['code'] === 'CHANNEL_DISABLED');
+});
+
+function mockImapInbox(?string $expectedMailbox = null): MessageInterface
+{
+    $stored = Mockery::mock(MessageInterface::class);
+
+    $query = Mockery::mock(MessageQueryInterface::class);
+    $query->allows('find')->andReturn($stored);
+
+    $inbox = Mockery::mock(FolderInterface::class);
+    $inbox->allows('messages')->andReturn($query);
+
+    $mailbox = Mockery::mock(MailboxInterface::class);
+    $mailbox->allows('inbox')->andReturn($inbox);
+
+    $manager = Mockery::mock(ImapManager::class);
+
+    if ($expectedMailbox === null) {
+        $manager->allows('mailbox')->andReturn($mailbox);
+    } else {
+        $manager->expects('mailbox')->with($expectedMailbox)->andReturn($mailbox);
+    }
+
+    app()->instance(ImapManager::class, $manager);
+
+    return $stored;
+}
+
+it('marks the email seen exactly once after the agent job is queued', function () {
+    Bus::fake();
+    registerEmailAccount('allowed@example.com');
+
+    $stored = mockImapInbox();
+    $stored->expects('flag')->once()->with(ImapFlag::Seen, '+');
+
+    app(Laraclaw\Listeners\EmailListener::class)(makeEvent(makeRawEmail('allowed@example.com')));
+
+    Bus::assertDispatched(RunAgentTurn::class, 1);
+});
+
+it('leaves the email unseen when the agent job cannot be queued', function () {
+    registerEmailAccount('allowed@example.com');
+
+    // No such connection is configured, so releasing the pending dispatch throws
+    config(['queue.default' => 'nonexistent']);
+
+    $stored = mockImapInbox();
+    $stored->expects('flag')->never();
+
+    app(Laraclaw\Listeners\EmailListener::class)(makeEvent(makeRawEmail('allowed@example.com')));
+
+    Log::shouldHaveReceived('error')
+        ->once()
+        ->withArgs(fn ($msg) => str_contains($msg, 'failed to queue the agent'));
+});
+
+it('does not queue the agent twice for an email it already handed off', function () {
+    Bus::fake();
+    registerEmailAccount('allowed@example.com');
+
+    $stored = mockImapInbox();
+    $stored->allows('flag');
+
+    $listener = app(Laraclaw\Listeners\EmailListener::class);
+
+    $listener(makeEvent(makeRawEmail('allowed@example.com')));
+    $listener(makeEvent(makeRawEmail('allowed@example.com')));
+
+    Bus::assertDispatched(RunAgentTurn::class, 1);
+});
+
+it('gives up on an email that keeps failing and marks it seen', function () {
+    config(['laraclaw.connectors.email.max_processing_attempts' => 1]);
+    config(['queue.default' => 'nonexistent']);
+    registerEmailAccount('allowed@example.com');
+
+    $stored = mockImapInbox();
+    $stored->expects('flag')->once()->with(ImapFlag::Seen, '+');
+
+    $listener = app(Laraclaw\Listeners\EmailListener::class);
+
+    $listener(makeEvent(makeRawEmail('allowed@example.com')));
+    $listener(makeEvent(makeRawEmail('allowed@example.com')));
+
+    Log::shouldHaveReceived('error')
+        ->withArgs(fn ($msg) => str_contains($msg, 'abandoned after repeated'));
+});
+
+it('flags the message in the mailbox the event came from', function () {
+    Bus::fake();
+    registerEmailAccount('allowed@example.com');
+
+    // The listener must not fall back to the configured mailbox, or a second
+    // mailbox would have the wrong message flagged out from under it.
+    config(['laraclaw.connectors.email.imap.mailbox' => 'default']);
+    config(['imap.mailboxes.work.username' => 'bot@example.com']);
+
+    $stored = mockImapInbox('work');
+    $stored->expects('flag')->once()->with(ImapFlag::Seen, '+');
+
+    app(Laraclaw\Listeners\EmailListener::class)(makeEvent(makeRawEmail('allowed@example.com'), 'work'));
+
+    Bus::assertDispatched(RunAgentTurn::class, 1);
+});
+
+it('leaves the claim open for the next poll when the handoff fails', function () {
+    registerEmailAccount('allowed@example.com');
+    config(['queue.default' => 'nonexistent']);
+
+    $stored = mockImapInbox();
+    $stored->expects('flag')->never();
+
+    app(Laraclaw\Listeners\EmailListener::class)(makeEvent(makeRawEmail('allowed@example.com')));
+
+    // The lease went back, so a later poll is free to try this message again.
+    expect(app(ProcessedEmails::class)->claim('<msg-id@example.com>'))->toBe(EmailClaim::Granted);
 });
