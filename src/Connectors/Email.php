@@ -19,6 +19,7 @@ use Laraclaw\Mail\ConnectorReply;
 use Laraclaw\Models\Account;
 use Laraclaw\Models\Thread;
 use Laraclaw\Services\Attachments;
+use Laraclaw\Services\AttachmentSizeGuard;
 use League\CommonMark\CommonMarkConverter;
 
 use function Laraclaw\Support\stripHtml;
@@ -30,9 +31,6 @@ class Email extends Connector
             return ConnectorType::Email;
         }
     }
-
-    /** @var Attachment[] */
-    private array $attachments = [];
 
     /**
      * Capture the recipient's address and the headers needed to thread the reply.
@@ -163,18 +161,31 @@ class Email extends Connector
     private static function saveAttachments(MessageInterface $message, Attachments $attachments): array
     {
         return collect($message->attachments())
-            ->map(fn (ImapAttachment $a): Attachment => self::storeAttachment($a, $attachments))
+            ->map(fn (ImapAttachment $a): ?Attachment => self::storeAttachment($a, $attachments))
+            ->filter()
+            ->values()
             ->toArray();
     }
 
     /**
      * Save a single IMAP attachment to storage and return its DTO.
+     *
+     * Returns null when the attachment is over the size budget. The rest of the
+     * mail still reaches the agent, minus the file we refused to keep.
      */
-    private static function storeAttachment(ImapAttachment $attachment, Attachments $attachments): Attachment
+    private static function storeAttachment(ImapAttachment $attachment, Attachments $attachments): ?Attachment
     {
         $filename = $attachment->filename() ?? 'attachment.' . ($attachment->extension() ?? 'bin');
+        $contents = $attachment->contents();
+
+        if (! AttachmentSizeGuard::fits(strlen($contents))) {
+            AttachmentSizeGuard::reject(strlen($contents), ['connector' => 'email', 'filename' => $filename]);
+
+            return null;
+        }
+
         $disk = config('laraclaw.filesystem.attachments_disk', 'local');
-        $path = $attachments->set($filename, $attachment->contents());
+        $path = $attachments->set($filename, $contents);
 
         return new Attachment(
             path: $path,
@@ -185,53 +196,23 @@ class Email extends Connector
     }
 
     /**
-     * Send a reply to the given thread, optionally with file attachments.
+     * Send the reply as a threaded email, attaching whatever the agent produced.
      */
     public function reply(?Thread $thread, string $text, ?Collection $attachments = null): void
     {
-        if ($attachments?->isNotEmpty()) {
-            $this->handleAttachments($attachments);
-        }
-
-        $this->send($text);
-    }
-
-    /**
-     * Append outbound attachments to the staging list before the reply is sent.
-     */
-    private function handleAttachments(Collection $attachments): void
-    {
-        $this->attachments = array_merge($this->attachments, $attachments->all());
-    }
-
-    /**
-     * Send the text reply, including any queued attachments.
-     */
-    private function send(string $message): void
-    {
         $mailable = new ConnectorReply(
-            body: $this->renderMarkdown($message),
+            body: new CommonMarkConverter()->convert($text)->getContent(),
             inReplyTo: $this->messageId,
         );
 
-        foreach ($this->attachments as $attachment) {
-            $mailable->attach(
-                Storage::disk($attachment->disk)->path($attachment->path),
-                ['as' => $attachment->filename ?? basename($attachment->path)],
-            );
-        }
+        $attachments?->each(fn (Attachment $attachment) => $mailable->attach(
+            Storage::disk($attachment->disk)->path($attachment->path),
+            ['as' => $attachment->filename ?? basename($attachment->path)],
+        ));
 
         $mailable->to($this->senderEmail, $this->senderName)
             ->subject('Re: ' . ($this->subject ?? 'No Subject'));
 
         Mail::send($mailable);
-    }
-
-    /**
-     * Convert Markdown to HTML for use as the email body.
-     */
-    private function renderMarkdown(string $content): string
-    {
-        return (new CommonMarkConverter)->convert($content)->getContent();
     }
 }

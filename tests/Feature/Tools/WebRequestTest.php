@@ -170,3 +170,97 @@ it('returns a friendly error when the HTTP request throws', function () {
 
     expect($result)->toContain('HTTP request failed: connection refused');
 });
+
+it('blocks a scheme outside the http allowlist', function () {
+    $result = webTool()->handle(webRequest([
+        'operation' => 'get',
+        'url' => 'file:///etc/passwd',
+    ]));
+
+    expect($result)->toContain('Only http and https URLs are allowed');
+});
+
+it('blocks an IPv4 address wrapped in IPv6 form', function () {
+    $result = webTool()->handle(webRequest([
+        'operation' => 'get',
+        'url' => 'http://[::ffff:127.0.0.1]/admin',
+    ]));
+
+    expect($result)->toBe('Requests to private/internal network addresses are not allowed.');
+});
+
+it('blocks a redirect that points at a private address', function () {
+    Http::fake([
+        'example.com/start' => Http::response('', 302, ['Location' => 'http://169.254.169.254/latest/meta-data/']),
+    ]);
+
+    $result = webTool()->handle(webRequest([
+        'operation' => 'get',
+        'url' => 'https://example.com/start',
+    ]));
+
+    expect($result)->toBe('Requests to private/internal network addresses are not allowed.');
+    Http::assertSentCount(1);
+});
+
+it('blocks a redirect that walks back to loopback', function () {
+    Http::fake([
+        'example.com/start' => Http::response('', 301, ['Location' => 'http://127.0.0.1:8080/internal']),
+    ]);
+
+    $result = webTool()->handle(webRequest([
+        'operation' => 'get',
+        'url' => 'https://example.com/start',
+    ]));
+
+    expect($result)->toBe('Requests to private/internal network addresses are not allowed.');
+});
+
+it('follows a redirect to a public address and returns the final response', function () {
+    Http::fake([
+        'example.com/start' => Http::response('', 302, ['Location' => '/final']),
+        'example.com/final' => Http::response('landed', 200),
+    ]);
+
+    $result = webTool()->handle(webRequest([
+        'operation' => 'get',
+        'url' => 'https://example.com/start',
+    ]));
+
+    $decoded = json_decode($result, true);
+    expect($decoded['status'])->toBe(200);
+    expect($decoded['body'])->toBe('landed');
+    Http::assertSentCount(2);
+});
+
+it('turns a redirected POST into a GET and drops the body', function () {
+    Http::fake([
+        'example.com/start' => Http::response('', 303, ['Location' => 'https://example.com/final']),
+        'example.com/final' => Http::response('ok', 200),
+    ]);
+
+    webTool()->handle(webRequest([
+        'operation' => 'post',
+        'url' => 'https://example.com/start',
+        'body' => '{"a":1}',
+    ]));
+
+    Http::assertSent(fn ($request): bool => $request->url() === 'https://example.com/final'
+        && $request->method() === 'GET'
+        && $request->body() === '');
+});
+
+it('gives up once the redirect limit is reached', function () {
+    config(['laraclaw.http.max_redirects' => 2]);
+
+    Http::fake([
+        'example.com/*' => Http::response('', 302, ['Location' => 'https://example.com/loop']),
+    ]);
+
+    $result = webTool()->handle(webRequest([
+        'operation' => 'get',
+        'url' => 'https://example.com/loop',
+    ]));
+
+    expect($result)->toContain('Gave up after following 2 redirects');
+});

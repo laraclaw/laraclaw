@@ -29,6 +29,7 @@ use Laraclaw\Console\Commands\SetupWizard;
 use Laraclaw\Events\TelegramMessageReceived;
 use Laraclaw\Http\Middleware\VerifyApiToken;
 use Laraclaw\Http\Middleware\VerifySlackSignature;
+use Laraclaw\Http\Middleware\VerifyTelegramSecret;
 use Laraclaw\Listeners\EmailListener;
 use Laraclaw\Listeners\EmbedConversation;
 use Laraclaw\Listeners\LogAgentRequest;
@@ -85,6 +86,7 @@ class LaraclawServiceProvider extends ServiceProvider
         $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
 
         $this->app['router']->aliasMiddleware('slack.signature', VerifySlackSignature::class);
+        $this->app['router']->aliasMiddleware('telegram.secret', VerifyTelegramSecret::class);
         $this->app['router']->aliasMiddleware('laraclaw.api', VerifyApiToken::class);
 
         // One tag for everything. Publishing never overwrites a file that is
@@ -145,7 +147,14 @@ class LaraclawServiceProvider extends ServiceProvider
             );
         }
 
-        if (config('laraclaw.connectors.slack.enabled') && empty(config('laraclaw.connectors.slack.signing_secret'))) {
+        if (config('laraclaw.connectors.telegram.enabled') && blank(config('laraclaw.connectors.telegram.secret_token'))) {
+            throw new RuntimeException(
+                'Laraclaw: LARACLAW_TELEGRAM_SECRET_TOKEN must be set when the Telegram connector is enabled. '
+                . 'Run "php artisan laraclaw:setup-connector telegram" to generate one and register the webhook.'
+            );
+        }
+
+        if (config('laraclaw.connectors.slack.enabled') && blank(config('laraclaw.connectors.slack.signing_secret'))) {
             throw new RuntimeException(
                 'Laraclaw: LARACLAW_SLACK_SIGNING_SECRET must be set when the Slack connector is enabled.'
             );
@@ -205,6 +214,7 @@ class LaraclawServiceProvider extends ServiceProvider
             }
 
             $smtp = config('laraclaw.connectors.email.smtp');
+
             if ($smtp['host']) {
                 config([
                     'mail.default' => 'smtp',
@@ -220,6 +230,7 @@ class LaraclawServiceProvider extends ServiceProvider
 
             $imap = config('laraclaw.connectors.email.imap');
             $mailbox = config('laraclaw.connectors.email.imap.mailbox', 'default');
+
             if ($imap['host']) {
                 config([
                     "imap.mailboxes.{$mailbox}.host" => $imap['host'],
@@ -311,12 +322,17 @@ class LaraclawServiceProvider extends ServiceProvider
 
     /**
      * Schedule the reminder and routine commands to run every minute.
+     *
+     * Both skip a tick while the previous run is still going, so a slow pass on
+     * one node cannot be started again on top of itself. The overlap mutex is
+     * given five minutes rather than the default day, so a scheduler that dies
+     * holding it costs a few ticks instead of blocking until tomorrow.
      */
     private function registerScheduler(): void
     {
         $this->callAfterResolving(Schedule::class, function (Schedule $schedule): void {
-            $schedule->command(SendReminders::class)->everyMinute();
-            $schedule->command(ProcessRoutines::class)->everyMinute();
+            $schedule->command(SendReminders::class)->everyMinute()->withoutOverlapping(5);
+            $schedule->command(ProcessRoutines::class)->everyMinute()->withoutOverlapping(5);
         });
     }
 
@@ -331,17 +347,17 @@ class LaraclawServiceProvider extends ServiceProvider
 
         $this->app->extend(GoogleCalendar::class, function (GoogleCalendar $calendar): GoogleCalendar {
             $client = $calendar->getService()->getClient();
+
+            if (! $client->isAccessTokenExpired() || ! $client->getRefreshToken()) {
+                return $calendar;
+            }
+
+            $client->fetchAccessTokenWithRefreshToken($client->getRefreshToken());
+
             $tokenPath = config('laraclaw.tools.calendar_manager.google.token_json');
 
-            if ($client->isAccessTokenExpired() && $client->getRefreshToken()) {
-                $client->fetchAccessTokenWithRefreshToken($client->getRefreshToken());
-                $encoded = json_encode($client->getAccessToken());
-                if ($encoded !== false) {
-                    $written = file_put_contents($tokenPath, $encoded);
-                    if ($written === false) {
-                        Log::warning('Failed to write Google OAuth token', ['path' => $tokenPath]);
-                    }
-                }
+            if (file_put_contents($tokenPath, json_encode($client->getAccessToken())) === false) {
+                Log::warning('Failed to write Google OAuth token', ['path' => $tokenPath]);
             }
 
             return $calendar;
