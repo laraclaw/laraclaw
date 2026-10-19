@@ -5,6 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 use function Laraclaw\Support\databaseUsesPgVector;
+use function Laraclaw\Support\userForeignKey;
 
 return new class extends Migration
 {
@@ -12,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('laraclaw_embeddings', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            userForeignKey($table)->cascadeOnDelete();
             $table->string('source_type', 50);
             $table->string('source_id', 36)->nullable();
             $table->text('content');
